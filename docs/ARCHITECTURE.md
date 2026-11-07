@@ -46,7 +46,7 @@ Composition : `src/infrastructure/container.ts`.
 ## Persistance (Phase 6)
 
 1. Provisionner un PostgreSQL **dédié ASTER** (Supabase recommandé).
-2. Renseigner `DATABASE_URL` (pooler) + `DIRECT_URL` (migrations) — voir `.env.example` et `docs/DEPLOYMENT.md`.
+2. Renseigner `DATABASE_URL` (pooler) + `DIRECT_URL` (migrations), ou sur Vercel laisser `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING` (mapping auto) — voir `.env.example` et `docs/DEPLOYMENT.md`.
 3. `npm run db:migrate` puis `npm run db:seed`.
 4. Le container (`src/infrastructure/container.ts`) branche `prismaHrRepository` lorsque `ASTER_PERSISTENCE=prisma` ou qu’une `DATABASE_URL` est définie.
 5. En production/Vercel, la mémoire est **refusée** (sauf secours explicite `ASTER_ALLOW_MEMORY=1`).

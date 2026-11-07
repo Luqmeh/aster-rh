@@ -68,7 +68,9 @@ Les autres modules affichent une **interface planifiée** clairement identifiée
 ## Base de données
 
 - **Local sans PostgreSQL** : magasin mémoire (`ASTER_PERSISTENCE=memory`, défaut).
-- **Persistance durable** : Prisma + PostgreSQL/Supabase (`DATABASE_URL` + `DIRECT_URL`).
+- **Persistance durable** : Prisma + PostgreSQL/Supabase.
+  - Local : `DATABASE_URL` + `DIRECT_URL` dans `.env.local`.
+  - Vercel (intégration Supabase) : `POSTGRES_PRISMA_URL` → poolée, `POSTGRES_URL_NON_POOLING` → migrations (mapping automatique, sans duplication).
   ```bash
   npm run db:migrate
   npm run db:seed

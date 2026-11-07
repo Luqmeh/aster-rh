@@ -31,7 +31,7 @@ Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : ve
 ## Mode démo
 
 - Cookie `aster_demo_identity`
-- Persistance : mémoire (`demo-store`) en local **ou** Prisma/PostgreSQL si `DATABASE_URL` / `ASTER_PERSISTENCE=prisma`
+- Persistance : mémoire (`demo-store`) en local **ou** Prisma/PostgreSQL si `DATABASE_URL` / `POSTGRES_PRISMA_URL` / `ASTER_PERSISTENCE=prisma` (Vercel Supabase : mapping auto vers `DATABASE_URL` + `DIRECT_URL`)
 - Composition : `src/infrastructure/container.ts`
 - Seed / reset démo : `src/infrastructure/persistence/demo-data-lifecycle.ts` + `npm run db:seed`
 - Déploiement : `docs/DEPLOYMENT.md`

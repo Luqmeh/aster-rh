@@ -22,6 +22,15 @@ describe("resolvePersistenceMode", () => {
     ).toBe("prisma");
   });
 
+  it("selects prisma when only POSTGRES_PRISMA_URL is present", () => {
+    expect(
+      resolvePersistenceMode({
+        NODE_ENV: "development",
+        POSTGRES_PRISMA_URL: "postgresql://vercel-pooled",
+      }),
+    ).toBe("prisma");
+  });
+
   it("honours explicit ASTER_PERSISTENCE", () => {
     expect(
       resolvePersistenceMode({
@@ -67,6 +76,16 @@ describe("resolvePersistenceMode", () => {
         ASTER_PERSISTENCE: "prisma",
       }),
     ).toThrow(/DATABASE_URL/);
+  });
+
+  it("accepts POSTGRES_PRISMA_URL when ASTER_PERSISTENCE=prisma", () => {
+    expect(
+      resolvePersistenceMode({
+        NODE_ENV: "development",
+        ASTER_PERSISTENCE: "prisma",
+        POSTGRES_PRISMA_URL: "postgresql://vercel-pooled",
+      }),
+    ).toBe("prisma");
   });
 });
 

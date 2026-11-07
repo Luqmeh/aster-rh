@@ -1,3 +1,5 @@
+import { resolveDatabaseUrl } from "@/infrastructure/persistence/database-env";
+
 export type PersistenceMode = "memory" | "prisma";
 
 function isHostedRuntime(): boolean {
@@ -18,7 +20,7 @@ function isNextProductionBuild(env: EnvLike): boolean {
  * Résout le mode de persistance ASTER.
  *
  * - `ASTER_PERSISTENCE=prisma|memory` force le mode.
- * - Sinon : Prisma si `DATABASE_URL` est défini, mémoire en local.
+ * - Sinon : Prisma si `DATABASE_URL` ou `POSTGRES_PRISMA_URL` est défini, mémoire en local.
  * - En runtime hébergé / production : la mémoire est refusée sauf
  *   `ASTER_ALLOW_MEMORY=1` (secours local uniquement — jamais pour la démo board).
  * - Pendant `next build` (hors runtime), la mémoire reste autorisée sans DB
@@ -29,11 +31,12 @@ type EnvLike = Record<string, string | undefined>;
 export function resolvePersistenceMode(
   env: EnvLike = process.env,
 ): PersistenceMode {
+  const databaseUrl = resolveDatabaseUrl(env);
   const explicit = env.ASTER_PERSISTENCE?.trim().toLowerCase();
   if (explicit === "prisma" || explicit === "memory") {
-    if (explicit === "prisma" && !env.DATABASE_URL) {
+    if (explicit === "prisma" && !databaseUrl) {
       throw new Error(
-        "ASTER_PERSISTENCE=prisma mais DATABASE_URL est absent. Configurez PostgreSQL avant de démarrer.",
+        "ASTER_PERSISTENCE=prisma mais DATABASE_URL (ou POSTGRES_PRISMA_URL) est absent. Configurez PostgreSQL avant de démarrer.",
       );
     }
     if (
@@ -43,13 +46,13 @@ export function resolvePersistenceMode(
       env.ASTER_ALLOW_MEMORY !== "1"
     ) {
       throw new Error(
-        "Persistance mémoire interdite en production/Vercel. Définissez DATABASE_URL et ASTER_PERSISTENCE=prisma.",
+        "Persistance mémoire interdite en production/Vercel. Définissez DATABASE_URL (ou POSTGRES_PRISMA_URL) et ASTER_PERSISTENCE=prisma.",
       );
     }
     return explicit;
   }
 
-  if (env.DATABASE_URL) {
+  if (databaseUrl) {
     return "prisma";
   }
 
@@ -59,7 +62,7 @@ export function resolvePersistenceMode(
     env.ASTER_ALLOW_MEMORY !== "1"
   ) {
     throw new Error(
-      "Aucune DATABASE_URL en environnement hébergé. La démo ASTER board doit utiliser PostgreSQL (Prisma).",
+      "Aucune DATABASE_URL / POSTGRES_PRISMA_URL en environnement hébergé. La démo ASTER board doit utiliser PostgreSQL (Prisma).",
     );
   }
 

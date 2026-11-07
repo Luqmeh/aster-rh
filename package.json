@@ -12,11 +12,11 @@
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate": "tsx scripts/with-prisma-env.ts migrate deploy",
+    "db:migrate:dev": "tsx scripts/with-prisma-env.ts migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset-demo": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "tsx scripts/with-prisma-env.ts studio"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

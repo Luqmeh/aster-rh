@@ -7,8 +7,10 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  // Prisma 6 : un seul env() par champ (pas de fallback natif).
+  // Mapping Vercel Supabase → ces noms : see database-env.ts / scripts/with-prisma-env.ts
+  // DATABASE_URL ← POSTGRES_PRISMA_URL (poolée) ; DIRECT_URL ← POSTGRES_URL_NON_POOLING.
   url       = env("DATABASE_URL")
-  // Connexion directe pour migrations (Supabase) — optionnelle en local.
   directUrl = env("DIRECT_URL")
 }
 

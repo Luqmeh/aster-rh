@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import {
+  applyPrismaDatabaseEnvFallbacks,
+  resolveDatabaseUrl,
+} from "@/infrastructure/persistence/database-env";
 
 const globalForPrisma = globalThis as unknown as {
   __asterPrisma?: PrismaClient;
@@ -9,9 +13,11 @@ const globalForPrisma = globalThis as unknown as {
  * Accès serveur uniquement.
  */
 export function getPrismaClient(): PrismaClient {
-  if (!process.env.DATABASE_URL) {
+  applyPrismaDatabaseEnvFallbacks();
+
+  if (!resolveDatabaseUrl()) {
     throw new Error(
-      "DATABASE_URL est requis pour la persistance Prisma ASTER. Configurez la connexion PostgreSQL (voir .env.example et docs/DEPLOYMENT.md).",
+      "DATABASE_URL (ou POSTGRES_PRISMA_URL sur Vercel) est requis pour la persistance Prisma ASTER. Configurez la connexion PostgreSQL (voir .env.example et docs/DEPLOYMENT.md).",
     );
   }
 
