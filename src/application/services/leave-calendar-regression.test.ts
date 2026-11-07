@@ -1,0 +1,89 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { createCalendarService } from "@/application/services/calendar-service";
+import { createLeaveService } from "@/application/services/leave-service";
+import { employees } from "@/data/demo-seed";
+import type { DemoRole } from "@/domain/types/hr";
+import type { AuthSession } from "@/infrastructure/auth/types";
+import { demoHrRepository } from "@/infrastructure/persistence/demo-hr-repository";
+import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
+
+const email = {
+  async send() {
+    return { queued: true as const, provider: "mock-email" };
+  },
+};
+
+function sessionFor(employeeId: string, role: DemoRole): AuthSession {
+  const employee = employees.find((e) => e.id === employeeId)!;
+  return {
+    isDemo: true,
+    role,
+    employee,
+    identity: {
+      id: employee.demoIdentityId,
+      label: `${employee.firstName} ${employee.lastName}`,
+      role,
+      employeeId: employee.id,
+      description: "test",
+    },
+  };
+}
+
+describe("leave + calendar regressions", () => {
+  beforeEach(() => {
+    resetDemoStore();
+  });
+
+  it("conserve soumission / approbation / notification congés", async () => {
+    const leave = createLeaveService({ hr: demoHrRepository, email });
+    const collab = sessionFor("emp-lea", "collaborateur");
+    const manager = sessionFor("emp-julien", "manager");
+
+    const created = await leave.submit(collab, {
+      type: "rtt",
+      startDate: "2027-03-02",
+      endDate: "2027-03-02",
+      halfDayStart: false,
+      halfDayEnd: false,
+    });
+    expect(created.status).toBe("en_attente_manager");
+
+    const decided = await leave.decide(manager, created.id, "approuvee");
+    expect(decided.status).toBe("approuvee");
+
+    const history = await leave.listForCurrentUser(collab);
+    expect(history.find((r) => r.id === created.id)?.status).toBe("approuvee");
+
+    const notifs = await demoHrRepository.listNotifications("emp-lea");
+    expect(notifs.some((n) => n.title.includes("approuvée"))).toBe(true);
+  });
+
+  it("reflète une décision de congés dans le calendrier", async () => {
+    const leave = createLeaveService({ hr: demoHrRepository, email });
+    const calendar = createCalendarService({ hr: demoHrRepository });
+    const collab = sessionFor("emp-lea", "collaborateur");
+    const manager = sessionFor("emp-julien", "manager");
+
+    const created = await leave.submit(collab, {
+      type: "rtt",
+      startDate: "2027-04-06",
+      endDate: "2027-04-07",
+      halfDayStart: false,
+      halfDayEnd: false,
+    });
+    await leave.decide(manager, created.id, "approuvee");
+
+    const { events } = await calendar.getEmployeeMonth(collab, "2027-04");
+    const related = events.filter((e) => e.sourceRequestId === created.id);
+    expect(related.length).toBe(2);
+    expect(related.every((e) => e.tone === "leave_approved")).toBe(true);
+  });
+
+  it("conserve les restrictions de rôle sur les congés", async () => {
+    const leave = createLeaveService({ hr: demoHrRepository, email });
+    const collab = sessionFor("emp-lea", "collaborateur");
+    await expect(leave.decide(collab, "leave-1", "approuvee")).rejects.toThrow(
+      /réservée au manager/i,
+    );
+  });
+});

@@ -1,0 +1,194 @@
+// Schéma Prisma ASTER — PostgreSQL (Supabase).
+// Les données calendrier RH sont dérivées des congés / télétravail (pas de table CalendarEvent).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Connexion directe pour migrations (Supabase) — optionnelle en local.
+  directUrl = env("DIRECT_URL")
+}
+
+enum DemoRole {
+  collaborateur
+  manager
+  admin_rh
+}
+
+enum EmployeeCategory {
+  cadre
+  non_cadre
+}
+
+enum ContractType {
+  cdi
+  cdd
+  alternance
+  stage
+}
+
+enum RequestStatus {
+  brouillon
+  soumise
+  en_attente_manager
+  en_attente_rh
+  approuvee
+  refusee
+  annulee
+}
+
+enum LeaveType {
+  conges_payes
+  rtt
+  sans_solde
+  maladie
+  exceptionnel
+  parental
+}
+
+enum TeleworkType {
+  regulier
+  occasionnel
+  exceptionnel
+}
+
+model OrganizationUnit {
+  id        String             @id
+  name      String
+  code      String             @unique
+  parentId  String?
+  parent    OrganizationUnit?  @relation("OrgTree", fields: [parentId], references: [id])
+  children  OrganizationUnit[] @relation("OrgTree")
+  employees Employee[]
+
+  @@index([parentId])
+}
+
+model Employee {
+  id                  String             @id
+  demoIdentityId      String?
+  firstName           String
+  lastName            String
+  email               String             @unique
+  jobTitle            String
+  departmentId        String
+  department          OrganizationUnit   @relation(fields: [departmentId], references: [id])
+  managerId           String?
+  manager             Employee?          @relation("Management", fields: [managerId], references: [id])
+  reports             Employee[]         @relation("Management")
+  site                String
+  contractType        ContractType
+  category            EmployeeCategory
+  hireDate            DateTime
+  isActive            Boolean            @default(true)
+  phoneInternal       String?
+  avatarInitials      String
+  teleworkEligible    Boolean            @default(true)
+  teleworkDaysPerWeek Int                @default(2)
+  leaveBalances       LeaveBalance[]
+  leaveRequests       LeaveRequest[]
+  teleworkRequests    TeleworkRequest[]
+  notifications       NotificationItem[]
+  documents           HrDocument[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([demoIdentityId])
+  @@index([managerId])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+model LeaveBalance {
+  id                  String   @id @default(cuid())
+  employeeId          String
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year                Int
+  congesPayesAcquis   Float
+  congesPayesPris     Float
+  congesPayesRestants Float
+  rttAcquis           Float
+  rttPris             Float
+  rttRestants         Float
+
+  @@unique([employeeId, year])
+  @@index([employeeId])
+}
+
+model LeaveRequest {
+  id             String        @id
+  employeeId     String
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           LeaveType
+  startDate      DateTime
+  endDate        DateTime
+  halfDayStart   Boolean       @default(false)
+  halfDayEnd     Boolean       @default(false)
+  daysCount      Float
+  status         RequestStatus
+  comment        String?
+  managerComment String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([employeeId, status])
+}
+
+model TeleworkRequest {
+  id             String        @id
+  employeeId     String
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           TeleworkType
+  /// Mois planifié (yyyy-mm) pour les plans mensuels.
+  month          String?
+  startDate      DateTime
+  endDate        DateTime
+  days           String[]
+  status         RequestStatus
+  reason         String?
+  managerComment String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([month])
+  @@index([employeeId, month])
+  @@index([employeeId, status])
+}
+
+model NotificationItem {
+  id          String   @id
+  recipientId String
+  recipient   Employee @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  href        String?
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([recipientId])
+  @@index([recipientId, read])
+  @@index([createdAt])
+}
+
+model HrDocument {
+  id            String    @id
+  employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  title         String
+  category      String
+  uploadedAt    DateTime  @default(now())
+  storageKey    String
+  isCompanyWide Boolean   @default(false)
+
+  @@index([employeeId])
+  @@index([isCompanyWide])
+}

@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  /* Surfaces */
+  --aster-workspace: #f7f8fa;
+  --aster-surface: #ffffff;
+  --aster-surface-2: #f1f4f8;
+  --aster-surface-muted: #eef1f6;
+
+  /* Text */
+  --aster-ink: #172033;
+  --aster-muted: #697386;
+  --aster-muted-2: #8b95a5;
+
+  /* Brand */
+  --aster-navy: #172b4d;
+  --aster-navy-soft: #243b67;
+  --aster-accent: #3568c8;
+  --aster-accent-soft: #2f5bb3;
+  --aster-accent-bg: #edf3ff;
+
+  /* Lines */
+  --aster-border: #e6eaf0;
+  --aster-border-strong: #d5dbe5;
+
+  /* Status */
+  --aster-success: #1f7a4d;
+  --aster-success-bg: #e8f6ef;
+  --aster-warning: #9a6b12;
+  --aster-warning-bg: #fff6e5;
+  --aster-danger: #b42318;
+  --aster-danger-bg: #fef0ef;
+
+  /* Compat aliases used across existing modules */
+  --aster-navy: #172b4d;
+  --background: var(--aster-workspace);
+  --foreground: var(--aster-ink);
+
+  /* Geometry */
+  --aster-radius: 10px;
+  --aster-radius-sm: 8px;
+  --aster-shadow: 0 1px 2px rgba(23, 32, 51, 0.04), 0 1px 1px rgba(23, 32, 51, 0.03);
+  --aster-shadow-md: 0 8px 24px rgba(23, 32, 51, 0.06);
+  --aster-sidebar-width: 264px;
+  --aster-sidebar-collapsed: 76px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+}
+
+* {
+  border-color: var(--aster-border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--aster-workspace);
+  color: var(--aster-ink);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01" on, "cv01" on;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--aster-accent) 22%, white);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--aster-accent) 70%, white);
+  outline-offset: 2px;
+}
+
+@keyframes aster-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.aster-fade-up {
+  animation: aster-fade-up 280ms ease-out both;
+}
+
+.aster-soft-in {
+  animation: aster-fade-up 320ms ease-out both;
+}
+
+/* Utility surfaces */
+.aster-panel {
+  background: var(--aster-surface);
+  border: 1px solid var(--aster-border);
+  border-radius: var(--aster-radius);
+  box-shadow: var(--aster-shadow);
+}
+
+.aster-page {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+}

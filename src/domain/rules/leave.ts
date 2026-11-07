@@ -1,0 +1,140 @@
+import { z } from "zod";
+import type { Employee, EmployeeCategory, LeaveBalance, LeaveType } from "@/domain/types/hr";
+
+/**
+ * Règles de congés pour la démonstration ASTER.
+ *
+ * IMPORTANT — Les valeurs numériques ci-dessous sont des HYPOTHÈSES DE DÉMONSTRATION
+ * tant que le guide RH PKF Arsilon n'a pas été saisi page par page dans
+ * docs/HR_REQUIREMENTS.md. Elles ne doivent pas être présentées comme politique officielle.
+ *
+ * Source à compléter : Guide RH PKF Arsilon (confidentiel, non versionné).
+ */
+
+export const leaveRequestInputSchema = z
+  .object({
+    type: z.enum([
+      "conges_payes",
+      "rtt",
+      "sans_solde",
+      "maladie",
+      "exceptionnel",
+      "parental",
+    ]),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    halfDayStart: z.boolean().default(false),
+    halfDayEnd: z.boolean().default(false),
+    comment: z.string().max(1000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.endDate < value.startDate) {
+      ctx.addIssue({
+        code: "custom",
+        message: "La date de fin doit être postérieure ou égale à la date de début.",
+        path: ["endDate"],
+      });
+    }
+  });
+
+export type LeaveRequestInput = z.infer<typeof leaveRequestInputSchema>;
+
+/** Démo : CP et RTT consomment le solde ; maladie / exceptionnel / parental / sans solde non. */
+const BALANCE_CONSUMING: LeaveType[] = ["conges_payes", "rtt"];
+
+export function usesLeaveBalance(type: LeaveType): boolean {
+  return BALANCE_CONSUMING.includes(type);
+}
+
+/**
+ * Cadre vs non-cadre — distinction préservée (forfait jours vs horaires).
+ * Les modalités exactes (nombre de RTT, forfait) doivent être alignées sur le guide RH.
+ * @see docs/HR_REQUIREMENTS.md § Cadre / non-cadre
+ */
+export function defaultAnnualEntitlement(category: EmployeeCategory): {
+  congesPayes: number;
+  rtt: number;
+} {
+  // Valeurs de démonstration uniquement — à remplacer par les chiffres du guide RH.
+  if (category === "cadre") {
+    return { congesPayes: 25, rtt: 10 };
+  }
+  return { congesPayes: 25, rtt: 8 };
+}
+
+export function remainingBalanceForType(
+  balance: LeaveBalance,
+  type: LeaveType,
+): number | null {
+  if (type === "conges_payes") return balance.congesPayesRestants;
+  if (type === "rtt") return balance.rttRestants;
+  return null;
+}
+
+export function assertSufficientBalance(
+  balance: LeaveBalance,
+  type: LeaveType,
+  daysCount: number,
+): { ok: true } | { ok: false; message: string } {
+  if (!usesLeaveBalance(type)) return { ok: true };
+  const remaining = remainingBalanceForType(balance, type);
+  if (remaining === null) return { ok: true };
+  if (daysCount > remaining) {
+    return {
+      ok: false,
+      message: `Solde insuffisant : ${remaining} jour(s) disponible(s), ${daysCount} demandé(s).`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Calcul simplifié de jours ouvrés (lun–ven) pour la démo.
+ * Ne remplace pas un moteur calendaire RH (jours fériés, conventions locales).
+ */
+export function countBusinessDays(
+  startDate: string,
+  endDate: string,
+  halfDayStart: boolean,
+  halfDayEnd: boolean,
+): number {
+  const start = parseDateOnly(startDate);
+  const end = parseDateOnly(endDate);
+  if (end < start) return 0;
+
+  let days = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const dow = cursor.getUTCDay();
+    if (dow !== 0 && dow !== 6) days += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  if (days === 0) return 0;
+  if (startDate === endDate && (halfDayStart || halfDayEnd)) return 0.5;
+  let adjustment = 0;
+  if (halfDayStart) adjustment += 0.5;
+  if (halfDayEnd && startDate !== endDate) adjustment += 0.5;
+  return Math.max(0.5, days - adjustment);
+}
+
+function parseDateOnly(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+export function canSubmitLeave(employee: Employee): boolean {
+  return employee.isActive;
+}
+
+export function leaveTypeLabel(type: LeaveType): string {
+  const labels: Record<LeaveType, string> = {
+    conges_payes: "Congés payés",
+    rtt: "RTT",
+    sans_solde: "Congé sans solde",
+    maladie: "Absence maladie",
+    exceptionnel: "Congé exceptionnel",
+    parental: "Congé parental",
+  };
+  return labels[type];
+}
