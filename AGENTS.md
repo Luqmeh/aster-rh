@@ -10,7 +10,7 @@ Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : ve
 
 1. **Données** — uniquement fictives ; jamais de PDF RH confidentiel, employés réels, contacts ou secrets.
 2. **Politiques** — ne pas inventer silencieusement des règles RH ; documenter dans `docs/HR_REQUIREMENTS.md` avec références de pages du guide quand disponibles ; marquer clairement les hypothèses de démo.
-3. **Démo ≠ prod** — le mode démonstration et le switch d’identités ne doivent jamais être présentés comme une authentification de production.
+3. **Auth ≠ bascule UI** — pas de sélecteur de rôle client ; Auth.js + `UserAccount`. Le login temporaire et Entra sont commutables par env (`docs/SSO_HANDOVER.md`).
 4. **Langue** — tout texte utilisateur en français.
 5. **Architecture** — logique métier hors composants UI ; ports/adaptateurs pour auth, e-mail, stockage, paie.
 6. **Secrets** — pas de `.env` commités ; placeholders dans `.env.example` uniquement.
@@ -30,11 +30,12 @@ Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : ve
 
 ## Mode démo
 
-- Cookie `aster_demo_identity`
-- Persistance : mémoire (`demo-store`) en local **ou** Prisma/PostgreSQL si `DATABASE_URL` / `POSTGRES_PRISMA_URL` / `ASTER_PERSISTENCE=prisma` (Vercel Supabase : mapping auto vers `DATABASE_URL` + `DIRECT_URL`)
+- Auth : `src/auth.ts` + `session-auth` ; login `/connexion`
+- Persistance : mémoire **ou** Prisma/PostgreSQL (`DATABASE_URL` / `POSTGRES_PRISMA_URL`)
 - Composition : `src/infrastructure/container.ts`
-- Seed / reset démo : `src/infrastructure/persistence/demo-data-lifecycle.ts` + `npm run db:seed` (hors pipeline Vercel)
-- Déploiement : `docs/DEPLOYMENT.md` — migrations Production via `scripts/vercel-build.ts`
+- Seed / comptes : `demo-data-lifecycle.ts` + `ASTER_SEED_PASSWORD`
+- Déploiement : `docs/DEPLOYMENT.md` — migrate Production via `scripts/vercel-build.ts`
+
 
 ## Tests
 

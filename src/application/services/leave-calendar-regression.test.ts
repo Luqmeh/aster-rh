@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createCalendarService } from "@/application/services/calendar-service";
 import { createLeaveService } from "@/application/services/leave-service";
-import { employees } from "@/data/demo-seed";
-import type { DemoRole } from "@/domain/types/hr";
-import type { AuthSession } from "@/infrastructure/auth/types";
+import { testSessionFor } from "@/infrastructure/auth/test-session";
 import { demoHrRepository } from "@/infrastructure/persistence/demo-hr-repository";
 import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
 
@@ -13,22 +11,6 @@ const email = {
   },
 };
 
-function sessionFor(employeeId: string, role: DemoRole): AuthSession {
-  const employee = employees.find((e) => e.id === employeeId)!;
-  return {
-    isDemo: true,
-    role,
-    employee,
-    identity: {
-      id: employee.demoIdentityId,
-      label: `${employee.firstName} ${employee.lastName}`,
-      role,
-      employeeId: employee.id,
-      description: "test",
-    },
-  };
-}
-
 describe("leave + calendar regressions", () => {
   beforeEach(() => {
     resetDemoStore();
@@ -36,8 +18,8 @@ describe("leave + calendar regressions", () => {
 
   it("conserve soumission / approbation / notification congés", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -61,8 +43,8 @@ describe("leave + calendar regressions", () => {
   it("reflète une décision de congés dans le calendrier", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const calendar = createCalendarService({ hr: demoHrRepository });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -81,7 +63,7 @@ describe("leave + calendar regressions", () => {
 
   it("conserve les restrictions de rôle sur les congés", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
     await expect(leave.decide(collab, "leave-1", "approuvee")).rejects.toThrow(
       /réservée au manager/i,
     );

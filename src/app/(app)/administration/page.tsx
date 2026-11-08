@@ -17,7 +17,7 @@ export default async function AdministrationPage() {
   const container = getContainer();
   const session = await container.auth.getSession();
   if (!session) throw new Error("Session absente");
-  if (session.role === "collaborateur") {
+  if (session.role !== "admin_rh") {
     redirect("/tableau-de-bord");
   }
 
@@ -36,11 +36,7 @@ export default async function AdministrationPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Administration RH"
-        description={
-          session.role === "admin_rh"
-            ? "Vue transverse de démonstration pour l’équipe RH."
-            : "Vue manager — validations d’équipe."
-        }
+        description="Vue transverse pour l’équipe RH — séparée des validations manager."
       />
 
       <div className="grid gap-3 sm:grid-cols-3">

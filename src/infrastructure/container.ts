@@ -1,4 +1,4 @@
-import { demoAuth } from "@/infrastructure/auth/demo-auth";
+import { sessionAuth } from "@/infrastructure/auth/session-auth";
 import type { AuthPort } from "@/infrastructure/auth/types";
 import { mockEmail } from "@/infrastructure/email/mock-email";
 import type { EmailPort } from "@/infrastructure/email/types";
@@ -15,7 +15,7 @@ import { mockDocumentStorage } from "@/infrastructure/storage/mock-storage";
 import type { DocumentStoragePort } from "@/infrastructure/storage/types";
 
 /**
- * Composition root — branche les adaptateurs (démo mémoire ou Prisma/PostgreSQL).
+ * Composition root — branche les adaptateurs (auth Auth.js, HR mémoire ou Prisma).
  */
 export interface AppContainer {
   auth: AuthPort;
@@ -23,7 +23,6 @@ export interface AppContainer {
   email: EmailPort;
   storage: DocumentStoragePort;
   payroll: PayrollPort;
-  mode: "demo";
   persistence: PersistenceMode;
 }
 
@@ -31,14 +30,12 @@ export function getContainer(): AppContainer {
   const persistence = resolvePersistenceMode();
   const hr =
     persistence === "prisma" ? prismaHrRepository : demoHrRepository;
-
   return {
-    auth: demoAuth,
+    auth: sessionAuth,
     hr,
     email: mockEmail,
     storage: mockDocumentStorage,
     payroll: mockPayroll,
-    mode: "demo",
     persistence,
   };
 }

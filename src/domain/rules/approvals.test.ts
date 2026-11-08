@@ -118,12 +118,22 @@ describe("assertCanDecideRequest", () => {
     }
   });
 
-  it("autorise l'admin RH sur la file manager", () => {
+  it("refuse à l'admin RH la file manager (séparation des rôles)", () => {
     const result = assertCanDecideRequest({
       role: "admin_rh",
       actor: { ...manager, id: "admin" },
       subject: report,
       status: "en_attente_manager",
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("autorise l'admin RH uniquement sur en_attente_rh", () => {
+    const result = assertCanDecideRequest({
+      role: "admin_rh",
+      actor: { ...manager, id: "admin" },
+      subject: report,
+      status: "en_attente_rh",
     });
     expect(result).toEqual({ ok: true, mode: "admin_rh" });
   });

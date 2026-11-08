@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createLeaveService } from "@/application/services/leave-service";
 import type { LeaveRequestInput } from "@/domain/rules/leave";
+import {
+  AuthError,
+  requireSession,
+} from "@/infrastructure/auth/authorization";
 import { getContainer } from "@/infrastructure/container";
 
 export async function submitLeaveAction(input: LeaveRequestInput) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
+  const session = requireSession(await container.auth.getSession());
   const service = createLeaveService(container);
   const request = await service.submit(session, input);
   revalidatePath("/conges");
@@ -23,21 +26,25 @@ export async function decideLeaveAction(
   comment?: string,
 ) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
-  if (session.role === "collaborateur") {
-    throw new Error("Action réservée au manager ou à l'administrateur RH.");
+  try {
+    const session = requireSession(await container.auth.getSession());
+    if (session.role === "collaborateur") {
+      throw new AuthError("Action réservée au manager ou à l'administrateur RH.", 403);
+    }
+    const service = createLeaveService(container);
+    const updated = await service.decide(session, requestId, decision, comment);
+    revalidatePath("/conges");
+    revalidatePath("/tableau-de-bord");
+    revalidatePath("/administration");
+    revalidatePath("/notifications");
+    return {
+      ok: true as const,
+      id: updated.id,
+      status: updated.status,
+      decision,
+    };
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw error;
   }
-  const service = createLeaveService(container);
-  const updated = await service.decide(session, requestId, decision, comment);
-  revalidatePath("/conges");
-  revalidatePath("/tableau-de-bord");
-  revalidatePath("/administration");
-  revalidatePath("/notifications");
-  return {
-    ok: true as const,
-    id: updated.id,
-    status: updated.status,
-    decision,
-  };
 }

@@ -57,6 +57,32 @@ enum TeleworkType {
   exceptionnel
 }
 
+enum AuthProvider {
+  credentials
+  entra_id
+}
+
+/// Compte applicatif ASTER — distinct de la fiche Employee (données RH).
+model UserAccount {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  passwordHash    String?
+  authProvider    AuthProvider
+  /// Subject Microsoft Entra (oid) lorsque authProvider = entra_id.
+  externalSubject String?
+  role            DemoRole
+  employeeId      String       @unique
+  employee        Employee     @relation(fields: [employeeId], references: [id])
+  isActive        Boolean      @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([authProvider, externalSubject])
+  @@index([role])
+  @@index([isActive])
+}
+
 model OrganizationUnit {
   id        String             @id
   name      String
@@ -95,6 +121,7 @@ model Employee {
   teleworkRequests    TeleworkRequest[]
   notifications       NotificationItem[]
   documents           HrDocument[]
+  userAccount         UserAccount?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 

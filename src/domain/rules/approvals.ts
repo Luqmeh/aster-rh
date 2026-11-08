@@ -1,10 +1,11 @@
 import type { DemoRole, Employee, RequestStatus } from "@/domain/types/hr";
 
 /**
- * Circuit d'approbation de démonstration :
- * Collaborateur → Manager → (optionnel RH pour certains cas)
+ * Circuit d'approbation :
+ * Collaborateur → Manager (équipe) → (optionnel) RH si statut en_attente_rh
  *
- * Le circuit réel PKF Arsilon doit être documenté dans docs/HR_REQUIREMENTS.md.
+ * Manager et RH sont strictement séparés : un compte RH ne valide pas
+ * la file manager uniquement parce qu'il est RH.
  */
 
 export type Decision = "approuvee" | "refusee";
@@ -41,8 +42,7 @@ export function canApproveAsHrAdmin(
 }
 
 /**
- * Décision autorisée pour le circuit de démo manager (et admin RH en file manager).
- * Messages d'erreur en français, adaptés à la démo.
+ * Décision autorisée — rôles strictement séparés.
  */
 export function assertCanDecideRequest(input: {
   role: DemoRole;
@@ -57,6 +57,13 @@ export function assertCanDecideRequest(input: {
     };
   }
 
+  if (!input.actor.isActive) {
+    return {
+      ok: false,
+      message: "Votre compte est inactif.",
+    };
+  }
+
   if (input.role === "collaborateur") {
     return {
       ok: false,
@@ -64,26 +71,25 @@ export function assertCanDecideRequest(input: {
     };
   }
 
-  if (input.status !== "en_attente_manager") {
+  if (input.role === "manager") {
+    if (canApproveAsManager(input.actor, input.subject, input.status)) {
+      return { ok: true, mode: "manager" };
+    }
     return {
       ok: false,
-      message: "Cette demande n'est pas en attente de validation manager.",
+      message: "Vous n'êtes pas autorisé à traiter cette demande d'équipe.",
     };
-  }
-
-  if (!input.actor.isActive) {
-    return {
-      ok: false,
-      message: "Votre compte de démonstration est inactif.",
-    };
-  }
-
-  if (canApproveAsManager(input.actor, input.subject, input.status)) {
-    return { ok: true, mode: "manager" };
   }
 
   if (input.role === "admin_rh") {
-    return { ok: true, mode: "admin_rh" };
+    if (canApproveAsHrAdmin(input.role, input.status)) {
+      return { ok: true, mode: "admin_rh" };
+    }
+    return {
+      ok: false,
+      message:
+        "Les validations manager sont réservées au manager d'équipe. L'administration RH traite uniquement les demandes en attente RH.",
+    };
   }
 
   return {
@@ -100,6 +106,10 @@ export function nextStatusAfterManagerDecision(
   return escalateToHr ? "en_attente_rh" : "approuvee";
 }
 
+export function nextStatusAfterHrDecision(decision: Decision): RequestStatus {
+  return decision === "refusee" ? "refusee" : "approuvee";
+}
+
 export function decisionNotificationCopy(
   kind: "leave" | "telework",
   decision: Decision,
@@ -110,7 +120,7 @@ export function decisionNotificationCopy(
         decision === "approuvee"
           ? "Demande de congés approuvée"
           : "Demande de congés refusée",
-      defaultBody: "Votre manager a traité votre demande.",
+      defaultBody: "Votre demande a été traitée.",
     };
   }
   return {
@@ -118,7 +128,7 @@ export function decisionNotificationCopy(
       decision === "approuvee"
         ? "Plan de télétravail approuvé"
         : "Plan de télétravail refusé",
-    defaultBody: "Votre manager a traité votre plan mensuel.",
+    defaultBody: "Votre plan mensuel a été traité.",
   };
 }
 

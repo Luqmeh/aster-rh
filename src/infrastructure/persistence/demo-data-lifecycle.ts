@@ -8,10 +8,37 @@ import {
   notifications,
   teleworkRequests,
 } from "@/data/demo-seed";
+import { hashPassword } from "@/infrastructure/auth/password";
 import { isDemoModeEnabled } from "@/infrastructure/persistence/persistence-mode";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma-client";
 import { dateOnlyToUtc } from "@/infrastructure/persistence/prisma-mappers";
 import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
+
+const SEED_ACCOUNTS: Array<{
+  id: string;
+  email: string;
+  employeeId: string;
+  role: "collaborateur" | "manager" | "admin_rh";
+}> = [
+  {
+    id: "user-lea",
+    email: "lea.dubois@demo.aster-rh.local",
+    employeeId: "emp-lea",
+    role: "collaborateur",
+  },
+  {
+    id: "user-julien",
+    email: "julien.bernard@demo.aster-rh.local",
+    employeeId: "emp-julien",
+    role: "manager",
+  },
+  {
+    id: "user-camille",
+    email: "camille.moreau@demo.aster-rh.local",
+    employeeId: "emp-camille",
+    role: "admin_rh",
+  },
+];
 
 /**
  * Seed / reset idempotent des données de démonstration ASTER uniquement.
@@ -280,6 +307,45 @@ export async function seedAsterDemoData(
             storageKey: doc.storageKey,
             isCompanyWide: doc.isCompanyWide,
           },
+    });
+  }
+
+  // Comptes applicatifs — mot de passe uniquement si ASTER_SEED_PASSWORD est défini.
+  const seedPassword = process.env.ASTER_SEED_PASSWORD?.trim();
+  const passwordHash = seedPassword ? await hashPassword(seedPassword) : null;
+  if (!passwordHash) {
+    console.warn(
+      "ASTER_SEED_PASSWORD absent : comptes créés sans mot de passe credentials (SSO / provisioning ultérieur).",
+    );
+  }
+
+  for (const account of SEED_ACCOUNTS) {
+    const existing = await prisma.userAccount.findUnique({
+      where: { id: account.id },
+    });
+    if (existing && preserveExisting) {
+      continue;
+    }
+    await prisma.userAccount.upsert({
+      where: { id: account.id },
+      create: {
+        id: account.id,
+        email: account.email,
+        passwordHash,
+        authProvider: "credentials",
+        externalSubject: null,
+        role: account.role,
+        employeeId: account.employeeId,
+        isActive: true,
+      },
+      update: {
+        email: account.email,
+        passwordHash,
+        authProvider: "credentials",
+        role: account.role,
+        employeeId: account.employeeId,
+        isActive: true,
+      },
     });
   }
 }

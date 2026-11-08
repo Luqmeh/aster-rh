@@ -9,6 +9,7 @@ import {
   assertCanDecideRequest,
   decisionNotificationCopy,
   initialStatusAfterSubmit,
+  nextStatusAfterHrDecision,
   nextStatusAfterManagerDecision,
   type Decision,
 } from "@/domain/rules/approvals";
@@ -28,7 +29,7 @@ export function createLeaveService(deps: {
     async listTeamPending(session: AuthSession) {
       if (session.role === "collaborateur") return [];
       if (session.role === "admin_rh") {
-        return deps.hr.listLeaveRequests({ status: "en_attente_manager" });
+        return deps.hr.listLeaveRequests({ status: "en_attente_rh" });
       }
       return (
         await deps.hr.listLeaveRequests({ managerId: session.employee.id })
@@ -114,7 +115,10 @@ export function createLeaveService(deps: {
       });
       if (!authz.ok) throw new Error(authz.message);
 
-      const status = nextStatusAfterManagerDecision(decision, false);
+      const status =
+        authz.mode === "admin_rh"
+          ? nextStatusAfterHrDecision(decision)
+          : nextStatusAfterManagerDecision(decision, false);
       const updated = await deps.hr.updateLeaveRequest(requestId, {
         status,
         managerComment: comment ?? null,
@@ -132,7 +136,7 @@ export function createLeaveService(deps: {
 
       await deps.email.send({
         to: subject.email,
-        subject: `[ASTER DÉMO] Congés ${decision === "approuvee" ? "approuvés" : "refusés"}`,
+        subject: `[ASTER] Congés ${decision === "approuvee" ? "approuvés" : "refusés"}`,
         body: `Votre demande ${requestId} est maintenant : ${status}.`,
       });
 

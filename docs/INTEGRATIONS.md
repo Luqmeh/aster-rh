@@ -7,17 +7,18 @@ ASTER isole les systèmes externes derrière des **ports**. L’équipe autoris�
 | Élément | Détail |
 |---------|--------|
 | Port | `AuthPort` (`src/infrastructure/auth/types.ts`) |
-| Actuel | `demo-auth` — cookie `aster_demo_identity` |
-| Cible | Adaptateur OIDC Entra (authorization code + PKCE) |
-| Mapping | Groupes Entra → `DemoRole` applicatif (`collaborateur` / `manager` / `admin_rh`) |
+| Actuel | Auth.js + credentials temporaires (`session-auth`) |
+| Cible SSO | Provider `microsoft-entra-id` (activable par env) |
+| Mapping | Compte `UserAccount` provisionné → `DemoRole` (pas d’auto-rôle e-mail) |
 
-**Ne pas** hardcoder de tenant/client secrets dans le code. Utiliser les variables `ENTRA_*` de `.env.example`.
+Voir **`docs/SSO_HANDOVER.md`** pour la checklist IT complète.  
+Variables : `AUTH_MICROSOFT_ENTRA_ID_*`, `ASTER_ENTRA_AUTH`, `ASTER_CREDENTIALS_AUTH`, `AUTH_SECRET`.
 
-## 2. Identité & accès entreprise
+## 2. Identité & accès
 
-- Provisioning futurs comptes via Entra / HRIS.
-- En démo : `demoIdentities` dans `src/data/demo-seed.ts`.
-- Séparer clairement `isDemo: true` sur la session.
+- Provisioning : seed (`ASTER_SEED_PASSWORD`) ou process RH / liaison oid Entra.
+- Pas d’inscription ouverte.
+- Comptes inactifs refusés à la connexion.
 
 ## 3. Notifications e-mail
 
@@ -27,34 +28,18 @@ ASTER isole les systèmes externes derrière des **ports**. L’équipe autoris�
 | Actuel | `mock-email` (console) |
 | Cibles possibles | Microsoft Graph Mail, SMTP relais entreprise |
 
-Les services appellent `email.send` après soumission / décision — le contenu métier reste dans l’application.
-
 ## 4. Stockage documentaire
 
 | Élément | Détail |
 |---------|--------|
 | Port | `DocumentStoragePort` |
-| Actuel | `mock-storage` (URLs `#demo-document:…`) |
+| Actuel | `mock-storage` |
 | Cibles possibles | SharePoint, Azure Blob, Supabase Storage |
 
-Métadonnées en base (Prisma `HrDocument`) ; binaires hors app.
+## 5. Persistence
 
-## 5. Paie
-
-- **Pas d’implémentation** dans le prototype.
-- Prévoir une interface future du type `PayrollPort` (lecture bulletins, export absences validées).
-- Aucune credential paie dans le dépôt.
-
-## 6. Supabase PostgreSQL
-
-- Schéma : `prisma/schema.prisma`
-- Runtime actuel : magasin mémoire (pas de dépendance build → DB)
-- Remplacement : `PrismaHrRepository` + `DATABASE_URL`
-
-## Checklist de substitution d’adaptateur
-
-1. Implémenter l’interface du port.
-2. Brancher dans `getContainer()`.
-3. Ajouter variables dans `.env.example` (placeholders).
-4. Documenter le runbook dans ce fichier.
-5. Garder `ASTER_MODE=demo` pour les environnements de présentation.
+| Élément | Détail |
+|---------|--------|
+| Port | `HrRepository` |
+| Actuel | mémoire **ou** Prisma/PostgreSQL |
+| Schéma | `prisma/schema.prisma` (+ `UserAccount`) |

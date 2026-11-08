@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createLeaveService } from "@/application/services/leave-service";
 import { createTeleworkService } from "@/application/services/telework-service";
-import { employees } from "@/data/demo-seed";
-import type { DemoRole } from "@/domain/types/hr";
-import type { AuthSession } from "@/infrastructure/auth/types";
+import { testSessionFor } from "@/infrastructure/auth/test-session";
 import { demoHrRepository } from "@/infrastructure/persistence/demo-hr-repository";
 import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
 
@@ -16,26 +14,6 @@ const email = {
   },
 };
 
-function sessionFor(
-  employeeId: string,
-  role: DemoRole,
-): AuthSession {
-  const employee = employees.find((e) => e.id === employeeId);
-  if (!employee) throw new Error("Employé démo introuvable");
-  return {
-    isDemo: true,
-    role,
-    employee,
-    identity: {
-      id: employee.demoIdentityId,
-      label: `${employee.firstName} ${employee.lastName}`,
-      role,
-      employeeId: employee.id,
-      description: "test",
-    },
-  };
-}
-
 describe("approval workflow — congés", () => {
   beforeEach(() => {
     resetDemoStore();
@@ -44,8 +22,8 @@ describe("approval workflow — congés", () => {
 
   it("approuve une demande : statut, historique employé, notification", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -79,8 +57,8 @@ describe("approval workflow — congés", () => {
 
   it("refuse une demande et notifie le collaborateur", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -108,7 +86,7 @@ describe("approval workflow — congés", () => {
 
   it("échoue pour un collaborateur qui tente d'approuver", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
 
     await expect(
       leave.decide(collab, "leave-1", "approuvee"),
@@ -117,7 +95,7 @@ describe("approval workflow — congés", () => {
 
   it("échoue sur une demande déjà traitée (pas de décision contradictoire)", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const manager = sessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "manager");
 
     await leave.decide(manager, "leave-1", "approuvee");
     await expect(
@@ -131,11 +109,20 @@ describe("approval workflow — congés", () => {
   it("échoue pour un manager hors équipe", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     // Camille n'est pas le manager de Léa
-    const outsider = sessionFor("emp-camille", "manager");
+    const outsider = testSessionFor("emp-camille", "manager");
 
     await expect(
       leave.decide(outsider, "leave-1", "approuvee"),
     ).rejects.toThrow(/pas autorisé/i);
+  });
+
+  it("refuse à un compte RH d'approuver la file manager", async () => {
+    const leave = createLeaveService({ hr: demoHrRepository, email });
+    const hr = testSessionFor("emp-camille", "admin_rh");
+
+    await expect(leave.decide(hr, "leave-1", "approuvee")).rejects.toThrow(
+      /manager d'équipe|réservées au manager/i,
+    );
   });
 });
 
@@ -147,8 +134,8 @@ describe("approval workflow — télétravail", () => {
 
   it("approuve un plan mensuel de bout en bout", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const created = await tw.submitMonthlyPlan(collab, {
       month: "2027-01",
@@ -173,7 +160,7 @@ describe("approval workflow — télétravail", () => {
 
   it("refuse un plan avec motif et bloque le double traitement", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const manager = sessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "manager");
 
     await expect(tw.decide(manager, "tw-1", "refusee")).rejects.toThrow(
       /motif de refus/i,
@@ -190,7 +177,7 @@ describe("approval workflow — télétravail", () => {
 
   it("bloque le rôle collaborateur sur télétravail", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
     await expect(tw.decide(collab, "tw-1", "approuvee")).rejects.toThrow(
       /réservée au manager/i,
     );
@@ -198,7 +185,7 @@ describe("approval workflow — télétravail", () => {
 
   it("refuse un profil non éligible", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const hugo = sessionFor("emp-hugo", "collaborateur");
+    const hugo = testSessionFor("emp-hugo", "collaborateur");
     await expect(
       tw.submitMonthlyPlan(hugo, {
         month: "2027-02",

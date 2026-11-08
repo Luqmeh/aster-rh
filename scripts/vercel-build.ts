@@ -52,6 +52,10 @@ function runNextBuild(): void {
   const env = {
     ...process.env,
     ASTER_BUILD_WITHOUT_DB: "1",
+    // Placeholder build-only if AUTH_SECRET absent — runtime Vercel doit définir un vrai secret.
+    AUTH_SECRET:
+      process.env.AUTH_SECRET?.trim() ||
+      "aster-build-placeholder-not-for-runtime",
   };
   const result = spawnSync(process.execPath, [nextBin, "build"], {
     stdio: "inherit",

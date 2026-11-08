@@ -29,19 +29,21 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 
 | Port | Interface | Adaptateur actuel |
 |------|-----------|-------------------|
-| Auth / identité | `AuthPort` | `demo-auth` (cookie + identités fictives) |
+| Auth / identité | `AuthPort` | Auth.js (`session-auth`) — credentials temporaires et/ou Microsoft Entra ID |
 | Persistence RH | `HrRepository` | `demo-hr-repository` (mémoire) **ou** `prisma-hr-repository` (PostgreSQL) |
+| Comptes applicatifs | `UserAccount` | Rôle + lien `Employee` — provisioning contrôlé (pas d’auto-inscription) |
 | E-mail | `EmailPort` | `mock-email` |
 | Stockage docs | `DocumentStoragePort` | `mock-storage` |
 
 Composition : `src/infrastructure/container.ts`.
 
-## Mode démonstration
+## Authentification (Phase 8)
 
-- Activé par défaut (aucune credential requise).
-- Trois rôles : Collaborateur, Manager, Administrateur RH.
-- Bandeau permanent + switcher d’identités.
-- Données seedées dans `src/data/demo-seed.ts`.
+- Login `/connexion` — pas de sélecteur de rôle côté client.
+- Sessions HTTP-only via Auth.js ; autorisation serveur (`authorization.ts` + règles domaine).
+- Rôles strictement séparés : Collaborateur / Manager / RH (voir `docs/AUTHORIZATION_MATRIX.md`).
+- SSO Entra : prêt à configurer (`docs/SSO_HANDOVER.md`) — désactiver credentials avec `ASTER_CREDENTIALS_AUTH=0`.
+- Données RH seed : `src/data/demo-seed.ts` + comptes `UserAccount` (mot de passe via `ASTER_SEED_PASSWORD`).
 
 ## Persistance (Phase 6)
 

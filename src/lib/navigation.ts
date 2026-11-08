@@ -104,7 +104,7 @@ export const navigationGroups: NavGroup[] = [
         href: "/administration",
         label: "Administration RH",
         icon: FileText,
-        roles: ["admin_rh", "manager"],
+        roles: ["admin_rh"],
       },
       { href: "/parametres", label: "Paramètres", icon: Settings },
     ],

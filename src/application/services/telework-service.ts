@@ -2,6 +2,7 @@ import {
   assertCanDecideRequest,
   decisionNotificationCopy,
   initialStatusAfterSubmit,
+  nextStatusAfterHrDecision,
   nextStatusAfterManagerDecision,
   type Decision,
 } from "@/domain/rules/approvals";
@@ -29,13 +30,15 @@ export function createTeleworkService(deps: {
 
     async listTeamPending(session: AuthSession) {
       if (session.role === "collaborateur") return [];
-      const items =
-        session.role === "admin_rh"
-          ? await deps.hr.listTeleworkRequests()
-          : await deps.hr.listTeleworkRequests({
-              managerId: session.employee.id,
-            });
-      return items.filter((r) => r.status === "en_attente_manager");
+      if (session.role === "admin_rh") {
+        const items = await deps.hr.listTeleworkRequests();
+        return items.filter((r) => r.status === "en_attente_rh");
+      }
+      return (
+        await deps.hr.listTeleworkRequests({
+          managerId: session.employee.id,
+        })
+      ).filter((r) => r.status === "en_attente_manager");
     },
 
     async getApprovedLeaveForEmployee(employeeId: string) {
@@ -186,7 +189,10 @@ export function createTeleworkService(deps: {
         throw new Error("Un motif de refus est obligatoire.");
       }
 
-      const status = nextStatusAfterManagerDecision(decision, false);
+      const status =
+        authz.mode === "admin_rh"
+          ? nextStatusAfterHrDecision(decision)
+          : nextStatusAfterManagerDecision(decision, false);
       const updated = await deps.hr.updateTeleworkRequest(requestId, {
         status,
         managerComment: comment?.trim() || null,
@@ -204,7 +210,7 @@ export function createTeleworkService(deps: {
 
       await deps.email.send({
         to: subject.email,
-        subject: `[ASTER DÉMO] Télétravail ${decision === "approuvee" ? "approuvé" : "refusé"}`,
+        subject: `[ASTER] Télétravail ${decision === "approuvee" ? "approuvé" : "refusé"}`,
         body: `Votre plan ${requestId} est maintenant : ${status}.`,
       });
 

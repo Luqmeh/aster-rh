@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createCalendarService } from "@/application/services/calendar-service";
 import { createTeleworkService } from "@/application/services/telework-service";
-import { employees } from "@/data/demo-seed";
-import type { DemoRole } from "@/domain/types/hr";
-import type { AuthSession } from "@/infrastructure/auth/types";
+import { testSessionFor } from "@/infrastructure/auth/test-session";
 import { demoHrRepository } from "@/infrastructure/persistence/demo-hr-repository";
 import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
 
@@ -13,22 +11,6 @@ const email = {
   },
 };
 
-function sessionFor(employeeId: string, role: DemoRole): AuthSession {
-  const employee = employees.find((e) => e.id === employeeId)!;
-  return {
-    isDemo: true,
-    role,
-    employee,
-    identity: {
-      id: employee.demoIdentityId,
-      label: `${employee.firstName} ${employee.lastName}`,
-      role,
-      employeeId: employee.id,
-      description: "test",
-    },
-  };
-}
-
 describe("telework pending plan editing", () => {
   beforeEach(() => {
     resetDemoStore();
@@ -36,7 +18,7 @@ describe("telework pending plan editing", () => {
 
   it("met à jour les jours d'un plan en attente sans créer de doublon", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
 
     const before = await tw.listForCurrentUser(collab);
     const pendingCountBefore = before.filter(
@@ -63,7 +45,7 @@ describe("telework pending plan editing", () => {
 
   it("refuse une mise à jour invalide (trop de jours / semaine)", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
 
     await expect(
       tw.updatePendingPlan(collab, "tw-1", {
@@ -75,7 +57,7 @@ describe("telework pending plan editing", () => {
 
   it("empêche de resoumettre un second plan pour le même mois", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
 
     await expect(
       tw.submitMonthlyPlan(collab, {
@@ -87,8 +69,8 @@ describe("telework pending plan editing", () => {
 
   it("interdit la modification d'un plan approuvé ou refusé", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const marc = sessionFor("emp-marc", "collaborateur");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const marc = testSessionFor("emp-marc", "collaborateur");
 
     await expect(
       tw.updatePendingPlan(collab, "tw-4", {
@@ -114,8 +96,8 @@ describe("calendar consistency after telework decisions", () => {
   it("montre pending puis approved après décision manager", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
     const calendar = createCalendarService({ hr: demoHrRepository });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const pendingView = await calendar.getEmployeeMonth(collab, "2026-12");
     const pendingEvents = pendingView.events.filter(
@@ -148,7 +130,7 @@ describe("calendar consistency after telework decisions", () => {
 
   it("montre les refus comme non confirmés, jamais comme approuvés", async () => {
     const calendar = createCalendarService({ hr: demoHrRepository });
-    const marc = sessionFor("emp-marc", "collaborateur");
+    const marc = testSessionFor("emp-marc", "collaborateur");
     const { events } = await calendar.getEmployeeMonth(marc, "2026-11");
     const rejected = events.filter((e) => e.sourceRequestId === "tw-3");
     expect(rejected.length).toBeGreaterThan(0);
@@ -159,8 +141,8 @@ describe("calendar consistency after telework decisions", () => {
 
   it("respecte la visibilité manager vs collaborateur", async () => {
     const calendar = createCalendarService({ hr: demoHrRepository });
-    const collab = sessionFor("emp-lea", "collaborateur");
-    const manager = sessionFor("emp-julien", "manager");
+    const collab = testSessionFor("emp-lea", "collaborateur");
+    const manager = testSessionFor("emp-julien", "manager");
 
     const employeeView = await calendar.getEmployeeMonth(collab, "2026-11");
     expect(

@@ -1,63 +1,80 @@
 # ASTER — Progress Report
 
 **Date:** 8 November 2026  
-**Phase:** 7c — One-time Production demo seed (Vercel-hosted)  
+**Phase:** 8 — Enterprise authentication, role separation & Microsoft SSO readiness  
 **Product:** ASTER — Human Resources, connected.  
-**Parent:** `a52e72406e3891c61f2ae303ca12bab3b0b6b53d`  
-**Context:** Board demo — dedicated ASTER Supabase; no local credential copy; no public seed API.
+**Context:** Board demo prototype with real auth boundaries; Entra SSO configurable by IT (not claimed live without tenant).
 
 ---
 
-## Summary
+## Authentication architecture
 
-Prepared a **Production-only, opt-in** demo seed that runs on the Vercel build machine using existing Supabase integration env vars (`POSTGRES_*`). Seed is idempotent create-or-keep (no DELETE/DROP/TRUNCATE). Léa / Julien / Camille are verified after seed. **Remote seed has not executed yet** — requires the manual Vercel flag + Redeploy below (this agent cannot reach Production DB without copying secrets or Vercel CLI).
+- **Auth.js (next-auth v5)** — JWT sessions, HTTP-only cookies.
+- **Providers** (independent, env-switched):
+  - Credentials (temporary) — `ASTER_CREDENTIALS_AUTH` (default on).
+  - Microsoft Entra ID OIDC — `ASTER_ENTRA_AUTH=1` + `AUTH_MICROSOFT_ENTRA_ID_*` (off until configured).
+- **Application identity** — `UserAccount` (email, passwordHash?, provider, externalSubject?, role, employeeId, isActive).
+- **AuthPort** — `session-auth` maps Auth.js → `AuthSession` + Employee via HR repository.
+- Login UI: `/connexion` (no role selector). Logout in topbar.
+- Middleware protects app routes; `/administration` = `admin_rh` only.
 
----
-
-## Changes
+## Role & permission changes
 
 | Change | Detail |
 |--------|--------|
-| Preserve-on-seed | `seedAsterDemoData` without `resetMutable` uses `update: {}` (create-or-keep) |
-| One-shot gate | `ASTER_SEED_ON_BUILD=1` **and** `VERCEL_ENV=production` |
-| Build hook | `vercel-build.ts` runs `prisma/seed.ts` + `verify-demo-seed.ts` after migrate when gated |
-| Verify | Checks `emp-lea`, `emp-julien`, `emp-camille` + counts (no secrets logged) |
-| Migrate pipeline | **Unchanged** (seed is separate opt-in step after migrate) |
+| Strict Manager ≠ RH | RH cannot approve `en_attente_manager`; only `en_attente_rh` |
+| Navigation | Administration RH reserved to `admin_rh` |
+| Server actions | `requireSession` / role checks; no client-trusted role |
+| Demo UI removed | Banner, identity switcher, mobile role bar deleted |
 
-### Files
-- Created: `scripts/seed-on-build-policy.ts`, `scripts/seed-on-build-policy.test.ts`, `scripts/verify-demo-seed.ts`, `docs/PROGRESS.md`
-- Modified: `demo-data-lifecycle.ts`, `vercel-build.ts`, `docs/DEPLOYMENT.md`, `.env.example`
-- Deleted: previous `docs/PROGRESS.md`
-- Excluded: `docs/git ssh.txt`, any `.env*`
+See `docs/AUTHORIZATION_MATRIX.md`.
 
-### Dependencies
-None added.
+## Database migrations
 
----
+- New migration `20261108180000_user_accounts` — `AuthProvider` enum + `UserAccount` (no DROP/TRUNCATE of existing tables).
+- Seed creates Léa / Julien / Camille accounts; password hash only if `ASTER_SEED_PASSWORD` set.
+
+## Files (high level)
+
+**Created:** `src/auth.ts`, `src/auth.config.ts`, `src/middleware.ts`, `src/app/connexion/*`, `src/components/auth/login-form.tsx`, `src/app/actions/auth.ts`, `src/app/api/auth/[...nextauth]/route.ts`, auth helpers (`password`, `rate-limit`, `authorization`, `account-store`, `session-auth`, `test-session`), migration SQL, `docs/SSO_HANDOVER.md`, `docs/AUTHORIZATION_MATRIX.md`, this `PROGRESS.md`.
+
+**Modified:** Prisma schema, container, leave/telework services & actions, approvals rules, navigation, layouts/topbar/parametres/administration, seed lifecycle, package.json, docs/README/AGENTS/DEPLOYMENT/ARCHITECTURE/INTEGRATIONS, `.env.example`.
+
+**Deleted:** demo-auth cookie switcher, DemoBanner, RoleSwitcher, MobileRoleBar, DemoIdentitySelect; previous `PROGRESS.md`.
+
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `next-auth@beta` (v5) | Sessions / OIDC / credentials |
+| `bcryptjs` (+ types) | Password hashing |
 
 ## Checks
 
 | Check | Result |
 |-------|--------|
-| Targeted Vitest (seed + migrate policies) | **8 passed** |
-| Full suite / typecheck / lint / build | Not re-run (per scope: avoid extensive runs) |
-| Remote Production seed | **Pending** manual Vercel one-shot |
-| Destructive reset | Not run |
+| `npm test` | **128 passed**, 1 skipped |
+| `npm run typecheck` | **Pass** |
+| `npm run lint` | **Pass** |
+| `npm run build` | **Pass** |
+| Real Entra tenant E2E | **Not tested** (no tenant credentials) |
 
----
+## Remaining security limitations
 
-## Remaining issues
+1. Login rate-limit is in-memory (not shared across Vercel instances) — replace with Redis/Upstash for production hardening.
+2. Credentials auth remains available until IT sets `ASTER_CREDENTIALS_AUTH=0`.
+3. `AUTH_SECRET` must be set to a strong value on Vercel (build placeholder is not for runtime).
+4. Accounts/password seed require `ASTER_SEED_PASSWORD` + migrate `UserAccount` applied on Production.
+5. Entra account linking still needs admin provisioning of `externalSubject` / email match.
+6. Next.js 16 warns middleware → proxy rename (non-blocking).
 
-1. Seed not applied until `ASTER_SEED_ON_BUILD=1` is set on Vercel Production and a Production deploy runs.
-2. After success, the flag must be removed so later deploys stay seed-free.
-3. Persistence UX check (Léa→Julien) still needed on the live app after seed.
+## Microsoft SSO handover readiness
 
----
+Code path + `docs/SSO_HANDOVER.md` checklist ready. **Not** production-grade SSO until IT configures tenant app registration, env vars, and disables credentials — then reviewed.
 
-## Exact next step (manual — only action required)
+## Exact next recommended phase
 
-1. Vercel → ASTER project → **Settings → Environment Variables → Production** → add `ASTER_SEED_ON_BUILD` = `1`
-2. **Deployments → Redeploy** the latest Production deployment  
-3. Confirm build logs show seed + `OK emp-lea / Léa`, `OK emp-julien / Julien`, `OK emp-camille / Camille`
-4. **Delete** `ASTER_SEED_ON_BUILD`
-5. Open the Production app and confirm Léa / Julien / Camille demo data persists across reload
+1. Apply migration on Production (auto via `build:vercel` on next deploy).  
+2. Set Vercel `AUTH_SECRET`, `ASTER_SEED_PASSWORD`, re-run one-shot seed (`ASTER_SEED_ON_BUILD=1` then remove).  
+3. Validate login as Léa / Julien / Camille and approval separation.  
+4. Begin Entra app registration using `docs/SSO_HANDOVER.md`.

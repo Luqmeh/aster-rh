@@ -2,23 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { roleLabel } from "@/domain/rules/approvals";
 import type { AuthSession } from "@/infrastructure/auth/types";
-import type { DemoIdentity } from "@/domain/types/hr";
 import { findNavItem } from "@/lib/navigation";
-import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { DemoIdentitySelect } from "@/components/demo/demo-identity-select";
+import { logoutAction } from "@/app/actions/auth";
 
 export function Topbar({
   session,
   unread,
-  identities,
 }: {
   session: AuthSession;
   unread: number;
-  identities: DemoIdentity[];
 }) {
   const pathname = usePathname();
   const { employee, role } = session;
@@ -38,15 +34,6 @@ export function Topbar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            Mode démo
-          </Badge>
-          <div className="hidden md:block">
-            <DemoIdentitySelect
-              identities={identities}
-              currentId={session.identity.id}
-            />
-          </div>
           <Link
             href="/notifications"
             className="relative inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[var(--aster-border)] text-[var(--aster-ink)] hover:bg-[var(--aster-surface-2)]"
@@ -60,6 +47,16 @@ export function Topbar({
             ) : null}
           </Link>
           <UserAvatar initials={employee.avatarInitials} size="sm" />
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[var(--aster-border)] text-[var(--aster-muted)] hover:bg-[var(--aster-surface-2)] hover:text-[var(--aster-ink)]"
+              aria-label="Se déconnecter"
+              title="Se déconnecter"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         </div>
       </div>
     </header>

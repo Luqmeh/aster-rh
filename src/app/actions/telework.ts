@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createTeleworkService } from "@/application/services/telework-service";
 import type { MonthlyTeleworkPlanInput } from "@/domain/rules/telework-monthly";
+import {
+  AuthError,
+  requireSession,
+} from "@/infrastructure/auth/authorization";
 import { getContainer } from "@/infrastructure/container";
 
 function revalidateTeleworkPaths() {
@@ -16,8 +20,7 @@ export async function submitMonthlyTeleworkPlanAction(
   input: MonthlyTeleworkPlanInput,
 ) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
+  const session = requireSession(await container.auth.getSession());
   const service = createTeleworkService(container);
   const request = await service.submitMonthlyPlan(session, input);
   revalidateTeleworkPaths();
@@ -29,8 +32,7 @@ export async function updateMonthlyTeleworkPlanAction(
   input: MonthlyTeleworkPlanInput,
 ) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
+  const session = requireSession(await container.auth.getSession());
   const service = createTeleworkService(container);
   const request = await service.updatePendingPlan(session, requestId, input);
   revalidateTeleworkPaths();
@@ -39,8 +41,7 @@ export async function updateMonthlyTeleworkPlanAction(
 
 export async function withdrawMonthlyTeleworkPlanAction(requestId: string) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
+  const session = requireSession(await container.auth.getSession());
   const service = createTeleworkService(container);
   await service.withdrawPendingPlan(session, requestId);
   revalidateTeleworkPaths();
@@ -53,10 +54,12 @@ export async function decideTeleworkAction(
   comment?: string,
 ) {
   const container = getContainer();
-  const session = await container.auth.getSession();
-  if (!session) throw new Error("Session de démonstration absente.");
+  const session = requireSession(await container.auth.getSession());
   if (session.role === "collaborateur") {
-    throw new Error("Action réservée au manager ou à l'administrateur RH.");
+    throw new AuthError(
+      "Action réservée au manager ou à l'administrateur RH.",
+      403,
+    );
   }
   const service = createTeleworkService(container);
   const updated = await service.decide(session, requestId, decision, comment);
