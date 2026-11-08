@@ -72,6 +72,37 @@ describe("recruitment workflow", () => {
     await expect(service.get(marc, draft.id)).rejects.toThrow(AuthError);
   });
 
+  it("refuse le téléchargement CV si la clé Storage ne correspond pas au dossier", async () => {
+    const service = createRecruitmentService({
+      hr: demoHrRepository,
+      email,
+      storage: mockDocumentStorage,
+    });
+    const hr = testSessionFor("emp-camille", "admin_rh");
+    const lea = testSessionFor("emp-lea", "collaborateur");
+    const draft = await service.createDraft(hr, {
+      fullName: "Eve",
+      email: "eve@candidat.example",
+      positionTitle: "Analyste",
+      hrNotes: "Notes",
+    });
+    await service.uploadCv(hr, draft.id, {
+      fileName: "cv.pdf",
+      contentType: "application/pdf",
+      bytes: new Uint8Array([1]),
+    });
+    // Manipulation hostile de la clé (autre candidat / path traversal).
+    await demoHrRepository.updateRecruitmentCandidate(draft.id, {
+      cvStorageKey: "recruitment/other-id/stolen.pdf",
+    });
+    await expect(service.getCvDownloadUrl(hr, draft.id)).rejects.toThrow(
+      /incohérente|refusé/i,
+    );
+    await expect(service.getCvDownloadUrl(lea, draft.id)).rejects.toThrow(
+      AuthError,
+    );
+  });
+
   it("refuse d'assigner un collaborateur inactif", async () => {
     const service = createRecruitmentService({
       hr: demoHrRepository,

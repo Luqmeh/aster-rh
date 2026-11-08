@@ -91,3 +91,34 @@ export function canAssignInterviewerStatus(
 ): boolean {
   return status === "approuve" || status === "intervieweur_assigne";
 }
+
+/** Préfixe de clé Storage imposé — empêche l'association d'un CV d'un autre dossier. */
+export function recruitmentCvStoragePrefix(candidateId: string): string {
+  return `recruitment/${candidateId}/`;
+}
+
+export function buildRecruitmentCvStorageKey(
+  candidateId: string,
+  fileName: string,
+): string {
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `${recruitmentCvStoragePrefix(candidateId)}${Date.now()}-${safeName}`;
+}
+
+export function assertCvStorageKeyOwnsCandidate(
+  storageKey: string,
+  candidateId: string,
+): { ok: true } | { ok: false; message: string } {
+  const prefix = recruitmentCvStoragePrefix(candidateId);
+  if (!storageKey.startsWith(prefix)) {
+    return {
+      ok: false,
+      message:
+        "Clé de stockage CV incohérente avec le dossier candidat — accès refusé.",
+    };
+  }
+  if (storageKey.includes("..") || storageKey.includes("//")) {
+    return { ok: false, message: "Chemin de stockage CV invalide." };
+  }
+  return { ok: true };
+}

@@ -1,58 +1,49 @@
 # ASTER — Progress Report
 
-**Phase :** 10 — Employee Lifecycle, Account Provisioning & Recruitment Interviews  
+**Phase :** 10b — Supabase Storage CV hardening (`aster-private-docs`)  
 **Date :** 8 novembre 2026  
 **Branche :** `main`
 
-## Part A — completed functionality
+## Verification summary
 
-- Employee onboarding (`/annuaire/nouveau`) with validation (id, email, duplicates).
-- Secure `UserAccount` provisioning (credentials + temporary password via e-mail mock).
-- Role assignment rules: RH → Collaborateur only; Chef de projet → all roles.
-- Safeguard against removing the last Chef de projet access.
-- Lifecycle statuses: `actif` / `inactif` / `parti` with confirmation UI.
-- Deactivation / departure disables `UserAccount.isActive` (login blocked) while preserving historical leave/telework/notifications.
-- `RoleChangeAudit` history (target, previous/new role, actor, timestamp).
+| Check | Result |
+|-------|--------|
+| Bucket name exact `aster-private-docs` | Enforced in code (default + Production reject of other names) |
+| Private / no public URLs | Signed URLs only; reject `/object/public/` if ever returned |
+| Upload HR(+Chef inherit) server-side | `uploadCv` → `canManageRecruitment` + session |
+| Download HR / Chef / assigned interviewer | `requireCandidateAccess` then signed URL |
+| Path cannot steal another CV | Key must start with `recruitment/{candidateId}/` |
+| Production mock fallback | **Removed** — explicit error unless build offline / `ASTER_ALLOW_MOCK_STORAGE=1` |
+| Storage RLS policies | Cannot query live Supabase from this agent (MCP auth unavailable). SQL hardening script added; expected config = **private bucket + no anon/authenticated policies** (service role only). |
 
-## Part B — completed functionality
+## Implemented changes
 
-- Recruitment candidate model (external, no auto Employee).
-- HR create/edit draft, CV upload, notes, submit for review.
-- Chef de projet approve/reject (server-enforced; RH blocked).
-- Interviewer assignment with explicit **Appliquer**.
-- Interview history / pending review views under `/entretiens`.
-- Assigned collaborateur sees only their assignments; CV via short-lived signed URL / mock private URL.
-- Events + notifications for submission, decision, assignment.
+- Fail-closed Production storage when Supabase env missing.
+- Clamp signed URL TTL to ≤ 120s; reject public object URLs.
+- CV key ownership assertion before download.
+- SQL checklist `docs/supabase/storage-aster-private-docs.sql`.
+- Verify script `scripts/verify-storage-bucket.ts`.
+- Docs: `RECRUITMENT.md`, `DEPLOYMENT.md`, `.env.example`.
 
-## Database migrations
+## Files changed
 
-`prisma/migrations/20261108200000_employee_lifecycle_and_recruitment/`
-
-- `EmploymentStatus` + employee departure fields
-- `RoleChangeAudit`
-- `RecruitmentCandidate` + `RecruitmentEvent`
-- No DROP/TRUNCATE of business data; existing `isActive` mapped to `employmentStatus`
-
-## Files changed (high level)
-
-- Domain: `permissions`, `lifecycle`, `role-assignment`, `recruitment`, `hr` types
-- Services: `employee-provisioning-service`, `recruitment-service` (+ tests)
-- Persistence: schema, repos, mappers, demo-store
-- Auth: `account-store` create/update
-- Storage: `DocumentStoragePort` + Supabase adapter + mock
-- UI: annuaire onboarding/lifecycle, `/entretiens/*`
-- Docs: README, ARCHITECTURE, DEPLOYMENT, AUTHORIZATION_MATRIX, RECRUITMENT
+- `src/infrastructure/storage/supabase-storage.ts` (+ tests)
+- `src/domain/rules/recruitment.ts` (+ storage key helpers/tests)
+- `src/application/services/recruitment-service.ts` (+ ownership test)
+- `scripts/verify-storage-bucket.ts`
+- `docs/supabase/storage-aster-private-docs.sql`
+- `docs/RECRUITMENT.md`, `docs/DEPLOYMENT.md`, `.env.example`, `docs/PROGRESS.md`
 
 ## Dependencies
 
-- Added: `@supabase/supabase-js@2` (Storage signed URLs / private uploads)
+- None new (existing `@supabase/supabase-js`).
 
-## Test results
+## Focused test results
 
 ```text
-npm test
-Test Files  26 passed (26)
-Tests       149 passed | 1 skipped (150)
+vitest: supabase-storage / recruitment-storage / recruitment-service
+Test Files  3 passed
+Tests       10 passed
 ```
 
 ## Typecheck / lint / build
@@ -63,20 +54,15 @@ npm run lint      → OK
 npm run build     → OK
 ```
 
-## Storage configuration requirements
+## Known issues / operator actions
 
-1. Create private Supabase bucket `aster-private-docs` (or set `ASTER_STORAGE_BUCKET`).
-2. Set `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (server only).
-3. Without these vars, CV storage falls back to in-memory mock (dev/demo).
+1. Authenticate Supabase MCP in Cursor Desktop (or run SQL + verify script) to confirm live bucket `public=false` and absence of permissive Storage policies.
+2. Set Production env: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+3. Run `docs/supabase/storage-aster-private-docs.sql` if the bucket was created without MIME/size limits or with accidental public policies.
+4. Run `npx tsx scripts/verify-storage-bucket.ts` with Production secrets.
 
-## Remaining limitations
+**Bucket readiness for real CV uploads:** code is ready. Live readiness depends on Production env + private bucket confirmation (step 1–4). Creating the bucket alone does **not** prove RLS — default private + no policies is correct for service-role-only access.
 
-- Interview “planifié / terminé” statuses exist but scheduling UI is minimal (assignment is the main path).
-- Chef notifications on submit rely on account role lookup (+ seed Julien fallback in memory mode).
-- No bulk import / Entra auto-provisioning for new hires beyond credentials accounts.
-- Apply Production migrate via existing Vercel pipeline before relying on new tables.
+## Exact next recommended step
 
-## Exact next recommended implementation phase
-
-**Phase 11 — Interview scheduling & outcome capture**  
-Planify interview slots, capture interviewer compte rendu, mark `entretien_termine`, and optional conversion path from approved candidate → employee onboarding without hierarchy changes.
+Run `scripts/verify-storage-bucket.ts` against the Production Supabase project, apply `storage-aster-private-docs.sql` if needed, then upload one test CV from an RH session and open it as Chef de projet / assigned interviewer.

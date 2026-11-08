@@ -36,9 +36,15 @@ Vercel n’offre pas de « release phase » séparée pour ce setup : le moment 
 | `ASTER_SKIP_MIGRATE` | optionnel `1` | Désactive migrate même en Production | Secours temporaire |
 | `NEXT_PUBLIC_SUPABASE_URL` | manuel | URL projet Supabase (Storage CV) | Production |
 | `SUPABASE_SERVICE_ROLE_KEY` | manuel **secret** | Upload / signed URLs serveur | Production (jamais `NEXT_PUBLIC_`) |
-| `ASTER_STORAGE_BUCKET` | optionnel | Bucket privé (défaut `aster-private-docs`) | Production |
+| `ASTER_STORAGE_BUCKET` | optionnel | Doit rester `aster-private-docs` en Production | Production |
+| `ASTER_ALLOW_MOCK_STORAGE` | optionnel `1` | Autorise le mock hors config Supabase | **Jamais** en démo board |
 
-**Storage recrutement :** créer un bucket **privé** `aster-private-docs` dans Supabase Storage. Les CV sont servis uniquement via URL signée courte côté serveur (`docs/RECRUITMENT.md`).
+**Storage recrutement :**
+1. Bucket **privé** `aster-private-docs` (`public=false`) — SQL : `docs/supabase/storage-aster-private-docs.sql`
+2. **Aucune** policy Storage pour `anon` / `authenticated` (service role serveur uniquement)
+3. Variables `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` obligatoires en Production (sinon erreur explicite, pas de mock silencieux)
+4. Vérifier : `npx tsx scripts/verify-storage-bucket.ts`
+5. Détails : `docs/RECRUITMENT.md`
 
 **Cible des migrations automatiques : Production uniquement.**  
 Les Preview qui partagent les `POSTGRES_*` de Production **ne migrent pas** (garde-fou). Ne branchez pas Preview sur la base board sans base séparée + `ASTER_MIGRATE_ON_BUILD=1` assumé.

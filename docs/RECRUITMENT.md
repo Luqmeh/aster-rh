@@ -25,15 +25,26 @@ Les candidats ne créent **pas** automatiquement une fiche `Employee`.
 
 L’assignation ne marque **pas** l’entretien comme terminé.
 
-## Stockage CV
+## Stockage CV (`aster-private-docs`)
 
-- Port `DocumentStoragePort`
-- Production : Supabase Storage bucket privé `aster-private-docs` (ou `ASTER_STORAGE_BUCKET`)
-- Accès via **URL signée courte** (≈ 120 s), jamais d’URL publique permanente
-- Variables : `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-- Formats : PDF / DOC / DOCX, max 5 Mo
+| Règle | Implémentation |
+|-------|----------------|
+| Bucket | Nom exact `aster-private-docs` (privé, `public=false`) |
+| Upload | Server-side uniquement après session + `recruitment.create` (RH / Chef) |
+| Download | Server-side après contrôle d’accès dossier ; URL **signée ≤ 120 s** |
+| Chemins | `recruitment/{candidateId}/…` — refus si la clé ne correspond pas au dossier |
+| Production | **Pas de fallback mock** si Supabase n’est pas configuré (erreur explicite) |
+| Local / tests | Mock mémoire autorisé sans clés |
+| RLS | Aucune policy `anon` / `authenticated` ; accès via `SUPABASE_SERVICE_ROLE_KEY` serveur uniquement |
 
-Sans clés Supabase, le mock mémoire est utilisé (démo / tests).
+Variables : `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`  
+Optionnel : `ASTER_STORAGE_BUCKET` (doit rester `aster-private-docs` en prod)  
+Secours local uniquement : `ASTER_ALLOW_MOCK_STORAGE=1`
+
+SQL de sécurisation bucket : `docs/supabase/storage-aster-private-docs.sql`  
+Vérification : `npx tsx scripts/verify-storage-bucket.ts`
+
+Formats : PDF / DOC / DOCX, max 5 Mo.
 
 ## Audit
 

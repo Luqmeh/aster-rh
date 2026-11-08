@@ -1,5 +1,7 @@
 import {
   assertCvFile,
+  assertCvStorageKeyOwnsCandidate,
+  buildRecruitmentCvStorageKey,
   canAssignInterviewerStatus,
   canDecideRecruitmentStatus,
   canEditRecruitmentDraft,
@@ -193,7 +195,7 @@ export function createRecruitmentService(deps: {
       });
       if (!check.ok) throw new Error(check.message);
 
-      const key = `recruitment/${id}/${Date.now()}-${file.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const key = buildRecruitmentCvStorageKey(id, file.fileName);
       await deps.storage.putObject(key, file.bytes, file.contentType);
       const updated = await deps.hr.updateRecruitmentCandidate(id, {
         cvStorageKey: key,
@@ -358,6 +360,12 @@ export function createRecruitmentService(deps: {
       if (!candidate.cvStorageKey) {
         throw new Error("Aucun CV disponible.");
       }
+      const ownership = assertCvStorageKeyOwnsCandidate(
+        candidate.cvStorageKey,
+        candidate.id,
+      );
+      if (!ownership.ok) throw new AuthError(ownership.message, 403);
+      // URL signée courte — uniquement après autorisation serveur.
       return deps.storage.getDownloadUrl(candidate.cvStorageKey, 120);
     },
   };
