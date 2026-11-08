@@ -48,17 +48,22 @@ Sur chaque déploiement **Production** (`main` → Vercel) :
 
 **Interdit** contre la base board : `migrate dev`, `migrate reset`, `db push`.
 
-## Seed démo (hors déploiement)
+## Seed démo (one-shot Production, sans credentials locales)
 
-`npm run db:seed` utilise `resetMutable: false` (upserts idempotents sur les IDs seed).  
-Ce n’est **pas** lancé par `build:vercel`, car les upserts réécrivent l’état des lignes seed et ne doivent pas s’exécuter à chaque deploy.
+Le seed CLI (`resetMutable: false`) crée les enregistrements manquants et **préserve** les lignes déjà présentes (`update: {}`) — aucun `DELETE` / `DROP` / `TRUNCATE`.
 
-Déclenchement contrôlé (après premier migrate réussi) :
+**Exécution recommandée** (utilise les `POSTGRES_*` déjà présents sur Vercel — pas de copie locale, pas d’API publique) :
 
-```bash
-# Machine locale avec .env.local pointant vers le projet Supabase ASTER uniquement
-npm run db:seed
-```
+1. Vercel → projet ASTER → **Settings → Environment Variables → Production**
+2. Ajouter `ASTER_SEED_ON_BUILD` = `1`
+3. **Deployments → … → Redeploy** le déploiement Production (ou pousser un commit sur `main`)
+4. Dans les logs build, vérifier :
+   - `ASTER demo seed one-shot`
+   - `Seed ASTER terminé (idempotent).`
+   - `OK emp-lea / Léa`, `OK emp-julien / Julien`, `OK emp-camille / Camille`
+5. **Supprimer** `ASTER_SEED_ON_BUILD` (ou la passer à autre chose que `1`) pour les prochains deploys
+
+Le flag est ignoré hors `VERCEL_ENV=production`. La pipeline migrate existante n’est pas modifiée (le seed s’ajoute après, en opt-in).
 
 Reset destructif des tables mutables : UI **Paramètres** (`ASTER_MODE=demo`) uniquement — jamais dans le pipeline.
 

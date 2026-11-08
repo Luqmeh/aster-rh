@@ -16,11 +16,17 @@ import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
 /**
  * Seed / reset idempotent des données de démonstration ASTER uniquement.
  * Ne touche pas à d'autres schémas ou tables hors modèles Prisma ASTER.
+ *
+ * Sans `resetMutable` : create-or-keep (`update: {}`) — préserve les IDs et
+ * les modifications déjà présentes (congés, télétravail, etc.). Aucun DELETE.
+ * Avec `resetMutable` : réservé au reset démo UI — deleteMany puis recreate.
  */
 export async function seedAsterDemoData(
   prisma: PrismaClient,
   options: { resetMutable?: boolean } = {},
 ): Promise<void> {
+  const preserveExisting = !options.resetMutable;
+
   // Départements (parents d'abord)
   const sortedDepts = [...departments].sort((a, b) => {
     if (a.parentId === null && b.parentId !== null) return -1;
@@ -37,21 +43,28 @@ export async function seedAsterDemoData(
         code: dept.code,
         parentId: null,
       },
-      update: {
-        name: dept.name,
-        code: dept.code,
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            name: dept.name,
+            code: dept.code,
+          },
     });
   }
 
   // Relier les parents après création (évite les cycles à l'insert).
   for (const dept of sortedDepts) {
-    if (dept.parentId) {
-      await prisma.organizationUnit.update({
+    if (!dept.parentId) continue;
+    if (preserveExisting) {
+      const row = await prisma.organizationUnit.findUnique({
         where: { id: dept.id },
-        data: { parentId: dept.parentId },
       });
+      if (row?.parentId) continue;
     }
+    await prisma.organizationUnit.update({
+      where: { id: dept.id },
+      data: { parentId: dept.parentId },
+    });
   }
 
   // Employés sans manager, puis rattachements.
@@ -77,27 +90,33 @@ export async function seedAsterDemoData(
         teleworkEligible: emp.teleworkEligible,
         teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
       },
-      update: {
-        demoIdentityId: emp.demoIdentityId,
-        firstName: emp.firstName,
-        lastName: emp.lastName,
-        email: emp.email,
-        jobTitle: emp.jobTitle,
-        departmentId: emp.departmentId,
-        site: emp.site,
-        contractType: emp.contractType,
-        category: emp.category,
-        hireDate: dateOnlyToUtc(emp.hireDate),
-        isActive: emp.isActive,
-        phoneInternal: emp.phoneInternal,
-        avatarInitials: emp.avatarInitials,
-        teleworkEligible: emp.teleworkEligible,
-        teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            demoIdentityId: emp.demoIdentityId,
+            firstName: emp.firstName,
+            lastName: emp.lastName,
+            email: emp.email,
+            jobTitle: emp.jobTitle,
+            departmentId: emp.departmentId,
+            site: emp.site,
+            contractType: emp.contractType,
+            category: emp.category,
+            hireDate: dateOnlyToUtc(emp.hireDate),
+            isActive: emp.isActive,
+            phoneInternal: emp.phoneInternal,
+            avatarInitials: emp.avatarInitials,
+            teleworkEligible: emp.teleworkEligible,
+            teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
+          },
     });
   }
 
   for (const emp of employees) {
+    if (preserveExisting) {
+      const row = await prisma.employee.findUnique({ where: { id: emp.id } });
+      if (row?.managerId) continue;
+    }
     await prisma.employee.update({
       where: { id: emp.id },
       data: { managerId: emp.managerId },
@@ -122,14 +141,16 @@ export async function seedAsterDemoData(
         rttPris: balance.rttPris,
         rttRestants: balance.rttRestants,
       },
-      update: {
-        congesPayesAcquis: balance.congesPayesAcquis,
-        congesPayesPris: balance.congesPayesPris,
-        congesPayesRestants: balance.congesPayesRestants,
-        rttAcquis: balance.rttAcquis,
-        rttPris: balance.rttPris,
-        rttRestants: balance.rttRestants,
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            congesPayesAcquis: balance.congesPayesAcquis,
+            congesPayesPris: balance.congesPayesPris,
+            congesPayesRestants: balance.congesPayesRestants,
+            rttAcquis: balance.rttAcquis,
+            rttPris: balance.rttPris,
+            rttRestants: balance.rttRestants,
+          },
     });
   }
 
@@ -158,20 +179,22 @@ export async function seedAsterDemoData(
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
       },
-      update: {
-        employeeId: item.employeeId,
-        type: item.type,
-        startDate: dateOnlyToUtc(item.startDate),
-        endDate: dateOnlyToUtc(item.endDate),
-        halfDayStart: item.halfDayStart,
-        halfDayEnd: item.halfDayEnd,
-        daysCount: item.daysCount,
-        status: item.status,
-        comment: item.comment,
-        managerComment: item.managerComment,
-        createdAt: new Date(item.createdAt),
-        updatedAt: new Date(item.updatedAt),
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            employeeId: item.employeeId,
+            type: item.type,
+            startDate: dateOnlyToUtc(item.startDate),
+            endDate: dateOnlyToUtc(item.endDate),
+            halfDayStart: item.halfDayStart,
+            halfDayEnd: item.halfDayEnd,
+            daysCount: item.daysCount,
+            status: item.status,
+            comment: item.comment,
+            managerComment: item.managerComment,
+            createdAt: new Date(item.createdAt),
+            updatedAt: new Date(item.updatedAt),
+          },
     });
   }
 
@@ -192,19 +215,21 @@ export async function seedAsterDemoData(
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
       },
-      update: {
-        employeeId: item.employeeId,
-        type: item.type,
-        month: item.month,
-        startDate: dateOnlyToUtc(item.startDate),
-        endDate: dateOnlyToUtc(item.endDate),
-        days: item.days,
-        status: item.status,
-        reason: item.reason,
-        managerComment: item.managerComment,
-        createdAt: new Date(item.createdAt),
-        updatedAt: new Date(item.updatedAt),
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            employeeId: item.employeeId,
+            type: item.type,
+            month: item.month,
+            startDate: dateOnlyToUtc(item.startDate),
+            endDate: dateOnlyToUtc(item.endDate),
+            days: item.days,
+            status: item.status,
+            reason: item.reason,
+            managerComment: item.managerComment,
+            createdAt: new Date(item.createdAt),
+            updatedAt: new Date(item.updatedAt),
+          },
     });
   }
 
@@ -220,14 +245,16 @@ export async function seedAsterDemoData(
         read: item.read,
         createdAt: new Date(item.createdAt),
       },
-      update: {
-        recipientId: item.recipientId,
-        title: item.title,
-        body: item.body,
-        href: item.href,
-        read: item.read,
-        createdAt: new Date(item.createdAt),
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            recipientId: item.recipientId,
+            title: item.title,
+            body: item.body,
+            href: item.href,
+            read: item.read,
+            createdAt: new Date(item.createdAt),
+          },
     });
   }
 
@@ -243,14 +270,16 @@ export async function seedAsterDemoData(
         storageKey: doc.storageKey,
         isCompanyWide: doc.isCompanyWide,
       },
-      update: {
-        employeeId: doc.employeeId,
-        title: doc.title,
-        category: doc.category,
-        uploadedAt: new Date(doc.uploadedAt),
-        storageKey: doc.storageKey,
-        isCompanyWide: doc.isCompanyWide,
-      },
+      update: preserveExisting
+        ? {}
+        : {
+            employeeId: doc.employeeId,
+            title: doc.title,
+            category: doc.category,
+            uploadedAt: new Date(doc.uploadedAt),
+            storageKey: doc.storageKey,
+            isCompanyWide: doc.isCompanyWide,
+          },
     });
   }
 }

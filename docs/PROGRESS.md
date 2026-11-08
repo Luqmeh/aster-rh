@@ -1,116 +1,63 @@
 # ASTER — Progress Report
 
 **Date:** 8 November 2026  
-**Phase:** 7b — Automated Supabase migrations through Vercel (committed)  
+**Phase:** 7c — One-time Production demo seed (Vercel-hosted)  
 **Product:** ASTER — Human Resources, connected.  
-**Parent commit:** `174fd4973d38507b78b4ff7c7256342816c1e09b`  
-**Context:** Board demo (13 November 2026) — dedicated ASTER Supabase; demo environment only.
+**Parent:** `a52e72406e3891c61f2ae303ca12bab3b0b6b53d`  
+**Context:** Board demo — dedicated ASTER Supabase; no local credential copy; no public seed API.
 
 ---
 
 ## Summary
 
-Production Vercel builds now run `prisma migrate deploy` once before `next build`. Preview/local builds skip migrate by default. Demo seed stays a controlled offline command. No remote migration was executed during implementation; quality checks were green before this commit.
+Prepared a **Production-only, opt-in** demo seed that runs on the Vercel build machine using existing Supabase integration env vars (`POSTGRES_*`). Seed is idempotent create-or-keep (no DELETE/DROP/TRUNCATE). Léa / Julien / Camille are verified after seed. **Remote seed has not executed yet** — requires the manual Vercel flag + Redeploy below (this agent cannot reach Production DB without copying secrets or Vercel CLI).
 
 ---
 
-## Architecture findings
+## Changes
 
-| Topic | Finding |
-|-------|---------|
-| Vercel pre-deploy hook | None suitable — use Production build step |
-| Local build | `npm run build` stays offline (`ASTER_BUILD_WITHOUT_DB=1`) |
-| Hosted build | `vercel.json` → `npm run build:vercel` → `scripts/vercel-build.ts` |
-| Queries | Pooled `DATABASE_URL` ← `POSTGRES_PRISMA_URL` |
-| Migrations | Non-pooled `DIRECT_URL` ← `POSTGRES_URL_NON_POOLING` |
-| Serverless | Do not run migrations |
-| Concurrency | One Production build job + Prisma migrate advisory lock |
-| Preview | Skips migrate unless `ASTER_MIGRATE_ON_BUILD=1` on a dedicated DB |
+| Change | Detail |
+|--------|--------|
+| Preserve-on-seed | `seedAsterDemoData` without `resetMutable` uses `update: {}` (create-or-keep) |
+| One-shot gate | `ASTER_SEED_ON_BUILD=1` **and** `VERCEL_ENV=production` |
+| Build hook | `vercel-build.ts` runs `prisma/seed.ts` + `verify-demo-seed.ts` after migrate when gated |
+| Verify | Checks `emp-lea`, `emp-julien`, `emp-camille` + counts (no secrets logged) |
+| Migrate pipeline | **Unchanged** (seed is separate opt-in step after migrate) |
 
----
+### Files
+- Created: `scripts/seed-on-build-policy.ts`, `scripts/seed-on-build-policy.test.ts`, `scripts/verify-demo-seed.ts`, `docs/PROGRESS.md`
+- Modified: `demo-data-lifecycle.ts`, `vercel-build.ts`, `docs/DEPLOYMENT.md`, `.env.example`
+- Deleted: previous `docs/PROGRESS.md`
+- Excluded: `docs/git ssh.txt`, any `.env*`
 
-## Deployment workflow
-
-**Production (`VERCEL_ENV=production`):** map env → `prisma generate` → `prisma migrate deploy` → fail build on error → `next build`.
-
-**Preview / local `build:vercel`:** migrate skipped (`ASTER_SKIP_MIGRATE=1` also forces skip).
-
-**Seed:** not in pipeline — `npm run db:seed` (`resetMutable: false` only).
+### Dependencies
+None added.
 
 ---
 
-## Files created / modified / deleted
-
-### Created
-- `vercel.json`
-- `scripts/vercel-build.ts`
-- `scripts/migrate-on-build-policy.ts`
-- `scripts/migrate-on-build-policy.test.ts`
-- `scripts/load-database-env.ts`
-- `docs/PROGRESS.md` (this file — previous deleted first)
-
-### Modified
-- `package.json`, `package-lock.json` (`prisma` + `tsx` in `dependencies`; `build:vercel`)
-- `scripts/with-prisma-env.ts`, `prisma/seed.ts`, `vitest.config.ts`
-- `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `README.md`, `.env.example`
-
-### Deleted
-- Previous `docs/PROGRESS.md`
-
-### Excluded from commit
-- Local notes / secrets (e.g. `docs/git ssh.txt`, `.env*`)
-
----
-
-## Dependencies
-
-| Package | Change |
-|---------|--------|
-| `prisma` | Moved to `dependencies` (Vercel production install) |
-| `tsx` | Moved to `dependencies` (build scripts) |
-| New packages | None |
-
----
-
-## Environment requirements (Production)
-
-- `POSTGRES_PRISMA_URL` + `POSTGRES_URL_NON_POOLING` (or `DATABASE_URL` + `DIRECT_URL`)
-- `ASTER_PERSISTENCE=prisma`
-- `ASTER_MODE=demo`
-- Optional: `ASTER_MIGRATE_ON_BUILD`, `ASTER_SKIP_MIGRATE`
-
----
-
-## Security safeguards
-
-- No credential logging (source names only)
-- No secrets committed
-- Production-only migrate by default
-- Hosted runtime refuses silent memory without `ASTER_ALLOW_MEMORY=1`
-
----
-
-## Checks (already green before commit — not re-run)
+## Checks
 
 | Check | Result |
 |-------|--------|
-| `npm test` | 117 passed, 1 skipped |
-| `npm run typecheck` | Pass |
-| `npm run lint` | Pass |
-| `npm run build` | Pass |
-| `npm run build:vercel` (local) | Pass — migrate skipped (`VERCEL_ENV=unset`) |
-| Remote migrate | Not executed yet |
+| Targeted Vitest (seed + migrate policies) | **8 passed** |
+| Full suite / typecheck / lint / build | Not re-run (per scope: avoid extensive runs) |
+| Remote Production seed | **Pending** manual Vercel one-shot |
+| Destructive reset | Not run |
 
 ---
 
-## Known issues / blockers
+## Remaining issues
 
-1. Schema not applied on Supabase until a Production deploy with this pipeline succeeds.
-2. One controlled `npm run db:seed` still needed after first migrate.
-3. Confirm Vercel dashboard Build Command does not override `vercel.json`.
+1. Seed not applied until `ASTER_SEED_ON_BUILD=1` is set on Vercel Production and a Production deploy runs.
+2. After success, the flag must be removed so later deploys stay seed-free.
+3. Persistence UX check (Léa→Julien) still needed on the live app after seed.
 
 ---
 
-## Exact next step
+## Exact next step (manual — only action required)
 
-**Confirm Vercel Production env (`POSTGRES_*`, `ASTER_PERSISTENCE=prisma`, `ASTER_MODE=demo`), let the Production deploy run `migrate deploy`, verify build logs, then run one `npm run db:seed` and validate Léa→Julien persistence.**
+1. Vercel → ASTER project → **Settings → Environment Variables → Production** → add `ASTER_SEED_ON_BUILD` = `1`
+2. **Deployments → Redeploy** the latest Production deployment  
+3. Confirm build logs show seed + `OK emp-lea / Léa`, `OK emp-julien / Julien`, `OK emp-camille / Camille`
+4. **Delete** `ASTER_SEED_ON_BUILD`
+5. Open the Production app and confirm Léa / Julien / Camille demo data persists across reload
