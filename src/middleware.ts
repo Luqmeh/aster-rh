@@ -1,17 +1,27 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { authConfig } from "@/auth.config";
 
-const PUBLIC_PATHS = ["/connexion", "/api/auth"];
+/**
+ * Middleware edge-safe : instance Auth.js légère (auth.config uniquement).
+ * Ne pas importer `@/auth` ici (Credentials + Prisma/bcrypt incompatibles Edge).
+ *
+ * Cause du loop Vercel corrigée : `getToken()` sans `secureCookie` ne lisait pas
+ * `__Secure-authjs.session-token` en HTTPS, alors que `auth()` sur /connexion le lisait
+ * → bascule infinie /connexion ↔ /tableau-de-bord.
+ */
+const { auth } = NextAuth(authConfig);
+
+const PUBLIC_PREFIXES = ["/connexion", "/api/auth"];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
+  return PUBLIC_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 }
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
 
   if (
     pathname.startsWith("/_next") ||
@@ -21,31 +31,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
+  const isLoggedIn = Boolean(req.auth?.user);
 
   if (isPublic(pathname)) {
-    if (token && pathname.startsWith("/connexion")) {
-      return NextResponse.redirect(new URL("/tableau-de-bord", request.url));
+    if (isLoggedIn && pathname.startsWith("/connexion")) {
+      return NextResponse.redirect(new URL("/tableau-de-bord", req.nextUrl));
     }
     return NextResponse.next();
   }
 
-  if (!token) {
-    const url = new URL("/connexion", request.url);
+  if (!isLoggedIn) {
+    const url = new URL("/connexion", req.nextUrl);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
   }
 
-  const role = String(token.role ?? "");
+  const role = String(
+    (req.auth?.user as { role?: string } | undefined)?.role ?? "",
+  );
   if (pathname.startsWith("/administration") && role !== "admin_rh") {
-    return NextResponse.redirect(new URL("/tableau-de-bord", request.url));
+    return NextResponse.redirect(new URL("/tableau-de-bord", req.nextUrl));
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],

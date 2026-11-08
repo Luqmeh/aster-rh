@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { auth, signOut } from "@/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { getContainer } from "@/infrastructure/container";
 
@@ -10,6 +11,11 @@ export default async function AppLayout({
   const container = getContainer();
   const session = await container.auth.getSession();
   if (!session) {
+    // JWT présent mais identité applicative irrésolue → éviter une boucle middleware/layout.
+    const raw = await auth();
+    if (raw?.user) {
+      await signOut({ redirectTo: "/connexion?error=session" });
+    }
     redirect("/connexion");
   }
   const notifications = await container.hr.listNotifications(

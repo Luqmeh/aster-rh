@@ -84,6 +84,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers,
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user, account }) {
       if (account?.provider === "microsoft-entra-id") {
         const email = user.email?.trim().toLowerCase();
@@ -93,39 +94,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const bySubject = await findAccountByExternalSubject(subject);
         const byEmail = bySubject ?? (await findAccountByEmail(email));
         if (!byEmail || !byEmail.isActive) {
-          // Pas d'auto-inscription / pas d'auto-attribution de rôle.
           return false;
         }
         user.id = byEmail.id;
-        (user as { role?: string }).role = byEmail.role;
-        (user as { employeeId?: string }).employeeId = byEmail.employeeId;
-        (user as { authProvider?: string }).authProvider = "entra_id";
+        user.role = byEmail.role;
+        user.employeeId = byEmail.employeeId;
+        user.authProvider = "entra_id";
         await touchLastLogin(byEmail.id);
         return true;
       }
       return true;
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.userId = user.id;
-        token.role = (user as { role?: string }).role;
-        token.employeeId = (user as { employeeId?: string }).employeeId;
-        token.authProvider = (user as { authProvider?: string }).authProvider;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = String(token.userId ?? token.sub ?? "");
-        (session.user as { role?: string }).role = String(token.role ?? "");
-        (session.user as { employeeId?: string }).employeeId = String(
-          token.employeeId ?? "",
-        );
-        (session.user as { authProvider?: string }).authProvider = String(
-          token.authProvider ?? "credentials",
-        );
-      }
-      return session;
     },
   },
 });

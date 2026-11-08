@@ -18,7 +18,9 @@ export default async function ConnexionPage({
   const entraMessage =
     params.error === "entra_disabled"
       ? "Microsoft Entra ID n'est pas encore configuré par l'équipe IT."
-      : undefined;
+      : params.error === "session"
+        ? "Session invalide ou compte incomplet. Reconnectez-vous."
+        : undefined;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--aster-workspace)] px-4 py-10">

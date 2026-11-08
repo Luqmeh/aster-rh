@@ -27,7 +27,8 @@ Vercel n’offre pas de « release phase » séparée pour ce setup : le moment 
 | `DIRECT_URL` | `POSTGRES_URL_NON_POOLING` | `migrate deploy` | Idem |
 | `ASTER_PERSISTENCE` | manuel = `prisma` | Force Prisma au runtime | Production |
 | `ASTER_MODE` | manuel = `demo` | Mode démonstration (reset UI) | Production |
-| `AUTH_SECRET` | manuel | Secret session Auth.js | Production |
+| `AUTH_SECRET` | manuel | Secret session Auth.js (identique build/runtime) | Production |
+| `AUTH_URL` | manuel recommandé | URL HTTPS canonique (cookies / callbacks) | Production |
 | `ASTER_CREDENTIALS_AUTH` | `1` / `0` | Login temporaire | Production |
 | `ASTER_ENTRA_AUTH` | `0` jusqu’au handover | Active Entra si vars présentes | Production |
 | `ASTER_SEED_PASSWORD` | manuel (seed only) | Hash des comptes seed | Seed one-shot |
