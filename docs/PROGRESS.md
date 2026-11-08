@@ -1,65 +1,64 @@
 # ASTER — Progress Report
 
-**Date:** 7 November 2026  
-**Phase:** 6b — Vercel/Supabase Prisma env mapping  
+**Date:** 8 November 2026  
+**Phase:** 7b — Automated Supabase migrations through Vercel (committed)  
 **Product:** ASTER — Human Resources, connected.  
-**Context:** Board demo preparation (13 November 2026) — demonstration environment, not production HR.
+**Parent commit:** `174fd4973d38507b78b4ff7c7256342816c1e09b`  
+**Context:** Board demo (13 November 2026) — dedicated ASTER Supabase; demo environment only.
 
 ---
 
-## Goal of this iteration
+## Summary
 
-Avoid duplicating Supabase credentials in Vercel while keeping Prisma schema names (`DATABASE_URL`, `DIRECT_URL`) for local `.env.local`, with pooled queries and non-pooled migrations.
-
----
-
-## Compatibility check (before change)
-
-| Item | Result |
-|------|--------|
-| Installed Prisma | `prisma@6.19.3`, `@prisma/client@6.19.3` |
-| Schema `env()` fallback | **Not supported** (Prisma issue #23221; single `env("NAME")` only) |
-| Schema change to `POSTGRES_*` | Rejected — would break local `DATABASE_URL` / `DIRECT_URL` |
-| Chosen approach | Keep schema names; map Vercel vars at runtime + CLI |
+Production Vercel builds now run `prisma migrate deploy` once before `next build`. Preview/local builds skip migrate by default. Demo seed stays a controlled offline command. No remote migration was executed during implementation; quality checks were green before this commit.
 
 ---
 
-## Changes implemented
+## Architecture findings
 
-- Added `database-env.ts`: resolve + apply fallbacks  
-  `POSTGRES_PRISMA_URL` → `DATABASE_URL` (pooled app queries)  
-  `POSTGRES_URL_NON_POOLING` → `DIRECT_URL` (migrations)
-- Explicit local `DATABASE_URL` / `DIRECT_URL` always win (no overwrite).
-- Wired mapping into `getPrismaClient()`, `resolvePersistenceMode()`, `prisma/seed.ts`.
-- CLI wrapper `scripts/with-prisma-env.ts` for `db:migrate`, `db:migrate:dev`, `db:studio`.
-- Docs / `.env.example` / README / AGENTS / ARCHITECTURE updated for Supabase↔Vercel integration.
-- Schema comments document why names stay canonical under Prisma 6.
+| Topic | Finding |
+|-------|---------|
+| Vercel pre-deploy hook | None suitable — use Production build step |
+| Local build | `npm run build` stays offline (`ASTER_BUILD_WITHOUT_DB=1`) |
+| Hosted build | `vercel.json` → `npm run build:vercel` → `scripts/vercel-build.ts` |
+| Queries | Pooled `DATABASE_URL` ← `POSTGRES_PRISMA_URL` |
+| Migrations | Non-pooled `DIRECT_URL` ← `POSTGRES_URL_NON_POOLING` |
+| Serverless | Do not run migrations |
+| Concurrency | One Production build job + Prisma migrate advisory lock |
+| Preview | Skips migrate unless `ASTER_MIGRATE_ON_BUILD=1` on a dedicated DB |
+
+---
+
+## Deployment workflow
+
+**Production (`VERCEL_ENV=production`):** map env → `prisma generate` → `prisma migrate deploy` → fail build on error → `next build`.
+
+**Preview / local `build:vercel`:** migrate skipped (`ASTER_SKIP_MIGRATE=1` also forces skip).
+
+**Seed:** not in pipeline — `npm run db:seed` (`resetMutable: false` only).
 
 ---
 
 ## Files created / modified / deleted
 
 ### Created
-- `src/infrastructure/persistence/database-env.ts`
-- `src/infrastructure/persistence/database-env.test.ts`
-- `scripts/with-prisma-env.ts`
+- `vercel.json`
+- `scripts/vercel-build.ts`
+- `scripts/migrate-on-build-policy.ts`
+- `scripts/migrate-on-build-policy.test.ts`
+- `scripts/load-database-env.ts`
 - `docs/PROGRESS.md` (this file — previous deleted first)
 
 ### Modified
-- `src/infrastructure/persistence/prisma-client.ts`
-- `src/infrastructure/persistence/persistence-mode.ts`
-- `src/infrastructure/persistence/persistence-mode.test.ts`
-- `prisma/seed.ts`
-- `prisma/schema.prisma` (comments only)
-- `package.json` (migrate/studio scripts via wrapper)
-- `.env.example`
-- `docs/DEPLOYMENT.md`
-- `docs/ARCHITECTURE.md`
-- `README.md`
-- `AGENTS.md`
+- `package.json`, `package-lock.json` (`prisma` + `tsx` in `dependencies`; `build:vercel`)
+- `scripts/with-prisma-env.ts`, `prisma/seed.ts`, `vitest.config.ts`
+- `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `README.md`, `.env.example`
 
 ### Deleted
-- Previous `docs/PROGRESS.md` (replaced entirely)
+- Previous `docs/PROGRESS.md`
+
+### Excluded from commit
+- Local notes / secrets (e.g. `docs/git ssh.txt`, `.env*`)
 
 ---
 
@@ -67,44 +66,51 @@ Avoid duplicating Supabase credentials in Vercel while keeping Prisma schema nam
 
 | Package | Change |
 |---------|--------|
-| `prisma` / `@prisma/client` | Unchanged (`^6.19.3`) |
-| New runtime deps | None |
+| `prisma` | Moved to `dependencies` (Vercel production install) |
+| `tsx` | Moved to `dependencies` (build scripts) |
+| New packages | None |
 
 ---
 
-## Actual checks run
+## Environment requirements (Production)
+
+- `POSTGRES_PRISMA_URL` + `POSTGRES_URL_NON_POOLING` (or `DATABASE_URL` + `DIRECT_URL`)
+- `ASTER_PERSISTENCE=prisma`
+- `ASTER_MODE=demo`
+- Optional: `ASTER_MIGRATE_ON_BUILD`, `ASTER_SKIP_MIGRATE`
+
+---
+
+## Security safeguards
+
+- No credential logging (source names only)
+- No secrets committed
+- Production-only migrate by default
+- Hosted runtime refuses silent memory without `ASTER_ALLOW_MEMORY=1`
+
+---
+
+## Checks (already green before commit — not re-run)
 
 | Check | Result |
 |-------|--------|
-| `npm test` | **112 passed**, **1 skipped** (Prisma integration — no `ASTER_TEST_DATABASE_URL`), 18 files |
-| `npm run typecheck` | **Pass** |
-| `npm run lint` | **Pass** |
-| `npm run build` | **Pass** (`ASTER_BUILD_WITHOUT_DB=1`) |
-
-No secrets printed. No Vercel settings modified. No remote migrations executed.
-
----
-
-## Mapping summary
-
-| Required by Prisma | Vercel Supabase source | Purpose | Local |
-|--------------------|------------------------|---------|-------|
-| `DATABASE_URL` | `POSTGRES_PRISMA_URL` | Pooled app queries | Set in `.env.local` |
-| `DIRECT_URL` | `POSTGRES_URL_NON_POOLING` | Migrations / direct | Set in `.env.local` |
-| `ASTER_PERSISTENCE` | Manual `prisma` | Force Prisma mode | Optional locally |
-| `ASTER_MODE` | Manual `demo` | Demo UI / reset | Defaults to `demo` |
+| `npm test` | 117 passed, 1 skipped |
+| `npm run typecheck` | Pass |
+| `npm run lint` | Pass |
+| `npm run build` | Pass |
+| `npm run build:vercel` (local) | Pass — migrate skipped (`VERCEL_ENV=unset`) |
+| Remote migrate | Not executed yet |
 
 ---
 
-## Known issues
+## Known issues / blockers
 
-1. Mapping is applied in-process; raw `npx prisma …` without `npm run db:*` / wrapper will not see `POSTGRES_*` fallbacks.
-2. Integration tests still skip without `ASTER_TEST_DATABASE_URL`.
-3. End-to-end Vercel runtime + migrate against the linked Supabase project not validated from this agent environment.
-4. `ASTER_PERSISTENCE=prisma` and `ASTER_MODE=demo` must still be set manually on Vercel (not generated by Supabase integration).
+1. Schema not applied on Supabase until a Production deploy with this pipeline succeeds.
+2. One controlled `npm run db:seed` still needed after first migrate.
+3. Confirm Vercel dashboard Build Command does not override `vercel.json`.
 
 ---
 
 ## Exact next step
 
-**On Vercel, set only `ASTER_PERSISTENCE=prisma` and `ASTER_MODE=demo` (keep auto-generated `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING`), redeploy, then from a machine with those DB URLs available run `npm run db:migrate && npm run db:seed` and verify Léa→Julien persistence across reload.**
+**Confirm Vercel Production env (`POSTGRES_*`, `ASTER_PERSISTENCE=prisma`, `ASTER_MODE=demo`), let the Production deploy run `migrate deploy`, verify build logs, then run one `npm run db:seed` and validate Léa→Julien persistence.**

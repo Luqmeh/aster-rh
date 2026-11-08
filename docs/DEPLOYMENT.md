@@ -1,37 +1,66 @@
 # ASTER — Déploiement et persistance PostgreSQL
 
-Guide pour préparer la démo board sur Vercel avec persistance Prisma/Supabase.
+Guide pour la démo board sur Vercel avec Prisma + projet Supabase **dédié ASTER**.
 
 > Environnement de **démonstration** — pas un SI RH de production pour données confidentielles.
 
-## Prérequis
+## Architecture de déploiement (audit)
 
-1. Projet Supabase (ou PostgreSQL compatible) **dédié à ASTER**.
-2. Compte Vercel pour l’application Next.js.
-3. Variables d’environnement (jamais committer les secrets).
+| Élément | Comportement |
+|---------|----------------|
+| Framework | Next.js 16 App Router sur Vercel |
+| Build local / CI offline | `npm run build` → `ASTER_BUILD_WITHOUT_DB=1 next build` (sans DB) |
+| Build Vercel | `vercel.json` → `npm run build:vercel` → `scripts/vercel-build.ts` |
+| Migrations | `prisma migrate deploy` **uniquement** si `VERCEL_ENV=production` (ou `ASTER_MIGRATE_ON_BUILD=1`) |
+| Runtime app | Requêtes via `DATABASE_URL` ← `POSTGRES_PRISMA_URL` (poolée) |
+| Migrations CLI | `DIRECT_URL` ← `POSTGRES_URL_NON_POOLING` (non poolée) |
+| Serverless instances | **Ne migrent pas** — aucun hook dans les fonctions |
+| Seed démo | **Hors pipeline** — commande contrôlée `npm run db:seed` |
 
-## Variables requises (runtime hébergé)
+Vercel n’offre pas de « release phase » séparée pour ce setup : le moment sûr et simple est la **machine de build Production**, avant que la nouvelle version ne reçoive du trafic. Un échec de migrate fait échouer le build → l’ancien déploiement reste en service.
 
-| Variable Prisma (schéma) | Source Vercel (intégration Supabase) | Rôle |
-|--------------------------|--------------------------------------|------|
-| `DATABASE_URL` | `POSTGRES_PRISMA_URL` (si `DATABASE_URL` absent) | URL poolée — runtime / requêtes applicatives |
-| `DIRECT_URL` | `POSTGRES_URL_NON_POOLING` (si `DIRECT_URL` absent) | URL directe — `prisma migrate` |
-| `ASTER_PERSISTENCE` | *(manuel)* `prisma` recommandé | Force le mode Prisma |
-| `ASTER_MODE` | *(manuel)* `demo` | Mode démonstration |
+## Variables d’environnement
 
-Le schéma Prisma 6 n’accepte qu’un `env("…")` par champ. ASTER conserve `DATABASE_URL` / `DIRECT_URL` et applique le mapping via `database-env.ts` (runtime) et `scripts/with-prisma-env.ts` (CLI migrate/studio). **Pas besoin de dupliquer** les credentials Supabase dans Vercel.
+| Variable Prisma | Source Vercel (intégration Supabase) | Rôle | Portée recommandée |
+|-----------------|--------------------------------------|------|--------------------|
+| `DATABASE_URL` | `POSTGRES_PRISMA_URL` | Requêtes applicatives poolées | Production (+ Preview seulement si base Preview **séparée**) |
+| `DIRECT_URL` | `POSTGRES_URL_NON_POOLING` | `migrate deploy` | Idem |
+| `ASTER_PERSISTENCE` | manuel = `prisma` | Force Prisma au runtime | Production |
+| `ASTER_MODE` | manuel = `demo` | Mode démonstration | Production |
+| `ASTER_MIGRATE_ON_BUILD` | optionnel `1` | Force migrate hors Production | Uniquement avec DB dédiée |
+| `ASTER_SKIP_MIGRATE` | optionnel `1` | Désactive migrate même en Production | Secours temporaire |
 
-Optionnel : `ASTER_ALLOW_MEMORY=1` uniquement en secours local — **interdit** pour la démo board.
+**Cible des migrations automatiques : Production uniquement.**  
+Les Preview qui partagent les `POSTGRES_*` de Production **ne migrent pas** (garde-fou). Ne branchez pas Preview sur la base board sans base séparée + `ASTER_MIGRATE_ON_BUILD=1` assumé.
 
-## Checklist base de données
+Le schéma Prisma 6 n’accepte qu’un `env("…")` par champ ; le mapping est dans `database-env.ts` / `load-database-env.ts`.
 
-1. Créer un projet PostgreSQL **ASTER** (ne pas réutiliser une autre base métier).
-2. **Local** : copier `.env.example` → `.env.local` et renseigner `DATABASE_URL` + `DIRECT_URL`.
-3. **Vercel** : connecter le projet via l’intégration Supabase officielle (`POSTGRES_PRISMA_URL` + `POSTGRES_URL_NON_POOLING` générés automatiquement). Définir aussi `ASTER_PERSISTENCE=prisma` et `ASTER_MODE=demo`.
-4. Générer le client : `npm run db:generate`
-5. Appliquer les migrations : `npm run db:migrate` (`prisma migrate deploy` via mapping env)
-6. Seed idempotent : `npm run db:seed`
-7. Vérifier Studio : `npm run db:studio` (local)
+## Pipeline Production (Phase 7b)
+
+Sur chaque déploiement **Production** (`main` → Vercel) :
+
+1. Install + `postinstall` → `prisma generate`
+2. `build:vercel` :
+   - charge l’env / mappe `POSTGRES_*`
+   - si Production : `prisma generate` + `prisma migrate deploy` (verrou Prisma `_prisma_migrations` / advisory lock)
+   - puis `ASTER_BUILD_WITHOUT_DB=1 next build`
+3. Vercel active le nouveau déploiement seulement si le build réussit
+
+**Interdit** contre la base board : `migrate dev`, `migrate reset`, `db push`.
+
+## Seed démo (hors déploiement)
+
+`npm run db:seed` utilise `resetMutable: false` (upserts idempotents sur les IDs seed).  
+Ce n’est **pas** lancé par `build:vercel`, car les upserts réécrivent l’état des lignes seed et ne doivent pas s’exécuter à chaque deploy.
+
+Déclenchement contrôlé (après premier migrate réussi) :
+
+```bash
+# Machine locale avec .env.local pointant vers le projet Supabase ASTER uniquement
+npm run db:seed
+```
+
+Reset destructif des tables mutables : UI **Paramètres** (`ASTER_MODE=demo`) uniquement — jamais dans le pipeline.
 
 ## Développement local
 
@@ -39,34 +68,36 @@ Sans PostgreSQL :
 
 ```bash
 ASTER_PERSISTENCE=memory npm run dev
+npm run build   # offline OK
 ```
 
-Avec PostgreSQL :
+Avec PostgreSQL ASTER :
 
 ```bash
-# .env.local avec DATABASE_URL + DIRECT_URL
-ASTER_PERSISTENCE=prisma npm run db:migrate
+# .env.local : DATABASE_URL + DIRECT_URL (projet ASTER uniquement)
+npm run db:migrate
 npm run db:seed
-npm run dev
+ASTER_PERSISTENCE=prisma npm run dev
 ```
 
-## Vercel (préparation — ne pas déployer avant validation DB)
+## Checklist Vercel
 
-1. Relier le dépôt Git.
-2. Intégration Supabase : variables `POSTGRES_*` générées automatiquement.
-3. Ajouter `ASTER_PERSISTENCE=prisma` et `ASTER_MODE=demo` (Production + Preview si besoin).
-4. Build command : `npm run build` (déjà `ASTER_BUILD_WITHOUT_DB=1` pour le build offline).
-5. Après premier deploy réussi avec les URLs DB : exécuter migrations + seed via machine locale / CI pointant vers la même base ASTER (le mapping lit aussi `POSTGRES_*` si exportées) :
-   - `npm run db:migrate`
-   - `npm run db:seed`
-6. Contrôler le parcours Léa → Julien (congés + télétravail) puis redémarrer / recharger : les données doivent rester.
+1. Intégration Supabase officielle → `POSTGRES_PRISMA_URL` + `POSTGRES_URL_NON_POOLING` (Production).
+2. Ajouter `ASTER_PERSISTENCE=prisma` et `ASTER_MODE=demo` (Production).
+3. Confirmer `vercel.json` `buildCommand` = `npm run build:vercel` (pas d’override dashboard contradictoire).
+4. Pousser sur `main` → build Production → logs : `ASTER migrate deploy` puis Next build.
+5. Une fois les tables créées : `npm run db:seed` une fois (contrôlé).
+6. Parcours Léa → Julien + reload.
+
+## Sécurité
+
+- Jamais de secrets dans le dépôt ; pas d’echo des URLs.
+- URLs DB uniquement serveur (jamais `NEXT_PUBLIC_*`).
+- Projet Supabase **ASTER** uniquement — ne pas reconfigurer d’autres projets.
+- Preview ne doit pas migrer la base Production partagée.
 
 ## Ce qui n’est pas encore validé
 
-- Connexion réelle à une base ASTER depuis cet environnement d’agent.
-- Déploiement Vercel effectif après mapping.
-- Tests d’intégration Prisma (nécessitent `ASTER_TEST_DATABASE_URL` isolée).
-
-## Reset démo
-
-Dans l’UI **Paramètres** (uniquement si `ASTER_MODE=demo`) : réinitialise les tables ASTER seedées (congés, télétravail, notifications, documents) puis ré-applique le seed. Ne constitue **pas** un drop de base général.
+- Exécution réelle d’un `migrate deploy` réussi sur Supabase ASTER via un déploiement Production Vercel.
+- Seed initial sur la base hébergée.
+- Tests d’intégration Prisma (`ASTER_TEST_DATABASE_URL`).

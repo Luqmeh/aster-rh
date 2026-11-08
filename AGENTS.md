@@ -14,7 +14,7 @@ Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : ve
 4. **Langue** — tout texte utilisateur en français.
 5. **Architecture** — logique métier hors composants UI ; ports/adaptateurs pour auth, e-mail, stockage, paie.
 6. **Secrets** — pas de `.env` commités ; placeholders dans `.env.example` uniquement.
-7. **Build** — Vercel / `next build` ne doit pas dépendre d’une base locale.
+7. **Build** — `npm run build` local reste offline (`ASTER_BUILD_WITHOUT_DB=1`). Sur Vercel Production, `npm run build:vercel` exécute `prisma migrate deploy` puis le build Next (voir `docs/DEPLOYMENT.md`).
 
 ## Où modifier quoi
 
@@ -33,8 +33,8 @@ Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : ve
 - Cookie `aster_demo_identity`
 - Persistance : mémoire (`demo-store`) en local **ou** Prisma/PostgreSQL si `DATABASE_URL` / `POSTGRES_PRISMA_URL` / `ASTER_PERSISTENCE=prisma` (Vercel Supabase : mapping auto vers `DATABASE_URL` + `DIRECT_URL`)
 - Composition : `src/infrastructure/container.ts`
-- Seed / reset démo : `src/infrastructure/persistence/demo-data-lifecycle.ts` + `npm run db:seed`
-- Déploiement : `docs/DEPLOYMENT.md`
+- Seed / reset démo : `src/infrastructure/persistence/demo-data-lifecycle.ts` + `npm run db:seed` (hors pipeline Vercel)
+- Déploiement : `docs/DEPLOYMENT.md` — migrations Production via `scripts/vercel-build.ts`
 
 ## Tests
 

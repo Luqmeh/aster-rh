@@ -77,7 +77,7 @@ Les autres modules affichent une **interface planifiée** clairement identifiée
   ASTER_PERSISTENCE=prisma npm run dev
   ```
 - Guide : [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
-- `npm run build` reste possible sans base ; le runtime Vercel board-demo **doit** utiliser PostgreSQL.
+- `npm run build` reste offline ; sur Vercel Production, `build:vercel` applique `prisma migrate deploy` puis compile. Seed = `npm run db:seed` (hors pipeline).
 
 ## Sécurité
 

@@ -47,12 +47,12 @@ Composition : `src/infrastructure/container.ts`.
 
 1. Provisionner un PostgreSQL **dédié ASTER** (Supabase recommandé).
 2. Renseigner `DATABASE_URL` (pooler) + `DIRECT_URL` (migrations), ou sur Vercel laisser `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING` (mapping auto) — voir `.env.example` et `docs/DEPLOYMENT.md`.
-3. `npm run db:migrate` puis `npm run db:seed`.
-4. Le container (`src/infrastructure/container.ts`) branche `prismaHrRepository` lorsque `ASTER_PERSISTENCE=prisma` ou qu’une `DATABASE_URL` est définie.
+3. Local : `npm run db:migrate` puis `npm run db:seed` (contrôlé). Production Vercel : `migrate deploy` dans `build:vercel` (Production only) ; seed **hors** pipeline.
+4. Le container (`src/infrastructure/container.ts`) branche `prismaHrRepository` lorsque `ASTER_PERSISTENCE=prisma` ou qu’une `DATABASE_URL` / `POSTGRES_PRISMA_URL` est définie.
 5. En production/Vercel, la mémoire est **refusée** (sauf secours explicite `ASTER_ALLOW_MEMORY=1`).
 6. Le calendrier RH reste **dérivé** des congés / télétravail (pas de table d’événements dupliquée).
 
-Le build Vercel (`ASTER_BUILD_WITHOUT_DB=1`) reste possible sans base ; le **runtime** hébergé exige PostgreSQL pour la démo durable.
+Le build local (`npm run build`) reste offline ; le build Vercel Production migre puis compile ; le **runtime** hébergé exige PostgreSQL pour la démo durable.
 
 ## Auth future (Entra ID)
 

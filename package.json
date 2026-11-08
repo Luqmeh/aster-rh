@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "ASTER_BUILD_WITHOUT_DB=1 next build",
+    "build:vercel": "tsx scripts/vercel-build.ts",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -35,9 +36,11 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
+    "prisma": "^6.19.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^3.7.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -47,9 +50,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
-    "prisma": "^6.19.3",
     "tailwindcss": "^4",
-    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^3.2.7"
   }

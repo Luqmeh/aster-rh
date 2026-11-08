@@ -1,12 +1,30 @@
 /**
- * Applique le mapping Vercel Supabase → noms Prisma, puis exécute la CLI Prisma.
+ * Charge l’env locale, applique le mapping Vercel Supabase → noms Prisma,
+ * puis exécute la CLI Prisma.
  * Usage : tsx scripts/with-prisma-env.ts migrate deploy
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { applyPrismaDatabaseEnvFallbacks } from "../src/infrastructure/persistence/database-env";
+import {
+  getDatabaseEnvReadiness,
+  loadDatabaseEnv,
+} from "./load-database-env";
 
-applyPrismaDatabaseEnvFallbacks();
+loadDatabaseEnv();
+
+const readiness = getDatabaseEnvReadiness();
+if (!readiness.hasDatabaseUrl || !readiness.hasDirectUrl) {
+  console.error(
+    "Variables DB manquantes pour Prisma. Attendu : DATABASE_URL + DIRECT_URL (local) ou POSTGRES_PRISMA_URL + POSTGRES_URL_NON_POOLING (Vercel/Supabase).",
+  );
+  console.error(
+    `État : database=${readiness.sourceDatabase}, direct=${readiness.sourceDirect}`,
+  );
+  console.error(
+    "Placez les credentials du projet Supabase ASTER dédié dans .env.local (gitignored), puis réessayez.",
+  );
+  process.exit(1);
+}
 
 const prismaArgs = process.argv.slice(2);
 if (prismaArgs.length === 0) {
