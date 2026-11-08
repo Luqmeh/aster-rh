@@ -11,7 +11,7 @@ import {
   type PersistenceMode,
 } from "@/infrastructure/persistence/persistence-mode";
 import { prismaHrRepository } from "@/infrastructure/persistence/prisma-hr-repository";
-import { mockDocumentStorage } from "@/infrastructure/storage/mock-storage";
+import { createDocumentStorage } from "@/infrastructure/storage/supabase-storage";
 import type { DocumentStoragePort } from "@/infrastructure/storage/types";
 
 /**
@@ -34,7 +34,7 @@ export function getContainer(): AppContainer {
     auth: sessionAuth,
     hr,
     email: mockEmail,
-    storage: mockDocumentStorage,
+    storage: createDocumentStorage(),
     payroll: mockPayroll,
     persistence,
   };

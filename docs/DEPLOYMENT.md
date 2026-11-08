@@ -34,6 +34,11 @@ Vercel n’offre pas de « release phase » séparée pour ce setup : le moment 
 | `ASTER_SEED_PASSWORD` | manuel (seed only) | Hash des comptes seed | Seed one-shot |
 | `ASTER_MIGRATE_ON_BUILD` | optionnel `1` | Force migrate hors Production | Uniquement avec DB dédiée |
 | `ASTER_SKIP_MIGRATE` | optionnel `1` | Désactive migrate même en Production | Secours temporaire |
+| `NEXT_PUBLIC_SUPABASE_URL` | manuel | URL projet Supabase (Storage CV) | Production |
+| `SUPABASE_SERVICE_ROLE_KEY` | manuel **secret** | Upload / signed URLs serveur | Production (jamais `NEXT_PUBLIC_`) |
+| `ASTER_STORAGE_BUCKET` | optionnel | Bucket privé (défaut `aster-private-docs`) | Production |
+
+**Storage recrutement :** créer un bucket **privé** `aster-private-docs` dans Supabase Storage. Les CV sont servis uniquement via URL signée courte côté serveur (`docs/RECRUITMENT.md`).
 
 **Cible des migrations automatiques : Production uniquement.**  
 Les Preview qui partagent les `POSTGRES_*` de Production **ne migrent pas** (garde-fou). Ne branchez pas Preview sur la base board sans base séparée + `ASTER_MIGRATE_ON_BUILD=1` assumé.

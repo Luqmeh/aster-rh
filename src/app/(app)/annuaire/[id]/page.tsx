@@ -3,12 +3,20 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createEmployeeService } from "@/application/services/employee-service";
 import { HrEmployeeForm } from "@/components/modules/hr-employee-form";
+import { LifecycleRoleControls } from "@/components/modules/lifecycle-role-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { canBrowseDirectory, canManageEmployees } from "@/domain/rules/permissions";
+import { employmentStatusLabel } from "@/domain/rules/lifecycle";
+import {
+  canBrowseDirectory,
+  canManageEmployees,
+  canManageLifecycle,
+  hasPermission,
+} from "@/domain/rules/permissions";
+import { findAccountByEmployeeId } from "@/infrastructure/auth/account-store";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, fullName } from "@/lib/utils";
 
@@ -33,16 +41,24 @@ export default async function EmployeeProfilePage({
     notFound();
   }
 
-  const [departments, employees, docs] = await Promise.all([
+  const [departments, employees, docs, account] = await Promise.all([
     container.hr.listDepartments(),
     container.hr.listEmployees({ includeInactive: true }),
     container.hr.listDocuments(employee.id),
+    findAccountByEmployeeId(employee.id),
   ]);
   const dept = departments.find((d) => d.id === employee.departmentId);
   const manager = employee.managerId
     ? employees.find((e) => e.id === employee.managerId) ?? null
     : null;
   const canManage = canManageEmployees(session.role);
+  const canLifecycle = canManageLifecycle(session.role);
+  const canAssignAll = hasPermission(session.role, "account.role.assign_all");
+  const canEditRole =
+    Boolean(account) &&
+    (canAssignAll ||
+      (hasPermission(session.role, "account.role.assign_collaborateur") &&
+        account?.role === "collaborateur"));
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -71,11 +87,17 @@ export default async function EmployeeProfilePage({
               <Badge variant="secondary">
                 {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
               </Badge>
-              {employee.isActive ? (
-                <Badge variant="success">Actif</Badge>
-              ) : (
-                <Badge variant="danger">Inactif</Badge>
-              )}
+              <Badge
+                variant={
+                  employee.employmentStatus === "actif"
+                    ? "success"
+                    : employee.employmentStatus === "parti"
+                      ? "danger"
+                      : "secondary"
+                }
+              >
+                {employmentStatusLabel(employee.employmentStatus)}
+              </Badge>
               <Badge variant="outline">{employee.id}</Badge>
             </div>
           </div>
@@ -130,6 +152,24 @@ export default async function EmployeeProfilePage({
           </CardContent>
         </Card>
       </div>
+
+      {canManage || canLifecycle ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cycle de vie et rôle</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LifecycleRoleControls
+              employeeId={employee.id}
+              employmentStatus={employee.employmentStatus}
+              currentRole={account?.role ?? null}
+              canManageLifecycle={canLifecycle}
+              canAssignPrivilegedRoles={canAssignAll}
+              canEditRole={canEditRole}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {canManage ? (
         <Card>

@@ -2,12 +2,16 @@ import type {
   ContractType,
   Employee,
   EmployeeCategory,
+  EmploymentStatus,
   HrDocument,
   LeaveBalance,
   LeaveRequest,
   LeaveType,
   NotificationItem,
   OrganizationUnit,
+  RecruitmentCandidate,
+  RecruitmentEvent,
+  RecruitmentStatus,
   RequestStatus,
   TeleworkRequest,
   TeleworkType,
@@ -50,6 +54,9 @@ type PrismaEmployee = {
   contractType: ContractType;
   category: EmployeeCategory;
   hireDate: Date;
+  employmentStatus: EmploymentStatus;
+  departureDate: Date | null;
+  departureNote: string | null;
   isActive: boolean;
   phoneInternal: string | null;
   avatarInitials: string;
@@ -144,11 +151,90 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     contractType: row.contractType,
     category: row.category,
     hireDate: utcToDateOnly(row.hireDate),
+    employmentStatus: row.employmentStatus,
+    departureDate: row.departureDate
+      ? utcToDateOnly(row.departureDate)
+      : null,
+    departureNote: row.departureNote,
     isActive: row.isActive,
     phoneInternal: row.phoneInternal,
     avatarInitials: row.avatarInitials,
     teleworkEligible: row.teleworkEligible,
     teleworkDaysPerWeek: row.teleworkDaysPerWeek,
+  };
+}
+
+type PrismaRecruitmentCandidate = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  positionTitle: string;
+  departmentId: string | null;
+  cvStorageKey: string | null;
+  cvFileName: string | null;
+  cvContentType: string | null;
+  hrNotes: string | null;
+  status: RecruitmentStatus;
+  submittedAt: Date | null;
+  createdByEmployeeId: string;
+  decidedByEmployeeId: string | null;
+  decisionComment: string | null;
+  decidedAt: Date | null;
+  interviewerEmployeeId: string | null;
+  assignedByEmployeeId: string | null;
+  assignedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PrismaRecruitmentEvent = {
+  id: string;
+  candidateId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: Date;
+};
+
+export function mapRecruitmentCandidate(
+  row: PrismaRecruitmentCandidate,
+): RecruitmentCandidate {
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    email: row.email,
+    phone: row.phone,
+    positionTitle: row.positionTitle,
+    departmentId: row.departmentId,
+    cvStorageKey: row.cvStorageKey,
+    cvFileName: row.cvFileName,
+    cvContentType: row.cvContentType,
+    hrNotes: row.hrNotes,
+    status: row.status,
+    submittedAt: row.submittedAt ? utcToIso(row.submittedAt) : null,
+    createdByEmployeeId: row.createdByEmployeeId,
+    decidedByEmployeeId: row.decidedByEmployeeId,
+    decisionComment: row.decisionComment,
+    decidedAt: row.decidedAt ? utcToIso(row.decidedAt) : null,
+    interviewerEmployeeId: row.interviewerEmployeeId,
+    assignedByEmployeeId: row.assignedByEmployeeId,
+    assignedAt: row.assignedAt ? utcToIso(row.assignedAt) : null,
+    createdAt: utcToIso(row.createdAt),
+    updatedAt: utcToIso(row.updatedAt),
+  };
+}
+
+export function mapRecruitmentEvent(
+  row: PrismaRecruitmentEvent,
+): RecruitmentEvent {
+  return {
+    id: row.id,
+    candidateId: row.candidateId,
+    kind: row.kind,
+    message: row.message,
+    actorId: row.actorId,
+    createdAt: utcToIso(row.createdAt),
   };
 }
 

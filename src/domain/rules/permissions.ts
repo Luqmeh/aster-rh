@@ -13,6 +13,10 @@ export type Permission =
   | "employee.record.view_self"
   | "employee.record.manage"
   | "employee.record.edit_personal"
+  | "employee.provision"
+  | "employee.lifecycle"
+  | "account.role.assign_all"
+  | "account.role.assign_collaborateur"
   | "hr.administration"
   | "org.manage"
   | "request.leave.view_own"
@@ -23,6 +27,11 @@ export type Permission =
   | "request.telework.view_all"
   | "request.telework.submit"
   | "request.telework.approve"
+  | "recruitment.create"
+  | "recruitment.view_all"
+  | "recruitment.decide"
+  | "recruitment.assign_interviewer"
+  | "recruitment.view_assigned"
   | "dashboard.hr"
   | "dashboard.management";
 
@@ -32,6 +41,10 @@ const CHEF: Permission[] = [
   "employee.record.view_self",
   "employee.record.manage",
   "employee.record.edit_personal",
+  "employee.provision",
+  "employee.lifecycle",
+  "account.role.assign_all",
+  "account.role.assign_collaborateur",
   "hr.administration",
   "org.manage",
   "request.leave.view_own",
@@ -42,6 +55,11 @@ const CHEF: Permission[] = [
   "request.telework.view_all",
   "request.telework.submit",
   "request.telework.approve",
+  "recruitment.create",
+  "recruitment.view_all",
+  "recruitment.decide",
+  "recruitment.assign_interviewer",
+  "recruitment.view_assigned",
   "dashboard.hr",
   "dashboard.management",
 ];
@@ -52,6 +70,9 @@ const HR: Permission[] = [
   "employee.record.view_self",
   "employee.record.manage",
   "employee.record.edit_personal",
+  "employee.provision",
+  "employee.lifecycle",
+  "account.role.assign_collaborateur",
   "hr.administration",
   "org.manage",
   "request.leave.view_own",
@@ -60,8 +81,10 @@ const HR: Permission[] = [
   "request.telework.view_own",
   "request.telework.view_all",
   "request.telework.submit",
+  "recruitment.create",
+  "recruitment.view_all",
   "dashboard.hr",
-  // pas de *.approve
+  // pas de *.approve / recruitment.decide
 ];
 
 const EMPLOYEE: Permission[] = [
@@ -71,6 +94,7 @@ const EMPLOYEE: Permission[] = [
   "request.leave.submit",
   "request.telework.view_own",
   "request.telework.submit",
+  "recruitment.view_assigned",
 ];
 
 const ROLE_PERMISSIONS: Record<DemoRole, ReadonlySet<Permission>> = {
@@ -142,4 +166,28 @@ export function roleLabel(role: DemoRole): string {
     collaborateur: "Collaborateur",
   };
   return labels[role];
+}
+
+export function canProvisionEmployees(role: DemoRole): boolean {
+  return hasPermission(role, "employee.provision");
+}
+
+export function canManageLifecycle(role: DemoRole): boolean {
+  return hasPermission(role, "employee.lifecycle");
+}
+
+export function canDecideRecruitment(role: DemoRole): boolean {
+  return hasPermission(role, "recruitment.decide");
+}
+
+export function canManageRecruitment(role: DemoRole): boolean {
+  return hasPermission(role, "recruitment.create");
+}
+
+export function canViewAllRecruitment(role: DemoRole): boolean {
+  return hasPermission(role, "recruitment.view_all");
+}
+
+export function canAssignInterviewer(role: DemoRole): boolean {
+  return hasPermission(role, "recruitment.assign_interviewer");
 }

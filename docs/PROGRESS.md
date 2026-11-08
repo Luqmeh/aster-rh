@@ -1,79 +1,82 @@
 # ASTER — Progress Report
 
-**Phase :** 9 — Employee Directory, Profiles & Definitive Role Hierarchy  
+**Phase :** 10 — Employee Lifecycle, Account Provisioning & Recruitment Interviews  
 **Date :** 8 novembre 2026  
 **Branche :** `main`
 
-## Implemented functionality
+## Part A — completed functionality
 
-- Central permission matrix in `src/domain/rules/permissions.ts` with reusable checks (`canApproveRequests`, `canBrowseDirectory`, `canManageEmployees`, `canViewAllRequests`, etc.).
-- Definitive three-role hierarchy enforced in approvals, leave/telework services, server actions, middleware, navigation and calendars.
-- Persistent employee directory (`/annuaire`) with search, department / team / status filters, empty state and profile links.
-- Employee profiles (`/annuaire/[id]`) with full HR record management for Chef de projet and RH.
-- Personal profile (`/profil`) with self-service edit of permitted fields (phone, site).
-- HR can view leave and telework queues without approval buttons or server-side decide rights.
-- Chef de projet can approve/reject globally and access all HR administration.
+- Employee onboarding (`/annuaire/nouveau`) with validation (id, email, duplicates).
+- Secure `UserAccount` provisioning (credentials + temporary password via e-mail mock).
+- Role assignment rules: RH → Collaborateur only; Chef de projet → all roles.
+- Safeguard against removing the last Chef de projet access.
+- Lifecycle statuses: `actif` / `inactif` / `parti` with confirmation UI.
+- Deactivation / departure disables `UserAccount.isActive` (login blocked) while preserving historical leave/telework/notifications.
+- `RoleChangeAudit` history (target, previous/new role, actor, timestamp).
 
-## Definitive role hierarchy
+## Part B — completed functionality
 
-1. **Chef de projet** (`chef_de_projet`) — all HR permissions + all approval/rejection capabilities, global scope.
-2. **Ressources humaines** (`admin_rh`) — directory, employee management, request visibility, no decisions.
-3. **Collaborateur** (`collaborateur`) — own profile and self-service only.
+- Recruitment candidate model (external, no auto Employee).
+- HR create/edit draft, CV upload, notes, submit for review.
+- Chef de projet approve/reject (server-enforced; RH blocked).
+- Interviewer assignment with explicit **Appliquer**.
+- Interview history / pending review views under `/entretiens`.
+- Assigned collaborateur sees only their assignments; CV via short-lived signed URL / mock private URL.
+- Events + notifications for submission, decision, assignment.
 
-French labels: Chef de projet / Ressources humaines / Collaborateur.
+## Database migrations
 
-## Permission changes
+`prisma/migrations/20261108200000_employee_lifecycle_and_recruitment/`
 
-- Removed lower-privilege Manager role from application roles (`DemoRole`).
-- Approvals: only `chef_de_projet` via `assertCanDecideRequest` / `canApproveRequests`.
-- RH: view-all on leave/telework; decide actions throw AuthError server-side.
-- Directory: Chef de projet + RH only; collaborators redirected to `/profil`.
-- Administration route: Chef de projet + RH.
-- Calendar/dashboard: global people scope for Chef de projet and RH.
+- `EmploymentStatus` + employee departure fields
+- `RoleChangeAudit`
+- `RecruitmentCandidate` + `RecruitmentEvent`
+- No DROP/TRUNCATE of business data; existing `isActive` mapped to `employmentStatus`
 
-## Files and database changes
+## Files changed (high level)
 
-**Core**
-- `src/domain/rules/permissions.ts` (+ tests)
-- `src/domain/rules/approvals.ts` (+ tests)
-- `src/domain/types/hr.ts` (`DemoRole`)
-- `src/infrastructure/auth/authorization.ts`, `session-auth.ts`, `middleware.ts`
-- `src/application/services/{leave,telework,dashboard,calendar,employee}-service.ts`
-- `src/app/actions/{leave,telework,employee}.ts`
-- `src/infrastructure/persistence/{hr-repository,demo-hr-repository,prisma-hr-repository}.ts` (`updateEmployee`, `includeInactive`)
-- UI: `/annuaire`, `/annuaire/[id]`, `/profil`, `/conges`, `/teletravail`, `/administration`, `/tableau-de-bord`, `/calendrier`
-- `src/lib/navigation.ts`, seed/demo accounts, docs matrix/guide/roadmap/architecture/HR requirements
+- Domain: `permissions`, `lifecycle`, `role-assignment`, `recruitment`, `hr` types
+- Services: `employee-provisioning-service`, `recruitment-service` (+ tests)
+- Persistence: schema, repos, mappers, demo-store
+- Auth: `account-store` create/update
+- Storage: `DocumentStoragePort` + Supabase adapter + mock
+- UI: annuaire onboarding/lifecycle, `/entretiens/*`
+- Docs: README, ARCHITECTURE, DEPLOYMENT, AUTHORIZATION_MATRIX, RECRUITMENT
 
-**Database**
-- Prisma enum migration `prisma/migrations/20261108193000_role_hierarchy_chef_de_projet/`
-  - `manager` → `chef_de_projet` (no DROP/TRUNCATE of business data)
-- Seed: Julien = Chef de projet, Camille = RH, Léa = Collaborateur
+## Dependencies
 
-## Tests and results
+- Added: `@supabase/supabase-js@2` (Storage signed URLs / private uploads)
+
+## Test results
 
 ```text
 npm test
-Test Files  23 passed (23)
-Tests       137 passed | 1 skipped (138)
+Test Files  26 passed (26)
+Tests       149 passed | 1 skipped (150)
 ```
-
-Coverage added/updated for permissions, approvals, approval workflows, employee directory/profiles, authorization routes.
 
 ## Typecheck / lint / build
 
 ```text
-npm run typecheck  → OK
-npm run lint       → OK
-npm run build      → OK (Next.js 16.4.5 production build)
+npm run typecheck → OK
+npm run lint      → OK
+npm run build     → OK
 ```
 
-## Remaining issues
+## Storage configuration requirements
 
-- Organizational “team” filter uses hierarchical `managerId` (no separate Team entity in schema).
-- Create-employee UI not exposed yet (update/deactivate available); provisioning remains seed/admin controlled so Chef de projet cannot be self-assigned.
-- Apply migration + reseed on deployed Postgres if not already migrated.
+1. Create private Supabase bucket `aster-private-docs` (or set `ASTER_STORAGE_BUCKET`).
+2. Set `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (server only).
+3. Without these vars, CV storage falls back to in-memory mock (dev/demo).
 
-## Exact next recommended phase
+## Remaining limitations
 
-**Phase 10 — Employee provisioning & org structure hardening**  
-Add controlled employee creation / deactivation flows for Chef de projet & RH, optional Team entity if required by PKF org chart, and Entra ID account linking without changing the definitive role hierarchy.
+- Interview “planifié / terminé” statuses exist but scheduling UI is minimal (assignment is the main path).
+- Chef notifications on submit rely on account role lookup (+ seed Julien fallback in memory mode).
+- No bulk import / Entra auto-provisioning for new hires beyond credentials accounts.
+- Apply Production migrate via existing Vercel pipeline before relying on new tables.
+
+## Exact next recommended implementation phase
+
+**Phase 11 — Interview scheduling & outcome capture**  
+Planify interview slots, capture interviewer compte rendu, mark `entretien_termine`, and optional conversion path from approved candidate → employee onboarding without hierarchy changes.

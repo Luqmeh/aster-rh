@@ -17,7 +17,7 @@ export type DirectoryFilters = {
   q?: string;
   departmentId?: string;
   managerId?: string;
-  status?: "actif" | "inactif" | "tous";
+  status?: "actif" | "inactif" | "parti" | "tous";
 };
 
 export type PersonalProfilePatch = Partial<
@@ -62,8 +62,11 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
       requireDirectoryAccess(session);
       const [employees, departments] = await Promise.all([
         deps.hr.listEmployees({
-          includeInactive:
-            filters.status === "inactif" || filters.status === "tous",
+          includeInactive: filters.status !== "actif",
+          employmentStatus:
+            filters.status && filters.status !== "tous"
+              ? filters.status
+              : undefined,
         }),
         deps.hr.listDepartments(),
       ]);
@@ -78,8 +81,6 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         if (filters.managerId && e.managerId !== filters.managerId) {
           return false;
         }
-        if (filters.status === "actif" && !e.isActive) return false;
-        if (filters.status === "inactif" && e.isActive) return false;
 
         const manager = e.managerId ? byId[e.managerId] : null;
         const managerName = manager

@@ -14,8 +14,12 @@ import type {
   LeaveRequest,
   NotificationItem,
   OrganizationUnit,
+  RecruitmentCandidate,
+  RecruitmentEvent,
+  RoleChangeAuditEntry,
   TeleworkRequest,
 } from "@/domain/types/hr";
+import type { StoredUserAccount } from "@/infrastructure/auth/account-store";
 
 export interface DemoStore {
   departments: OrganizationUnit[];
@@ -25,6 +29,10 @@ export interface DemoStore {
   teleworkRequests: TeleworkRequest[];
   notifications: NotificationItem[];
   documents: HrDocument[];
+  recruitmentCandidates: RecruitmentCandidate[];
+  recruitmentEvents: RecruitmentEvent[];
+  roleChangeAudits: RoleChangeAuditEntry[];
+  accounts: StoredUserAccount[];
 }
 
 declare global {
@@ -40,6 +48,10 @@ function cloneStore(): DemoStore {
     teleworkRequests: structuredClone(teleworkRequests),
     notifications: structuredClone(notifications),
     documents: structuredClone(documents),
+    recruitmentCandidates: [],
+    recruitmentEvents: [],
+    roleChangeAudits: [],
+    accounts: [],
   };
 }
 

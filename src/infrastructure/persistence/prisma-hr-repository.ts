@@ -34,8 +34,17 @@ export const prismaHrRepository: HrRepository = {
   },
 
   async listEmployees(filter) {
+    const where = filter?.employmentStatus
+      ? {
+          employmentStatus: Array.isArray(filter.employmentStatus)
+            ? { in: filter.employmentStatus }
+            : filter.employmentStatus,
+        }
+      : filter?.includeInactive
+        ? undefined
+        : { isActive: true };
     const rows = await getPrismaClient().employee.findMany({
-      where: filter?.includeInactive ? undefined : { isActive: true },
+      where,
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
     return rows.map(mapEmployee);
@@ -46,13 +55,72 @@ export const prismaHrRepository: HrRepository = {
     return row ? mapEmployee(row) : null;
   },
 
+  async getEmployeeByEmail(email) {
+    const row = await getPrismaClient().employee.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+    return row ? mapEmployee(row) : null;
+  },
+
+  async createEmployee(input) {
+    const { dateOnlyToUtc } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const { syncIsActive } = await import("@/domain/rules/lifecycle");
+    const employmentStatus = input.employmentStatus ?? "actif";
+    try {
+      const row = await getPrismaClient().employee.create({
+        data: {
+          id: input.id,
+          demoIdentityId: input.demoIdentityId ?? `provisioned-${input.id}`,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email.trim().toLowerCase(),
+          jobTitle: input.jobTitle,
+          departmentId: input.departmentId,
+          managerId: input.managerId,
+          site: input.site,
+          contractType: input.contractType,
+          category: input.category,
+          hireDate: dateOnlyToUtc(input.hireDate),
+          employmentStatus,
+          departureDate: input.departureDate
+            ? dateOnlyToUtc(input.departureDate)
+            : null,
+          departureNote: input.departureNote ?? null,
+          isActive: syncIsActive(employmentStatus),
+          phoneInternal: input.phoneInternal ?? null,
+          avatarInitials:
+            input.avatarInitials ??
+            `${input.firstName.charAt(0)}${input.lastName.charAt(0)}`.toUpperCase(),
+          teleworkEligible: input.teleworkEligible ?? true,
+          teleworkDaysPerWeek: input.teleworkDaysPerWeek ?? 2,
+        },
+      });
+      return mapEmployee(row);
+    } catch {
+      throw new Error(
+        "Impossible de créer le collaborateur (identifiant ou e-mail déjà utilisé).",
+      );
+    }
+  },
+
   async updateEmployee(id, patch) {
+    const { dateOnlyToUtc } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const { syncIsActive } = await import("@/domain/rules/lifecycle");
     const data: Record<string, unknown> = { ...patch };
     if (typeof patch.hireDate === "string") {
-      const { dateOnlyToUtc } = await import(
-        "@/infrastructure/persistence/prisma-mappers"
-      );
       data.hireDate = dateOnlyToUtc(patch.hireDate);
+    }
+    if (typeof patch.departureDate === "string") {
+      data.departureDate = dateOnlyToUtc(patch.departureDate);
+    } else if (patch.departureDate === null) {
+      data.departureDate = null;
+    }
+    if (patch.employmentStatus) {
+      data.isActive = syncIsActive(patch.employmentStatus);
     }
     const row = await getPrismaClient().employee.update({
       where: { id },
@@ -269,5 +337,164 @@ export const prismaHrRepository: HrRepository = {
       orderBy: { uploadedAt: "desc" },
     });
     return rows.map(mapDocument);
+  },
+
+  async countAccountsByRole(role) {
+    return getPrismaClient().userAccount.count({
+      where: { role, isActive: true },
+    });
+  },
+
+  async addRoleChangeAudit(input) {
+    const row = await getPrismaClient().roleChangeAudit.create({
+      data: {
+        id: newId("role-audit"),
+        targetAccountId: input.targetAccountId,
+        previousRole: input.previousRole,
+        newRole: input.newRole,
+        actorEmployeeId: input.actorEmployeeId,
+      },
+    });
+    return {
+      id: row.id,
+      targetAccountId: row.targetAccountId,
+      previousRole: row.previousRole,
+      newRole: row.newRole,
+      actorEmployeeId: row.actorEmployeeId,
+      createdAt: row.createdAt.toISOString(),
+    };
+  },
+
+  async listRoleChangeAudits(targetAccountId) {
+    const rows = await getPrismaClient().roleChangeAudit.findMany({
+      where: targetAccountId ? { targetAccountId } : undefined,
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      targetAccountId: row.targetAccountId,
+      previousRole: row.previousRole,
+      newRole: row.newRole,
+      actorEmployeeId: row.actorEmployeeId,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  },
+
+  async listRecruitmentCandidates(filter) {
+    const { mapRecruitmentCandidate } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const where: Record<string, unknown> = {};
+    if (filter?.createdByEmployeeId) {
+      where.createdByEmployeeId = filter.createdByEmployeeId;
+    }
+    if (filter?.interviewerEmployeeId) {
+      where.interviewerEmployeeId = filter.interviewerEmployeeId;
+    }
+    if (filter?.status) {
+      where.status = Array.isArray(filter.status)
+        ? { in: filter.status }
+        : filter.status;
+    }
+    if (filter?.q?.trim()) {
+      const q = filter.q.trim();
+      where.OR = [
+        { fullName: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { positionTitle: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    const rows = await getPrismaClient().recruitmentCandidate.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(mapRecruitmentCandidate);
+  },
+
+  async getRecruitmentCandidate(id) {
+    const { mapRecruitmentCandidate } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().recruitmentCandidate.findUnique({
+      where: { id },
+    });
+    return row ? mapRecruitmentCandidate(row) : null;
+  },
+
+  async createRecruitmentCandidate(input) {
+    const { mapRecruitmentCandidate } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().recruitmentCandidate.create({
+      data: {
+        id: newId("rec"),
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone,
+        positionTitle: input.positionTitle,
+        departmentId: input.departmentId,
+        cvStorageKey: input.cvStorageKey,
+        cvFileName: input.cvFileName,
+        cvContentType: input.cvContentType,
+        hrNotes: input.hrNotes,
+        status: input.status,
+        submittedAt: input.submittedAt ? new Date(input.submittedAt) : null,
+        createdByEmployeeId: input.createdByEmployeeId,
+        decidedByEmployeeId: input.decidedByEmployeeId,
+        decisionComment: input.decisionComment,
+        decidedAt: input.decidedAt ? new Date(input.decidedAt) : null,
+        interviewerEmployeeId: input.interviewerEmployeeId,
+        assignedByEmployeeId: input.assignedByEmployeeId,
+        assignedAt: input.assignedAt ? new Date(input.assignedAt) : null,
+      },
+    });
+    return mapRecruitmentCandidate(row);
+  },
+
+  async updateRecruitmentCandidate(id, patch) {
+    const { mapRecruitmentCandidate } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const data: Record<string, unknown> = { ...patch };
+    for (const key of ["submittedAt", "decidedAt", "assignedAt"] as const) {
+      if (patch[key] !== undefined) {
+        data[key] = patch[key] ? new Date(patch[key] as string) : null;
+      }
+    }
+    delete data.id;
+    delete data.createdAt;
+    delete data.updatedAt;
+    const row = await getPrismaClient().recruitmentCandidate.update({
+      where: { id },
+      data,
+    });
+    return mapRecruitmentCandidate(row);
+  },
+
+  async addRecruitmentEvent(input) {
+    const { mapRecruitmentEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().recruitmentEvent.create({
+      data: {
+        id: newId("recevt"),
+        candidateId: input.candidateId,
+        kind: input.kind,
+        message: input.message,
+        actorId: input.actorId,
+      },
+    });
+    return mapRecruitmentEvent(row);
+  },
+
+  async listRecruitmentEvents(candidateId) {
+    const { mapRecruitmentEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const rows = await getPrismaClient().recruitmentEvent.findMany({
+      where: { candidateId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapRecruitmentEvent);
   },
 };

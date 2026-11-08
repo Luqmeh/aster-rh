@@ -111,6 +111,11 @@ export async function seedAsterDemoData(
         contractType: emp.contractType,
         category: emp.category,
         hireDate: dateOnlyToUtc(emp.hireDate),
+        employmentStatus: emp.employmentStatus,
+        departureDate: emp.departureDate
+          ? dateOnlyToUtc(emp.departureDate)
+          : null,
+        departureNote: emp.departureNote,
         isActive: emp.isActive,
         phoneInternal: emp.phoneInternal,
         avatarInitials: emp.avatarInitials,
@@ -130,6 +135,11 @@ export async function seedAsterDemoData(
             contractType: emp.contractType,
             category: emp.category,
             hireDate: dateOnlyToUtc(emp.hireDate),
+            employmentStatus: emp.employmentStatus,
+            departureDate: emp.departureDate
+              ? dateOnlyToUtc(emp.departureDate)
+              : null,
+            departureNote: emp.departureNote,
             isActive: emp.isActive,
             phoneInternal: emp.phoneInternal,
             avatarInitials: emp.avatarInitials,

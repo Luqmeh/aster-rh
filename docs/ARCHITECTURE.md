@@ -21,8 +21,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 ## Couches
 
 1. **Présentation** — pages App Router, composants React, server actions minces.
-2. **Application** — services (`leave-service`, `telework-service`, `dashboard-service`).
-3. **Domaine** — types + règles (congés, télétravail, validations) sans I/O.
+2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, …).
+3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, validations) sans I/O.
 4. **Infrastructure** — implémentations des ports.
 
 ## Ports principaux
@@ -31,9 +31,9 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 |------|-----------|-------------------|
 | Auth / identité | `AuthPort` | Auth.js (`session-auth`) — credentials temporaires et/ou Microsoft Entra ID |
 | Persistence RH | `HrRepository` | `demo-hr-repository` (mémoire) **ou** `prisma-hr-repository` (PostgreSQL) |
-| Comptes applicatifs | `UserAccount` | Rôle + lien `Employee` — provisioning contrôlé (pas d’auto-inscription) |
+| Comptes applicatifs | `UserAccount` | Provisioning RH/Chef + audit `RoleChangeAudit` (pas d’auto-inscription privilégiée) |
 | E-mail | `EmailPort` | `mock-email` |
-| Stockage docs | `DocumentStoragePort` | `mock-storage` |
+| Stockage docs | `DocumentStoragePort` | Supabase Storage privé si configuré, sinon `mock-storage` |
 
 Composition : `src/infrastructure/container.ts`.
 

@@ -5,13 +5,15 @@ export interface StoredObjectMeta {
 }
 
 /**
- * Port stockage documents — remplaçable par SharePoint / Azure Blob / Supabase Storage.
+ * Port stockage documents — mock local ou Supabase Storage privé.
  */
 export interface DocumentStoragePort {
-  getDownloadUrl(key: string): Promise<string>;
-  putObject?(
+  /** URL de téléchargement (signée / mock). Jamais une URL publique permanente pour les CV. */
+  getDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
+  putObject(
     key: string,
     data: Uint8Array,
     contentType: string,
   ): Promise<StoredObjectMeta>;
+  deleteObject?(key: string): Promise<void>;
 }

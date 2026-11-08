@@ -26,6 +26,17 @@ export type LeaveType =
 
 export type TeleworkType = "regulier" | "occasionnel" | "exceptionnel";
 
+export type EmploymentStatus = "actif" | "inactif" | "parti";
+
+export type RecruitmentStatus =
+  | "brouillon"
+  | "soumis_revue"
+  | "refuse"
+  | "approuve"
+  | "intervieweur_assigne"
+  | "entretien_planifie"
+  | "entretien_termine";
+
 export interface OrganizationUnit {
   id: string;
   name: string;
@@ -47,6 +58,10 @@ export interface Employee {
   contractType: ContractType;
   category: EmployeeCategory;
   hireDate: string;
+  employmentStatus: EmploymentStatus;
+  departureDate: string | null;
+  departureNote: string | null;
+  /** Dérivé de employmentStatus === actif — utilisé pour l'accès applicatif. */
   isActive: boolean;
   phoneInternal: string | null;
   avatarInitials: string;
@@ -140,4 +155,46 @@ export interface ApprovalAction {
   decision: "approuvee" | "refusee";
   comment?: string;
   actorEmployeeId: string;
+}
+
+export interface RoleChangeAuditEntry {
+  id: string;
+  targetAccountId: string;
+  previousRole: DemoRole;
+  newRole: DemoRole;
+  actorEmployeeId: string;
+  createdAt: string;
+}
+
+export interface RecruitmentCandidate {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  positionTitle: string;
+  departmentId: string | null;
+  cvStorageKey: string | null;
+  cvFileName: string | null;
+  cvContentType: string | null;
+  hrNotes: string | null;
+  status: RecruitmentStatus;
+  submittedAt: string | null;
+  createdByEmployeeId: string;
+  decidedByEmployeeId: string | null;
+  decisionComment: string | null;
+  decidedAt: string | null;
+  interviewerEmployeeId: string | null;
+  assignedByEmployeeId: string | null;
+  assignedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecruitmentEvent {
+  id: string;
+  candidateId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: string;
 }

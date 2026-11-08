@@ -77,9 +77,8 @@ export const navigationGroups: NavGroup[] = [
       },
       {
         href: "/entretiens",
-        label: "Entretiens et performance",
+        label: "Recrutement / entretiens",
         icon: ClipboardList,
-        planned: true,
       },
       {
         href: "/formations",

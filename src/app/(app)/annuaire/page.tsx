@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { Search, Users } from "lucide-react";
 import { createEmployeeService } from "@/application/services/employee-service";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { employmentStatusLabel } from "@/domain/rules/lifecycle";
 import { canBrowseDirectory } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { fullName } from "@/lib/utils";
@@ -35,11 +37,11 @@ export default async function AnnuairePage({
 
   const service = createEmployeeService(container);
   const status =
-    params.status === "inactif" || params.status === "tous"
+    params.status === "inactif" ||
+    params.status === "parti" ||
+    params.status === "tous"
       ? params.status
-      : params.status === "actif"
-        ? "actif"
-        : "actif";
+      : "actif";
 
   const [employees, departments, allForManagers] = await Promise.all([
     service.listDirectory(session, {
@@ -62,6 +64,11 @@ export default async function AnnuairePage({
       <PageHeader
         title="Annuaire collaborateurs"
         description="Répertoire persistant — recherche, filtres et fiches collaborateurs."
+        actions={
+          <Button asChild size="sm">
+            <Link href="/annuaire/nouveau">Nouveau collaborateur</Link>
+          </Button>
+        }
       />
 
       <Card>
@@ -114,6 +121,7 @@ export default async function AnnuairePage({
             >
               <option value="actif">Actifs</option>
               <option value="inactif">Inactifs</option>
+              <option value="parti">Partis</option>
               <option value="tous">Tous les statuts</option>
             </select>
             <button
@@ -187,11 +195,17 @@ export default async function AnnuairePage({
                         {e.site}
                       </td>
                       <td className="px-2 py-3">
-                        {e.isActive ? (
-                          <Badge variant="success">Actif</Badge>
-                        ) : (
-                          <Badge variant="danger">Inactif</Badge>
-                        )}
+                        <Badge
+                          variant={
+                            e.employmentStatus === "actif"
+                              ? "success"
+                              : e.employmentStatus === "parti"
+                                ? "danger"
+                                : "secondary"
+                          }
+                        >
+                          {employmentStatusLabel(e.employmentStatus)}
+                        </Badge>
                       </td>
                     </tr>
                   ))}
