@@ -1,4 +1,12 @@
 import type { DemoRole, Employee } from "@/domain/types/hr";
+import {
+  canAccessHrAdministration,
+  canBrowseDirectory,
+  canManageEmployees,
+  canViewEmployeeProfile,
+  hasPermission,
+  type Permission,
+} from "@/domain/rules/permissions";
 import type { AuthSession } from "@/infrastructure/auth/types";
 
 export class AuthError extends Error {
@@ -31,17 +39,20 @@ export function requireRole(
   }
 }
 
-/** Accès à une fiche : soi-même, manager d’équipe, ou RH. */
+export function requirePermission(
+  session: AuthSession,
+  permission: Permission,
+): void {
+  if (!hasPermission(session.role, permission)) {
+    throw new AuthError("Permission insuffisante.", 403);
+  }
+}
+
 export function canAccessEmployeeRecord(
   session: AuthSession,
   target: Employee,
 ): boolean {
-  if (session.role === "admin_rh") return true;
-  if (session.employee.id === target.id) return true;
-  if (session.role === "manager" && target.managerId === session.employee.id) {
-    return true;
-  }
-  return false;
+  return canViewEmployeeProfile(session.role, session.employee, target);
 }
 
 export function requireEmployeeAccess(
@@ -56,21 +67,16 @@ export function requireEmployeeAccess(
   }
 }
 
-export function requireManagerOf(
-  session: AuthSession,
-  subject: Employee,
-): void {
-  requireRole(session, "manager");
-  if (subject.managerId !== session.employee.id) {
-    throw new AuthError(
-      "Cette demande n'appartient pas à votre équipe.",
-      403,
-    );
+export function requireDirectoryAccess(session: AuthSession): void {
+  if (!canBrowseDirectory(session.role)) {
+    throw new AuthError("Annuaire réservé aux rôles RH et Chef de projet.", 403);
   }
 }
 
-export function dashboardPathForRole(): string {
-  return "/tableau-de-bord";
+export function requireEmployeeManagement(session: AuthSession): void {
+  if (!canManageEmployees(session.role)) {
+    throw new AuthError("Gestion des fiches réservée aux rôles autorisés.", 403);
+  }
 }
 
 export function isRouteAllowedForRole(
@@ -78,7 +84,14 @@ export function isRouteAllowedForRole(
   role: DemoRole,
 ): boolean {
   if (pathname.startsWith("/administration")) {
-    return role === "admin_rh";
+    return canAccessHrAdministration(role);
+  }
+  if (pathname.startsWith("/annuaire")) {
+    return canBrowseDirectory(role);
   }
   return true;
+}
+
+export function dashboardPathForRole(): string {
+  return "/tableau-de-bord";
 }

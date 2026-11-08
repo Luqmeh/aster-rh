@@ -16,7 +16,7 @@ datasource db {
 
 enum DemoRole {
   collaborateur
-  manager
+  chef_de_projet
   admin_rh
 }
 

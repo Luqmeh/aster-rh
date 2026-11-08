@@ -33,9 +33,9 @@ export const prismaHrRepository: HrRepository = {
     return rows.map(mapOrganizationUnit);
   },
 
-  async listEmployees() {
+  async listEmployees(filter) {
     const rows = await getPrismaClient().employee.findMany({
-      where: { isActive: true },
+      where: filter?.includeInactive ? undefined : { isActive: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
     return rows.map(mapEmployee);
@@ -44,6 +44,21 @@ export const prismaHrRepository: HrRepository = {
   async getEmployee(id) {
     const row = await getPrismaClient().employee.findUnique({ where: { id } });
     return row ? mapEmployee(row) : null;
+  },
+
+  async updateEmployee(id, patch) {
+    const data: Record<string, unknown> = { ...patch };
+    if (typeof patch.hireDate === "string") {
+      const { dateOnlyToUtc } = await import(
+        "@/infrastructure/persistence/prisma-mappers"
+      );
+      data.hireDate = dateOnlyToUtc(patch.hireDate);
+    }
+    const row = await getPrismaClient().employee.update({
+      where: { id },
+      data,
+    });
+    return mapEmployee(row);
   },
 
   async listTeamMembers(managerId) {

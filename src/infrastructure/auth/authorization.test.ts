@@ -15,14 +15,21 @@ import { resolveAuthFeatureFlags } from "@/infrastructure/auth/types";
 import { hashPassword, verifyPassword } from "@/infrastructure/auth/password";
 
 describe("authorization", () => {
-  it("bloque l'accès administration aux non-RH", () => {
-    expect(isRouteAllowedForRole("/administration", "manager")).toBe(false);
+  it("restreint l'administration et l'annuaire selon la hiérarchie", () => {
+    expect(isRouteAllowedForRole("/administration", "collaborateur")).toBe(
+      false,
+    );
     expect(isRouteAllowedForRole("/administration", "admin_rh")).toBe(true);
+    expect(isRouteAllowedForRole("/administration", "chef_de_projet")).toBe(
+      true,
+    );
+    expect(isRouteAllowedForRole("/annuaire", "collaborateur")).toBe(false);
+    expect(isRouteAllowedForRole("/annuaire", "chef_de_projet")).toBe(true);
   });
 
   it("restreint l'accès fiche employé", () => {
     const lea = testSessionFor("emp-lea", "collaborateur");
-    const julien = testSessionFor("emp-julien", "manager");
+    const julien = testSessionFor("emp-julien", "chef_de_projet");
     const other = employees.find((e) => e.id === "emp-camille")!;
 
     expect(canAccessEmployeeRecord(lea, lea.employee)).toBe(true);

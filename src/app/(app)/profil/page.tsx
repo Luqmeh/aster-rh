@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { FolderOpen } from "lucide-react";
+import { PersonalProfileForm } from "@/components/modules/personal-profile-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { roleLabel } from "@/domain/rules/approvals";
+import { roleLabel } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, formatDateTimeFr } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export default async function ProfilPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Mon profil"
-        description="Fiche collaborateur de démonstration — données seedées, non éditables en production."
+        description="Consultez votre fiche et mettez à jour les informations personnelles autorisées."
       />
 
       <Card>
@@ -49,6 +50,7 @@ export default async function ProfilPage() {
                 ) : (
                   <Badge variant="danger">Inactif</Badge>
                 )}
+                <Badge variant="outline">{employee.id}</Badge>
               </div>
             </div>
           </div>
@@ -83,7 +85,7 @@ export default async function ProfilPage() {
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Manager"
+              label="Manager hiérarchique"
               value={
                 manager
                   ? `${manager.firstName} ${manager.lastName}`
@@ -103,12 +105,25 @@ export default async function ProfilPage() {
               value={
                 employee.teleworkEligible
                   ? "Éligible (guide RH p.106)"
-                  : "Non éligible (démo)"
+                  : "Non éligible"
               }
             />
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Informations personnelles modifiables</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PersonalProfileForm
+            employeeId={employee.id}
+            phoneInternal={employee.phoneInternal}
+            site={employee.site}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -136,7 +151,7 @@ export default async function ProfilPage() {
                     {doc.category} · {formatDateTimeFr(doc.uploadedAt)}
                   </p>
                 </div>
-                <Badge variant="outline">Démo</Badge>
+                <Badge variant="outline">Document</Badge>
               </div>
             ))
           )}

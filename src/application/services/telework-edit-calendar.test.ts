@@ -97,7 +97,7 @@ describe("calendar consistency after telework decisions", () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
     const calendar = createCalendarService({ hr: demoHrRepository });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const pendingView = await calendar.getEmployeeMonth(collab, "2026-12");
     const pendingEvents = pendingView.events.filter(
@@ -142,7 +142,7 @@ describe("calendar consistency after telework decisions", () => {
   it("respecte la visibilité manager vs collaborateur", async () => {
     const calendar = createCalendarService({ hr: demoHrRepository });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const employeeView = await calendar.getEmployeeMonth(collab, "2026-11");
     expect(

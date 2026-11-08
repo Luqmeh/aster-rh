@@ -23,7 +23,7 @@ describe("approval workflow — congés", () => {
   it("approuve une demande : statut, historique employé, notification", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const chef = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -35,10 +35,10 @@ describe("approval workflow — congés", () => {
     });
     expect(created.status).toBe("en_attente_manager");
 
-    const pending = await leave.listTeamPending(manager);
+    const pending = await leave.listTeamPending(chef);
     expect(pending.some((r) => r.id === created.id)).toBe(true);
 
-    const updated = await leave.decide(manager, created.id, "approuvee");
+    const updated = await leave.decide(chef, created.id, "approuvee");
     expect(updated.status).toBe("approuvee");
 
     const history = await leave.listForCurrentUser(collab);
@@ -48,8 +48,7 @@ describe("approval workflow — congés", () => {
     const notifs = await demoHrRepository.listNotifications("emp-lea");
     expect(
       notifs.some(
-        (n) =>
-          n.title.includes("approuvée") && n.body.length > 0,
+        (n) => n.title.includes("approuvée") && n.body.length > 0,
       ),
     ).toBe(true);
     expect(emails.some((e) => e.subject.includes("approuvés"))).toBe(true);
@@ -58,7 +57,7 @@ describe("approval workflow — congés", () => {
   it("refuse une demande et notifie le collaborateur", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const chef = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -69,7 +68,7 @@ describe("approval workflow — congés", () => {
     });
 
     const updated = await leave.decide(
-      manager,
+      chef,
       created.id,
       "refusee",
       "Charge d'équipe",
@@ -90,39 +89,45 @@ describe("approval workflow — congés", () => {
 
     await expect(
       leave.decide(collab, "leave-1", "approuvee"),
-    ).rejects.toThrow(/réservée au manager/i);
+    ).rejects.toThrow(/Chef de projet/i);
   });
 
   it("échoue sur une demande déjà traitée (pas de décision contradictoire)", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    const manager = testSessionFor("emp-julien", "manager");
+    const chef = testSessionFor("emp-julien", "chef_de_projet");
 
-    await leave.decide(manager, "leave-1", "approuvee");
+    await leave.decide(chef, "leave-1", "approuvee");
     await expect(
-      leave.decide(manager, "leave-1", "refusee"),
+      leave.decide(chef, "leave-1", "refusee"),
     ).rejects.toThrow(/déjà été traitée/i);
 
     const request = await demoHrRepository.getLeaveRequest("leave-1");
     expect(request?.status).toBe("approuvee");
   });
 
-  it("échoue pour un manager hors équipe", async () => {
+  it("autorise le Chef de projet hors rattachement hiérarchique (portée globale)", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
-    // Camille n'est pas le manager de Léa
-    const outsider = testSessionFor("emp-camille", "manager");
+    // Camille n'est pas le manager de Léa, mais en Chef de projet elle peut décider.
+    const outsiderChef = testSessionFor("emp-camille", "chef_de_projet");
 
-    await expect(
-      leave.decide(outsider, "leave-1", "approuvee"),
-    ).rejects.toThrow(/pas autorisé/i);
+    const updated = await leave.decide(outsiderChef, "leave-1", "approuvee");
+    expect(updated.status).toBe("approuvee");
   });
 
-  it("refuse à un compte RH d'approuver la file manager", async () => {
+  it("refuse à un compte RH d'approuver toute file", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const hr = testSessionFor("emp-camille", "admin_rh");
 
     await expect(leave.decide(hr, "leave-1", "approuvee")).rejects.toThrow(
-      /manager d'équipe|réservées au manager/i,
+      /ressources humaines/i,
     );
+  });
+
+  it("laisse le RH consulter la file sans décider", async () => {
+    const leave = createLeaveService({ hr: demoHrRepository, email });
+    const hr = testSessionFor("emp-camille", "admin_rh");
+    const pending = await leave.listTeamPending(hr);
+    expect(pending.length).toBeGreaterThan(0);
   });
 });
 
@@ -135,7 +140,7 @@ describe("approval workflow — télétravail", () => {
   it("approuve un plan mensuel de bout en bout", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const chef = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await tw.submitMonthlyPlan(collab, {
       month: "2027-01",
@@ -145,10 +150,10 @@ describe("approval workflow — télétravail", () => {
     expect(created.status).toBe("en_attente_manager");
     expect(created.month).toBe("2027-01");
 
-    const pending = await tw.listTeamPending(manager);
+    const pending = await tw.listTeamPending(chef);
     expect(pending.some((r) => r.id === created.id)).toBe(true);
 
-    const updated = await tw.decide(manager, created.id, "approuvee");
+    const updated = await tw.decide(chef, created.id, "approuvee");
     expect(updated.status).toBe("approuvee");
 
     const history = await tw.listForCurrentUser(collab);
@@ -160,15 +165,15 @@ describe("approval workflow — télétravail", () => {
 
   it("refuse un plan avec motif et bloque le double traitement", async () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
-    const manager = testSessionFor("emp-julien", "manager");
+    const chef = testSessionFor("emp-julien", "chef_de_projet");
 
-    await expect(tw.decide(manager, "tw-1", "refusee")).rejects.toThrow(
+    await expect(tw.decide(chef, "tw-1", "refusee")).rejects.toThrow(
       /motif de refus/i,
     );
 
-    await tw.decide(manager, "tw-1", "refusee", "Continuité de service");
+    await tw.decide(chef, "tw-1", "refusee", "Continuité de service");
     await expect(
-      tw.decide(manager, "tw-1", "approuvee", "trop tard"),
+      tw.decide(chef, "tw-1", "approuvee", "trop tard"),
     ).rejects.toThrow(/déjà été traitée/i);
     const request = await demoHrRepository.getTeleworkRequest("tw-1");
     expect(request?.status).toBe("refusee");
@@ -179,7 +184,7 @@ describe("approval workflow — télétravail", () => {
     const tw = createTeleworkService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
     await expect(tw.decide(collab, "tw-1", "approuvee")).rejects.toThrow(
-      /réservée au manager/i,
+      /Chef de projet/i,
     );
   });
 

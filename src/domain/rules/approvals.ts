@@ -1,11 +1,13 @@
 import type { DemoRole, Employee, RequestStatus } from "@/domain/types/hr";
+import {
+  canApproveRequests,
+  roleLabel as permissionRoleLabel,
+} from "@/domain/rules/permissions";
 
 /**
  * Circuit d'approbation :
- * Collaborateur → Manager (équipe) → (optionnel) RH si statut en_attente_rh
- *
- * Manager et RH sont strictement séparés : un compte RH ne valide pas
- * la file manager uniquement parce qu'il est RH.
+ * Collaborateur → file validation → Chef de projet (portée globale).
+ * RH voit les demandes mais ne décide pas.
  */
 
 export type Decision = "approuvee" | "refusee";
@@ -24,13 +26,17 @@ export function isTerminalRequestStatus(status: RequestStatus): boolean {
   return TERMINAL_STATUSES.includes(status);
 }
 
+/** @deprecated Préférer canApproveRequests + assertCanDecideRequest. */
 export function canApproveAsManager(
   actor: Employee,
   subject: Employee,
   status: RequestStatus,
 ): boolean {
-  if (status !== "en_attente_manager") return false;
+  if (status !== "en_attente_manager" && status !== "en_attente_rh") {
+    return false;
+  }
   if (!actor.isActive) return false;
+  // Conservé pour tests historiques d'équipe — le Chef de projet a portée globale.
   return subject.managerId === actor.id;
 }
 
@@ -38,18 +44,23 @@ export function canApproveAsHrAdmin(
   role: DemoRole,
   status: RequestStatus,
 ): boolean {
-  return role === "admin_rh" && status === "en_attente_rh";
+  void role;
+  void status;
+  // RH n'a jamais d'autorité de décision sur les validations.
+  return false;
 }
 
 /**
- * Décision autorisée — rôles strictement séparés.
+ * Décision autorisée — uniquement Chef de projet (portée globale).
  */
 export function assertCanDecideRequest(input: {
   role: DemoRole;
   actor: Employee;
   subject: Employee;
   status: RequestStatus;
-}): { ok: true; mode: "manager" | "admin_rh" } | { ok: false; message: string } {
+}):
+  | { ok: true; mode: "chef_de_projet" }
+  | { ok: false; message: string } {
   if (isTerminalRequestStatus(input.status)) {
     return {
       ok: false,
@@ -67,29 +78,25 @@ export function assertCanDecideRequest(input: {
   if (input.role === "collaborateur") {
     return {
       ok: false,
-      message: "Action réservée au manager ou à l'administrateur RH.",
-    };
-  }
-
-  if (input.role === "manager") {
-    if (canApproveAsManager(input.actor, input.subject, input.status)) {
-      return { ok: true, mode: "manager" };
-    }
-    return {
-      ok: false,
-      message: "Vous n'êtes pas autorisé à traiter cette demande d'équipe.",
+      message: "Action réservée au Chef de projet.",
     };
   }
 
   if (input.role === "admin_rh") {
-    if (canApproveAsHrAdmin(input.role, input.status)) {
-      return { ok: true, mode: "admin_rh" };
-    }
     return {
       ok: false,
       message:
-        "Les validations manager sont réservées au manager d'équipe. L'administration RH traite uniquement les demandes en attente RH.",
+        "Les ressources humaines peuvent consulter les demandes mais ne peuvent pas les approuver ni les refuser.",
     };
+  }
+
+  if (
+    input.role === "chef_de_projet" &&
+    canApproveRequests(input.role) &&
+    (input.status === "en_attente_manager" ||
+      input.status === "en_attente_rh")
+  ) {
+    return { ok: true, mode: "chef_de_projet" };
   }
 
   return {
@@ -136,7 +143,7 @@ export function statusLabel(status: RequestStatus): string {
   const labels: Record<RequestStatus, string> = {
     brouillon: "Brouillon",
     soumise: "Soumise",
-    en_attente_manager: "En attente manager",
+    en_attente_manager: "En attente de validation",
     en_attente_rh: "En attente RH",
     approuvee: "Approuvée",
     refusee: "Refusée",
@@ -146,10 +153,5 @@ export function statusLabel(status: RequestStatus): string {
 }
 
 export function roleLabel(role: DemoRole): string {
-  const labels: Record<DemoRole, string> = {
-    collaborateur: "Collaborateur",
-    manager: "Manager / Team Leader",
-    admin_rh: "Administrateur RH",
-  };
-  return labels[role];
+  return permissionRoleLabel(role);
 }

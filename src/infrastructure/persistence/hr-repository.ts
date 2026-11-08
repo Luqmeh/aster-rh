@@ -13,8 +13,31 @@ import type {
  */
 export interface HrRepository {
   listDepartments(): Promise<OrganizationUnit[]>;
-  listEmployees(): Promise<Employee[]>;
+  listEmployees(options?: { includeInactive?: boolean }): Promise<Employee[]>;
   getEmployee(id: string): Promise<Employee | null>;
+  updateEmployee(
+    id: string,
+    patch: Partial<
+      Pick<
+        Employee,
+        | "firstName"
+        | "lastName"
+        | "email"
+        | "jobTitle"
+        | "departmentId"
+        | "managerId"
+        | "site"
+        | "contractType"
+        | "category"
+        | "hireDate"
+        | "isActive"
+        | "phoneInternal"
+        | "teleworkEligible"
+        | "teleworkDaysPerWeek"
+        | "avatarInitials"
+      >
+    >,
+  ): Promise<Employee>;
   listTeamMembers(managerId: string): Promise<Employee[]>;
   getLeaveBalance(employeeId: string, year: number): Promise<LeaveBalance | null>;
   listLeaveRequests(filter?: {

@@ -2,6 +2,10 @@ import { createLeaveService } from "@/application/services/leave-service";
 import { createTeleworkService } from "@/application/services/telework-service";
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import { teleworkTypeLabel } from "@/domain/rules/telework";
+import {
+  canAccessHrAdministration,
+  canApproveRequests,
+} from "@/domain/rules/permissions";
 import { ApprovalButtons } from "@/components/modules/approval-buttons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,10 +21,11 @@ export default async function AdministrationPage() {
   const container = getContainer();
   const session = await container.auth.getSession();
   if (!session) throw new Error("Session absente");
-  if (session.role !== "admin_rh") {
+  if (!canAccessHrAdministration(session.role)) {
     redirect("/tableau-de-bord");
   }
 
+  const canDecide = canApproveRequests(session.role);
   const leaveService = createLeaveService(container);
   const teleworkService = createTeleworkService(container);
   const [employees, departments, pendingLeaves, pendingTw] = await Promise.all([
@@ -36,19 +41,33 @@ export default async function AdministrationPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Administration RH"
-        description="Vue transverse pour l’équipe RH — séparée des validations manager."
+        description={
+          canDecide
+            ? "Pilotage transverse Chef de projet — administration RH et validations."
+            : "Vue transverse Ressources humaines — consultation des demandes sans autorité de validation."
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Collaborateurs" value={String(employees.length)} />
         <Stat label="Départements" value={String(departments.length)} />
-        <Stat label="Validations en attente" value={String(pendingTotal)} />
+        <Stat label="Demandes en attente" value={String(pendingTotal)} />
       </div>
+
+      {!canDecide ? (
+        <p className="rounded-[10px] border border-[var(--aster-border)] bg-[var(--aster-surface-2)] px-4 py-3 text-sm text-[var(--aster-muted)]">
+          Les ressources humaines voient les demandes et historiques, mais ne
+          peuvent pas les approuver ni les refuser. Seul le Chef de projet
+          dispose de l&apos;autorité de décision.
+        </p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Congés à traiter</CardTitle>
+            <CardTitle>
+              {canDecide ? "Congés à traiter" : "Congés en cours"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingLeaves.length === 0 ? (
@@ -81,7 +100,9 @@ export default async function AdministrationPage() {
                       </div>
                       <StatusBadge status={item.status} />
                     </div>
-                    <ApprovalButtons kind="leave" requestId={item.id} />
+                    {canDecide ? (
+                      <ApprovalButtons kind="leave" requestId={item.id} />
+                    ) : null}
                   </div>
                 );
               })
@@ -91,7 +112,9 @@ export default async function AdministrationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Télétravail à traiter</CardTitle>
+            <CardTitle>
+              {canDecide ? "Télétravail à traiter" : "Télétravail en cours"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingTw.length === 0 ? (
@@ -126,11 +149,13 @@ export default async function AdministrationPage() {
                       </div>
                       <StatusBadge status={item.status} />
                     </div>
-                    <ApprovalButtons
-                      kind="telework"
-                      requestId={item.id}
-                      requireRejectionReason
-                    />
+                    {canDecide ? (
+                      <ApprovalButtons
+                        kind="telework"
+                        requestId={item.id}
+                        requireRejectionReason
+                      />
+                    ) : null}
                   </div>
                 );
               })
@@ -139,29 +164,27 @@ export default async function AdministrationPage() {
         </Card>
       </div>
 
-      {session.role === "admin_rh" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--aster-muted)]" />
-              Organisation (démo)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {departments.map((d) => (
-                <li
-                  key={d.id}
-                  className="rounded-[10px] border border-[var(--aster-border)] px-3 py-2.5 text-sm"
-                >
-                  <p className="font-medium text-[var(--aster-ink)]">{d.name}</p>
-                  <p className="text-xs text-[var(--aster-muted)]">{d.code}</p>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-[var(--aster-muted)]" />
+            Organisation
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {departments.map((d) => (
+              <li
+                key={d.id}
+                className="rounded-[10px] border border-[var(--aster-border)] px-3 py-2.5 text-sm"
+              >
+                <p className="font-medium text-[var(--aster-ink)]">{d.name}</p>
+                <p className="text-xs text-[var(--aster-muted)]">{d.code}</p>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

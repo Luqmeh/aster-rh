@@ -9,10 +9,13 @@ import {
   assertCanDecideRequest,
   decisionNotificationCopy,
   initialStatusAfterSubmit,
-  nextStatusAfterHrDecision,
   nextStatusAfterManagerDecision,
   type Decision,
 } from "@/domain/rules/approvals";
+import {
+  canApproveRequests,
+  canViewAllRequests,
+} from "@/domain/rules/permissions";
 import type { AuthSession } from "@/infrastructure/auth/types";
 import type { EmailPort } from "@/infrastructure/email/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
@@ -26,14 +29,22 @@ export function createLeaveService(deps: {
       return deps.hr.listLeaveRequests({ employeeId: session.employee.id });
     },
 
-    async listTeamPending(session: AuthSession) {
-      if (session.role === "collaborateur") return [];
-      if (session.role === "admin_rh") {
-        return deps.hr.listLeaveRequests({ status: "en_attente_rh" });
+    /** Demandes visibles selon le rôle (propre / toutes). */
+    async listVisible(session: AuthSession) {
+      if (canViewAllRequests(session.role)) {
+        return deps.hr.listLeaveRequests();
       }
-      return (
-        await deps.hr.listLeaveRequests({ managerId: session.employee.id })
-      ).filter((r) => r.status === "en_attente_manager");
+      return deps.hr.listLeaveRequests({ employeeId: session.employee.id });
+    },
+
+    /** File d'attente : Chef de projet (décision) et RH (lecture). */
+    async listTeamPending(session: AuthSession) {
+      if (!canViewAllRequests(session.role)) return [];
+      const items = await deps.hr.listLeaveRequests();
+      return items.filter(
+        (r) =>
+          r.status === "en_attente_manager" || r.status === "en_attente_rh",
+      );
     },
 
     async getBalance(session: AuthSession, year = 2026) {
@@ -87,7 +98,7 @@ export function createLeaveService(deps: {
           });
           await deps.email.send({
             to: manager.email,
-            subject: "[ASTER DÉMO] Demande de congés à valider",
+            subject: "[ASTER] Demande de congés à valider",
             body: `Nouvelle demande de ${session.employee.firstName} ${session.employee.lastName}.`,
           });
         }
@@ -102,6 +113,14 @@ export function createLeaveService(deps: {
       decision: Decision,
       comment?: string,
     ) {
+      if (!canApproveRequests(session.role)) {
+        throw new Error(
+          session.role === "admin_rh"
+            ? "Les ressources humaines peuvent consulter les demandes mais ne peuvent pas les approuver ni les refuser."
+            : "Action réservée au Chef de projet.",
+        );
+      }
+
       const request = await deps.hr.getLeaveRequest(requestId);
       if (!request) throw new Error("Demande introuvable.");
       const subject = await deps.hr.getEmployee(request.employeeId);
@@ -115,10 +134,7 @@ export function createLeaveService(deps: {
       });
       if (!authz.ok) throw new Error(authz.message);
 
-      const status =
-        authz.mode === "admin_rh"
-          ? nextStatusAfterHrDecision(decision)
-          : nextStatusAfterManagerDecision(decision, false);
+      const status = nextStatusAfterManagerDecision(decision, false);
       const updated = await deps.hr.updateLeaveRequest(requestId, {
         status,
         managerComment: comment ?? null,

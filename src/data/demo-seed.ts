@@ -52,7 +52,7 @@ export const employees: Employee[] = [
     firstName: "Julien",
     lastName: "Bernard",
     email: "julien.bernard@demo.aster-rh.local",
-    jobTitle: "Manager Audit",
+    jobTitle: "Chef de projet Audit",
     departmentId: "dept-audit",
     managerId: "emp-camille",
     site: "Lyon (démo)",
@@ -192,16 +192,16 @@ export const demoIdentities: DemoIdentity[] = [
   {
     id: "demo-manager",
     label: "Julien Bernard",
-    role: "manager",
+    role: "chef_de_projet",
     employeeId: "emp-julien",
-    description: "Parcours manager — validations d'équipe.",
+    description: "Parcours Chef de projet — administration et validations.",
   },
   {
     id: "demo-admin",
     label: "Camille Moreau",
     role: "admin_rh",
     employeeId: "emp-camille",
-    description: "Parcours administrateur RH — vue transverse.",
+    description: "Parcours Ressources humaines — sans autorité de validation.",
   },
 ];
 

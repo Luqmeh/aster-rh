@@ -99,12 +99,17 @@ export const navigationGroups: NavGroup[] = [
     id: "organisation",
     label: "Organisation",
     items: [
-      { href: "/annuaire", label: "Annuaire collaborateurs", icon: Users },
+      {
+        href: "/annuaire",
+        label: "Annuaire collaborateurs",
+        icon: Users,
+        roles: ["chef_de_projet", "admin_rh"],
+      },
       {
         href: "/administration",
         label: "Administration RH",
         icon: FileText,
-        roles: ["admin_rh"],
+        roles: ["chef_de_projet", "admin_rh"],
       },
       { href: "/parametres", label: "Paramètres", icon: Settings },
     ],

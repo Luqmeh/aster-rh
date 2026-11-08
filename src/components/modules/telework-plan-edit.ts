@@ -43,7 +43,7 @@ export function buildPlannerPrefill(plan: TeleworkRequest): PlannerPrefill {
 export function planStatusCaption(status: RequestStatus): string {
   switch (status) {
     case "en_attente_manager":
-      return "En attente de validation manager — modifiable.";
+      return "En attente de validation — modifiable.";
     case "approuvee":
       return "Approuvé — visible au calendrier comme confirmé.";
     case "refusee":

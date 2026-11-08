@@ -1,6 +1,7 @@
 /** Types métier RH — indépendants de la couche UI et de la persistence. */
 
-export type DemoRole = "collaborateur" | "manager" | "admin_rh";
+/** Rôles applicatifs définitifs ASTER (ne pas réintroduire un Manager inférieur). */
+export type DemoRole = "collaborateur" | "chef_de_projet" | "admin_rh";
 
 export type ContractType = "cdi" | "cdd" | "alternance" | "stage";
 

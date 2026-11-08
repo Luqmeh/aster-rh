@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createLeaveService } from "@/application/services/leave-service";
 import type { LeaveRequestInput } from "@/domain/rules/leave";
+import { canApproveRequests } from "@/domain/rules/permissions";
 import {
   AuthError,
   requireSession,
@@ -26,25 +27,25 @@ export async function decideLeaveAction(
   comment?: string,
 ) {
   const container = getContainer();
-  try {
-    const session = requireSession(await container.auth.getSession());
-    if (session.role === "collaborateur") {
-      throw new AuthError("Action réservée au manager ou à l'administrateur RH.", 403);
-    }
-    const service = createLeaveService(container);
-    const updated = await service.decide(session, requestId, decision, comment);
-    revalidatePath("/conges");
-    revalidatePath("/tableau-de-bord");
-    revalidatePath("/administration");
-    revalidatePath("/notifications");
-    return {
-      ok: true as const,
-      id: updated.id,
-      status: updated.status,
-      decision,
-    };
-  } catch (error) {
-    if (error instanceof AuthError) throw error;
-    throw error;
+  const session = requireSession(await container.auth.getSession());
+  if (!canApproveRequests(session.role)) {
+    throw new AuthError(
+      session.role === "admin_rh"
+        ? "Les ressources humaines peuvent consulter les demandes mais ne peuvent pas les approuver ni les refuser."
+        : "Action réservée au Chef de projet.",
+      403,
+    );
   }
+  const service = createLeaveService(container);
+  const updated = await service.decide(session, requestId, decision, comment);
+  revalidatePath("/conges");
+  revalidatePath("/tableau-de-bord");
+  revalidatePath("/administration");
+  revalidatePath("/notifications");
+  return {
+    ok: true as const,
+    id: updated.id,
+    status: updated.status,
+    decision,
+  };
 }

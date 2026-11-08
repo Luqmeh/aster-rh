@@ -27,7 +27,7 @@ Code : `src/domain/rules/leave.ts` → `defaultAnnualEntitlement`.
 | Droit annuel CP | **HYPOTHÈSE DÉMO** | 25 jours — *confirmer page guide* |
 | Calcul des jours (ouvrés lun–ven) | **HYPOTHÈSE DÉMO** | Simplifié ; hors jours fériés & conventions locales |
 | Demi-journées | **Implémenté (démo)** | Flags `halfDayStart` / `halfDayEnd` |
-| Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Manager (RH optionnel) |
+| Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Chef de projet (RH en lecture seule) |
 | Types d’absence | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental |
 
 Références guide à compléter :
@@ -47,11 +47,11 @@ Références guide à compléter :
 | Plafond mensuel | **Implémenté** | Jusqu’à **12 jours / mois** (p.106) |
 | Présence / temps de travail | **Documenté** | Minimum **80 %** d’un temps plein (p.106) — cadre d’éligibilité, non recalculé numériquement dans la démo |
 | Compatibilité des tâches | **Implémenté (flag)** | `Employee.teleworkEligible` — message clair si faux |
-| Continuité de service | **Documenté** | Condition p.106 ; refus manager possible avec motif |
+| Continuité de service | **Documenté** | Condition p.106 ; refus Chef de projet possible avec motif |
 | Planification hebdomadaire UI | **Implémenté** | **Maximum 2 jours / semaine** dans le plan mensuel |
 | Pas de week-end | **Implémenté** | Validation domaine |
 | Conflits congés approuvés | **Implémenté** | Intersection dates refusée |
-| Circuit validation | **Implémenté** | Collaborateur → Manager (motif obligatoire en cas de refus) |
+| Circuit validation | **Implémenté** | Collaborateur → Chef de projet (motif obligatoire en cas de refus ; RH sans décision) |
 
 Code :
 
@@ -69,7 +69,7 @@ Références guide :
 | Rôle démo | Intention |
 |-----------|-----------|
 | Collaborateur | Consultation + demandes personnelles |
-| Manager | Validation équipe directe |
+| Chef de projet | Validations globales + administration RH |
 | Administrateur RH | Vue transverse + validations de démo |
 
 Le mapping vers les groupes Microsoft Entra ID reste à définir (`docs/INTEGRATIONS.md`).

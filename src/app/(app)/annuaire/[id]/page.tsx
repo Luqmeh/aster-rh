@@ -1,0 +1,184 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { createEmployeeService } from "@/application/services/employee-service";
+import { HrEmployeeForm } from "@/components/modules/hr-employee-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { canBrowseDirectory, canManageEmployees } from "@/domain/rules/permissions";
+import { getContainer } from "@/infrastructure/container";
+import { formatDateFr, fullName } from "@/lib/utils";
+
+export default async function EmployeeProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const container = getContainer();
+  const session = await container.auth.getSession();
+  if (!session) throw new Error("Session absente");
+  if (!canBrowseDirectory(session.role)) {
+    redirect("/profil");
+  }
+
+  const service = createEmployeeService(container);
+  let employee;
+  try {
+    employee = await service.getProfile(session, id);
+  } catch {
+    notFound();
+  }
+
+  const [departments, employees, docs] = await Promise.all([
+    container.hr.listDepartments(),
+    container.hr.listEmployees({ includeInactive: true }),
+    container.hr.listDocuments(employee.id),
+  ]);
+  const dept = departments.find((d) => d.id === employee.departmentId);
+  const manager = employee.managerId
+    ? employees.find((e) => e.id === employee.managerId) ?? null
+    : null;
+  const canManage = canManageEmployees(session.role);
+
+  return (
+    <div className="aster-fade-up space-y-6">
+      <PageHeader
+        title={fullName(employee.firstName, employee.lastName)}
+        description="Fiche collaborateur — informations d'emploi et coordonnées."
+        actions={
+          <Button asChild size="sm" variant="secondary">
+            <Link href="/annuaire">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Annuaire
+            </Link>
+          </Button>
+        }
+      />
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center">
+          <UserAvatar initials={employee.avatarInitials} size="lg" />
+          <div>
+            <p className="text-lg font-semibold tracking-tight text-[var(--aster-ink)]">
+              {fullName(employee.firstName, employee.lastName)}
+            </p>
+            <p className="text-sm text-[var(--aster-muted)]">{employee.jobTitle}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge variant="secondary">
+                {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
+              </Badge>
+              {employee.isActive ? (
+                <Badge variant="success">Actif</Badge>
+              ) : (
+                <Badge variant="danger">Inactif</Badge>
+              )}
+              <Badge variant="outline">{employee.id}</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Coordonnées</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="E-mail" value={employee.email} />
+            <Field
+              label="Téléphone interne"
+              value={employee.phoneInternal ?? "—"}
+            />
+            <Field label="Site" value={employee.site} />
+            <Field label="Département" value={dept?.name ?? "—"} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Emploi</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Manager hiérarchique"
+              value={
+                manager
+                  ? fullName(manager.firstName, manager.lastName)
+                  : "— (direction)"
+              }
+            />
+            <Field
+              label="Contrat"
+              value={employee.contractType.toUpperCase()}
+            />
+            <Field
+              label="Date d'entrée"
+              value={formatDateFr(employee.hireDate)}
+            />
+            <Field
+              label="Éligibilité télétravail"
+              value={
+                employee.teleworkEligible
+                  ? "Éligible (guide RH p.106)"
+                  : "Non éligible"
+              }
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {canManage ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestion RH de la fiche</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <HrEmployeeForm
+              employee={employee}
+              departments={departments}
+              managers={employees}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documents liés</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {docs.length === 0 ? (
+            <p className="text-sm text-[var(--aster-muted)]">
+              Aucun document associé.
+            </p>
+          ) : (
+            docs.map((doc) => (
+              <div
+                key={doc.id}
+                className="rounded-lg border border-[var(--aster-border)] px-3 py-2.5 text-sm"
+              >
+                <p className="font-medium text-[var(--aster-ink)]">{doc.title}</p>
+                <p className="text-xs text-[var(--aster-muted)]">{doc.category}</p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--aster-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-medium text-[var(--aster-ink)]">{value}</p>
+    </div>
+  );
+}

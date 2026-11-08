@@ -9,13 +9,13 @@ import {
 } from "@/domain/rules/approvals";
 import type { Employee } from "@/domain/types/hr";
 
-const manager: Employee = {
+const chef: Employee = {
   id: "mgr",
   demoIdentityId: "x",
   firstName: "A",
   lastName: "B",
   email: "a@demo.local",
-  jobTitle: "Manager",
+  jobTitle: "Chef de projet",
   departmentId: "d",
   managerId: null,
   site: "Paris",
@@ -30,7 +30,7 @@ const manager: Employee = {
 };
 
 const report: Employee = {
-  ...manager,
+  ...chef,
   id: "emp",
   managerId: "mgr",
   firstName: "C",
@@ -40,20 +40,18 @@ const report: Employee = {
 };
 
 describe("approvals", () => {
-  it("place une demande soumise en attente manager", () => {
+  it("place une demande soumise en attente de validation", () => {
     expect(initialStatusAfterSubmit()).toBe("en_attente_manager");
   });
 
-  it("autorise le manager de l'employé", () => {
-    expect(
-      canApproveAsManager(manager, report, "en_attente_manager"),
-    ).toBe(true);
+  it("conserve canApproveAsManager pour le rattachement hiérarchique", () => {
+    expect(canApproveAsManager(chef, report, "en_attente_manager")).toBe(true);
   });
 
-  it("refuse un manager non concerné", () => {
+  it("refuse un rattachement non concerné", () => {
     expect(
       canApproveAsManager(
-        { ...manager, id: "other" },
+        { ...chef, id: "other" },
         report,
         "en_attente_manager",
       ),
@@ -61,7 +59,7 @@ describe("approvals", () => {
   });
 
   it("refuse si déjà traitée", () => {
-    expect(canApproveAsManager(manager, report, "approuvee")).toBe(false);
+    expect(canApproveAsManager(chef, report, "approuvee")).toBe(false);
   });
 
   it("calcule le statut après décision", () => {
@@ -82,14 +80,24 @@ describe("approvals", () => {
 });
 
 describe("assertCanDecideRequest", () => {
-  it("autorise le manager sur une demande en attente", () => {
+  it("autorise le Chef de projet sur une demande en attente (portée globale)", () => {
     const result = assertCanDecideRequest({
-      role: "manager",
-      actor: manager,
+      role: "chef_de_projet",
+      actor: chef,
       subject: report,
       status: "en_attente_manager",
     });
-    expect(result).toEqual({ ok: true, mode: "manager" });
+    expect(result).toEqual({ ok: true, mode: "chef_de_projet" });
+  });
+
+  it("autorise le Chef de projet hors rattachement hiérarchique", () => {
+    const result = assertCanDecideRequest({
+      role: "chef_de_projet",
+      actor: { ...chef, id: "other" },
+      subject: report,
+      status: "en_attente_manager",
+    });
+    expect(result).toEqual({ ok: true, mode: "chef_de_projet" });
   });
 
   it("bloque le rôle collaborateur", () => {
@@ -101,14 +109,14 @@ describe("assertCanDecideRequest", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.message).toMatch(/réservée au manager/i);
+      expect(result.message).toMatch(/Chef de projet/i);
     }
   });
 
   it("bloque une demande déjà traitée avec un message dédié", () => {
     const result = assertCanDecideRequest({
-      role: "manager",
-      actor: manager,
+      role: "chef_de_projet",
+      actor: chef,
       subject: report,
       status: "approuvee",
     });
@@ -118,34 +126,25 @@ describe("assertCanDecideRequest", () => {
     }
   });
 
-  it("refuse à l'admin RH la file manager (séparation des rôles)", () => {
-    const result = assertCanDecideRequest({
+  it("refuse à l'admin RH toute décision (séparation des rôles)", () => {
+    const pending = assertCanDecideRequest({
       role: "admin_rh",
-      actor: { ...manager, id: "admin" },
+      actor: { ...chef, id: "admin" },
       subject: report,
       status: "en_attente_manager",
     });
-    expect(result.ok).toBe(false);
-  });
+    expect(pending.ok).toBe(false);
 
-  it("autorise l'admin RH uniquement sur en_attente_rh", () => {
-    const result = assertCanDecideRequest({
+    const hrQueue = assertCanDecideRequest({
       role: "admin_rh",
-      actor: { ...manager, id: "admin" },
+      actor: { ...chef, id: "admin" },
       subject: report,
       status: "en_attente_rh",
     });
-    expect(result).toEqual({ ok: true, mode: "admin_rh" });
-  });
-
-  it("refuse un manager hors périmètre", () => {
-    const result = assertCanDecideRequest({
-      role: "manager",
-      actor: { ...manager, id: "other" },
-      subject: report,
-      status: "en_attente_manager",
-    });
-    expect(result.ok).toBe(false);
+    expect(hrQueue.ok).toBe(false);
+    if (!hrQueue.ok) {
+      expect(hrQueue.message).toMatch(/ressources humaines/i);
+    }
   });
 });
 

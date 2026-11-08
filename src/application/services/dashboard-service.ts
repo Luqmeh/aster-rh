@@ -1,3 +1,8 @@
+import {
+  canApproveRequests,
+  canViewAllRequests,
+  hasGlobalPeopleScope,
+} from "@/domain/rules/permissions";
 import type { AuthSession } from "@/infrastructure/auth/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 
@@ -16,34 +21,25 @@ export function createDashboardService(deps: { hr: HrRepository }) {
       );
       const unread = notifications.filter((n) => !n.read).length;
 
-      const pendingLeaves =
-        session.role === "collaborateur"
-          ? []
-          : session.role === "admin_rh"
-            ? await deps.hr.listLeaveRequests({ status: "en_attente_manager" })
-            : (
-                await deps.hr.listLeaveRequests({
-                  managerId: session.employee.id,
-                })
-              ).filter((r) => r.status === "en_attente_manager");
+      const pendingLeaves = canViewAllRequests(session.role)
+        ? (await deps.hr.listLeaveRequests()).filter(
+            (r) =>
+              r.status === "en_attente_manager" ||
+              r.status === "en_attente_rh",
+          )
+        : [];
 
-      const pendingTelework =
-        session.role === "collaborateur"
-          ? []
-          : (
-              session.role === "admin_rh"
-                ? await deps.hr.listTeleworkRequests()
-                : await deps.hr.listTeleworkRequests({
-                    managerId: session.employee.id,
-                  })
-            ).filter((r) => r.status === "en_attente_manager");
+      const pendingTelework = canViewAllRequests(session.role)
+        ? (await deps.hr.listTeleworkRequests()).filter(
+            (r) =>
+              r.status === "en_attente_manager" ||
+              r.status === "en_attente_rh",
+          )
+        : [];
 
-      const team =
-        session.role === "collaborateur"
-          ? []
-          : session.role === "admin_rh"
-            ? await deps.hr.listEmployees()
-            : await deps.hr.listTeamMembers(session.employee.id);
+      const team = hasGlobalPeopleScope(session.role)
+        ? await deps.hr.listEmployees()
+        : [];
 
       return {
         employee: session.employee,
@@ -55,12 +51,16 @@ export function createDashboardService(deps: { hr: HrRepository }) {
         myTeleworkOpen: myTelework.filter((r) =>
           ["en_attente_manager", "en_attente_rh", "soumise"].includes(r.status),
         ).length,
-        pendingApprovals: pendingLeaves.length + pendingTelework.length,
+        pendingApprovals: canApproveRequests(session.role)
+          ? pendingLeaves.length + pendingTelework.length
+          : 0,
         pendingLeaves,
         pendingTelework,
         unreadNotifications: unread,
         notifications: notifications.slice(0, 5),
         teamSize: team.length,
+        canApprove: canApproveRequests(session.role),
+        canViewRequests: canViewAllRequests(session.role),
       };
     },
   };

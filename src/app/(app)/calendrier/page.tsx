@@ -2,6 +2,7 @@ import { createCalendarService } from "@/application/services/calendar-service";
 import { HrCalendar } from "@/components/calendar/hr-calendar";
 import { PageHeader } from "@/components/ui/page-header";
 import { currentMonthKey } from "@/domain/rules/dates";
+import { hasGlobalPeopleScope } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 
 export default async function CalendrierPage() {
@@ -11,17 +12,12 @@ export default async function CalendrierPage() {
 
   const calendar = createCalendarService(container);
   const month = currentMonthKey();
-  const data =
-    session.role === "collaborateur"
-      ? await calendar.getEmployeeMonth(session, month)
-      : await calendar.getTeamMonth(session, month);
+  const orgScope = hasGlobalPeopleScope(session.role);
+  const data = orgScope
+    ? await calendar.getTeamMonth(session, month)
+    : await calendar.getEmployeeMonth(session, month);
 
-  const scope =
-    session.role === "admin_rh"
-      ? "Vue organisation"
-      : session.role === "manager"
-        ? "Vue équipe"
-        : "Vue personnelle";
+  const scope = orgScope ? "Vue organisation" : "Vue personnelle";
 
   return (
     <div className="aster-fade-up space-y-6">

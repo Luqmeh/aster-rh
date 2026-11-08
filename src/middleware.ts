@@ -49,8 +49,19 @@ export default auth((req) => {
   const role = String(
     (req.auth?.user as { role?: string } | undefined)?.role ?? "",
   );
-  if (pathname.startsWith("/administration") && role !== "admin_rh") {
+  if (
+    pathname.startsWith("/administration") &&
+    role !== "admin_rh" &&
+    role !== "chef_de_projet"
+  ) {
     return NextResponse.redirect(new URL("/tableau-de-bord", req.nextUrl));
+  }
+  if (
+    pathname.startsWith("/annuaire") &&
+    role !== "admin_rh" &&
+    role !== "chef_de_projet"
+  ) {
+    return NextResponse.redirect(new URL("/profil", req.nextUrl));
   }
 
   return NextResponse.next();

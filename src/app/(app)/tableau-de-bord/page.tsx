@@ -22,6 +22,11 @@ import { QuickAction } from "@/components/ui/quick-action";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { currentMonthKey, formatMonthYearFr } from "@/domain/rules/dates";
 import { leaveTypeLabel } from "@/domain/rules/leave";
+import {
+  canApproveRequests,
+  canViewAllRequests,
+  hasGlobalPeopleScope,
+} from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, formatDateTimeFr } from "@/lib/utils";
 
@@ -46,16 +51,17 @@ export default async function TableauDeBordPage() {
     dashboard.getOverview(session),
     leaveService.listForCurrentUser(session),
     teleworkService.listForCurrentUser(session),
-    session.role === "collaborateur"
-      ? calendarService.getEmployeeMonth(session, month)
-      : calendarService.getTeamMonth(session, month),
+    hasGlobalPeopleScope(session.role)
+      ? calendarService.getTeamMonth(session, month)
+      : calendarService.getEmployeeMonth(session, month),
   ]);
 
   const { employee, role, balance, pendingLeaves, pendingTelework, notifications } =
     overview;
   const greeting = greetingFor(new Date().getHours());
-  const isManager = role === "manager";
-  const isHr = role === "admin_rh";
+  const canDecide = canApproveRequests(role);
+  const canViewQueue = canViewAllRequests(role);
+  const isHrScope = hasGlobalPeopleScope(role);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
@@ -124,12 +130,12 @@ export default async function TableauDeBordPage() {
         }
       />
 
-      {(isManager || isHr) && pendingCount > 0 ? (
+      {canViewQueue && pendingCount > 0 ? (
         <Card className="border-[var(--aster-warning)]/30 bg-[var(--aster-warning-bg)]">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <ClipboardList className="size-4 text-[var(--aster-warning)]" />
-              À traiter
+              {canDecide ? "À traiter" : "Demandes en cours"}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3 text-sm text-[var(--aster-ink)]">
@@ -146,7 +152,9 @@ export default async function TableauDeBordPage() {
               </span>
             ) : null}
             <Button asChild size="sm" className="ml-auto">
-              <Link href="/administration">Ouvrir les validations</Link>
+              <Link href="/administration">
+                {canDecide ? "Ouvrir les validations" : "Voir l'administration"}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -233,13 +241,7 @@ export default async function TableauDeBordPage() {
           <HrCalendar
             initialMonth={month}
             events={calendarData.events}
-            title={
-              role === "collaborateur"
-                ? "Mon mois"
-                : isHr
-                  ? "Organisation"
-                  : "Équipe"
-            }
+            title={isHrScope ? "Organisation" : "Mon mois"}
             subtitle="Événements dérivés des congés et plans de télétravail — les refus restent distincts."
             compact
           />
@@ -391,10 +393,14 @@ export default async function TableauDeBordPage() {
         </Card>
       </div>
 
-      {isHr ? (
+      {isHrScope ? (
         <Card>
           <CardHeader>
-            <CardTitle>Raccourcis administration RH</CardTitle>
+            <CardTitle>
+              {canDecide
+                ? "Pilotage Chef de projet"
+                : "Raccourcis administration RH"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-3">
             <QuickAction
@@ -405,7 +411,7 @@ export default async function TableauDeBordPage() {
             />
             <QuickAction
               href="/administration"
-              label="Validations"
+              label={canDecide ? "Validations" : "Suivi des demandes"}
               description="Congés et télétravail"
               icon={ClipboardList}
             />
@@ -413,28 +419,6 @@ export default async function TableauDeBordPage() {
               href="/calendrier"
               label="Calendrier org."
               description="Vue mensuelle"
-              icon={CalendarDays}
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {isManager ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Équipe</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <QuickAction
-              href="/administration"
-              label="Demandes à valider"
-              description={`${pendingCount} en attente`}
-              icon={ClipboardList}
-            />
-            <QuickAction
-              href="/calendrier"
-              label="Calendrier équipe"
-              description="Absences et télétravail"
               icon={CalendarDays}
             />
           </CardContent>

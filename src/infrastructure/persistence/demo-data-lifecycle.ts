@@ -18,7 +18,7 @@ const SEED_ACCOUNTS: Array<{
   id: string;
   email: string;
   employeeId: string;
-  role: "collaborateur" | "manager" | "admin_rh";
+  role: "collaborateur" | "chef_de_projet" | "admin_rh";
 }> = [
   {
     id: "user-lea",
@@ -30,7 +30,7 @@ const SEED_ACCOUNTS: Array<{
     id: "user-julien",
     email: "julien.bernard@demo.aster-rh.local",
     employeeId: "emp-julien",
-    role: "manager",
+    role: "chef_de_projet",
   },
   {
     id: "user-camille",

@@ -6,7 +6,7 @@
 - [x] Mode démo + switch de rôles
 - [x] Dashboards par rôle
 - [x] Profil + annuaire
-- [x] Congés (soumission, solde, validation manager/RH)
+- [x] Congés (soumission, solde, validation Chef de projet ; RH en lecture)
 - [x] Télétravail (soumission + validation)
 - [x] Administration RH overview
 - [x] Modules planifiés signalés

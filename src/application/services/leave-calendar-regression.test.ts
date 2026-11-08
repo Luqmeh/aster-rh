@@ -19,7 +19,7 @@ describe("leave + calendar regressions", () => {
   it("conserve soumission / approbation / notification congés", async () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -44,7 +44,7 @@ describe("leave + calendar regressions", () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const calendar = createCalendarService({ hr: demoHrRepository });
     const collab = testSessionFor("emp-lea", "collaborateur");
-    const manager = testSessionFor("emp-julien", "manager");
+    const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
       type: "rtt",
@@ -65,7 +65,7 @@ describe("leave + calendar regressions", () => {
     const leave = createLeaveService({ hr: demoHrRepository, email });
     const collab = testSessionFor("emp-lea", "collaborateur");
     await expect(leave.decide(collab, "leave-1", "approuvee")).rejects.toThrow(
-      /réservée au manager/i,
+      /Chef de projet/i,
     );
   });
 });

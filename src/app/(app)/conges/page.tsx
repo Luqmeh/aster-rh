@@ -1,6 +1,10 @@
 import { CalendarDays } from "lucide-react";
 import { createLeaveService } from "@/application/services/leave-service";
 import { leaveTypeLabel } from "@/domain/rules/leave";
+import {
+  canApproveRequests,
+  canViewAllRequests,
+} from "@/domain/rules/permissions";
 import { ApprovalButtons } from "@/components/modules/approval-buttons";
 import { LeaveForm } from "@/components/modules/leave-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +19,8 @@ export default async function CongesPage() {
   const session = await container.auth.getSession();
   if (!session) throw new Error("Session absente");
   const service = createLeaveService(container);
+  const canViewQueue = canViewAllRequests(session.role);
+  const canDecide = canApproveRequests(session.role);
   const [mine, pending, balance, employees] = await Promise.all([
     service.listForCurrentUser(session),
     service.listTeamPending(session),
@@ -73,17 +79,25 @@ export default async function CongesPage() {
           </CardContent>
         </Card>
 
-        {(session.role === "manager" || session.role === "admin_rh") && (
+        {canViewQueue && (
           <Card>
             <CardHeader>
-              <CardTitle>À valider</CardTitle>
+              <CardTitle>
+                {canDecide ? "À valider" : "Demandes en cours (lecture)"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {!canDecide ? (
+                <p className="text-xs text-[var(--aster-muted)]">
+                  Les ressources humaines consultent les demandes sans pouvoir
+                  les approuver ni les refuser.
+                </p>
+              ) : null}
               {pending.length === 0 ? (
                 <EmptyState
                   icon={CalendarDays}
                   title="Aucune demande en attente"
-                  description="Les demandes de votre équipe apparaîtront ici."
+                  description="Les demandes à traiter apparaîtront ici."
                 />
               ) : (
                 pending.map((item) => {
@@ -108,7 +122,9 @@ export default async function CongesPage() {
                         </div>
                         <StatusBadge status={item.status} />
                       </div>
-                      <ApprovalButtons kind="leave" requestId={item.id} />
+                      {canDecide ? (
+                        <ApprovalButtons kind="leave" requestId={item.id} />
+                      ) : null}
                     </div>
                   );
                 })

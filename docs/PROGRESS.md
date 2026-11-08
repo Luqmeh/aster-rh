@@ -1,59 +1,79 @@
 # ASTER — Progress Report
 
-**Date:** 8 November 2026  
-**Phase:** 8b — Fix Auth.js / Vercel redirect loop  
-**Product:** ASTER — Human Resources, connected.  
-**Parent:** `093e33cde2872b7c55644fa5c4451dfa34d44130`
+**Phase :** 9 — Employee Directory, Profiles & Definitive Role Hierarchy  
+**Date :** 8 novembre 2026  
+**Branche :** `main`
 
----
+## Implemented functionality
 
-## Root cause
+- Central permission matrix in `src/domain/rules/permissions.ts` with reusable checks (`canApproveRequests`, `canBrowseDirectory`, `canManageEmployees`, `canViewAllRequests`, etc.).
+- Definitive three-role hierarchy enforced in approvals, leave/telework services, server actions, middleware, navigation and calendars.
+- Persistent employee directory (`/annuaire`) with search, department / team / status filters, empty state and profile links.
+- Employee profiles (`/annuaire/[id]`) with full HR record management for Chef de projet and RH.
+- Personal profile (`/profil`) with self-service edit of permitted fields (phone, site).
+- HR can view leave and telework queues without approval buttons or server-side decide rights.
+- Chef de projet can approve/reject globally and access all HR administration.
 
-On Vercel (HTTPS), Auth.js sets the session cookie as `__Secure-authjs.session-token`.
+## Definitive role hierarchy
 
-Middleware used `getToken({ secret })` **without** aligning secure-cookie detection (and without `AUTH_URL`). It looked up the **non-secure** cookie name and always got `null`.
+1. **Chef de projet** (`chef_de_projet`) — all HR permissions + all approval/rejection capabilities, global scope.
+2. **Ressources humaines** (`admin_rh`) — directory, employee management, request visibility, no decisions.
+3. **Collaborateur** (`collaborateur`) — own profile and self-service only.
 
-Meanwhile `/connexion` called `auth()`, which **did** read the secure cookie:
+French labels: Chef de projet / Ressources humaines / Collaborateur.
 
-1. Login sets `__Secure-…` cookie → redirect `/tableau-de-bord`
-2. Middleware: no token → redirect `/connexion`
-3. `/connexion`: session present → redirect `/tableau-de-bord`
-4. Repeat → `ERR_TOO_MANY_REDIRECTS` (also on Visit while the cookie remains)
+## Permission changes
 
-RBAC and login credentials were not the cause.
+- Removed lower-privilege Manager role from application roles (`DemoRole`).
+- Approvals: only `chef_de_projet` via `assertCanDecideRequest` / `canApproveRequests`.
+- RH: view-all on leave/telework; decide actions throw AuthError server-side.
+- Directory: Chef de projet + RH only; collaborators redirected to `/profil`.
+- Administration route: Chef de projet + RH.
+- Calendar/dashboard: global people scope for Chef de projet and RH.
 
-## Fix
+## Files and database changes
 
-- Middleware uses edge-safe `NextAuth(authConfig).auth` (same cookie / secure policy as Auth.js).
-- `useSecureCookies` forced on Vercel/production in `auth.config.ts`.
-- JWT/session claim mapping shared in `auth.config.ts` for middleware role checks.
-- App layout: if JWT exists but applicative session cannot be resolved → `signOut` (avoids a second loop class).
-- Docs / `.env.example`: recommend `AUTH_URL` (canonical HTTPS).
+**Core**
+- `src/domain/rules/permissions.ts` (+ tests)
+- `src/domain/rules/approvals.ts` (+ tests)
+- `src/domain/types/hr.ts` (`DemoRole`)
+- `src/infrastructure/auth/authorization.ts`, `session-auth.ts`, `middleware.ts`
+- `src/application/services/{leave,telework,dashboard,calendar,employee}-service.ts`
+- `src/app/actions/{leave,telework,employee}.ts`
+- `src/infrastructure/persistence/{hr-repository,demo-hr-repository,prisma-hr-repository}.ts` (`updateEmployee`, `includeInactive`)
+- UI: `/annuaire`, `/annuaire/[id]`, `/profil`, `/conges`, `/teletravail`, `/administration`, `/tableau-de-bord`, `/calendrier`
+- `src/lib/navigation.ts`, seed/demo accounts, docs matrix/guide/roadmap/architecture/HR requirements
 
-## Files
+**Database**
+- Prisma enum migration `prisma/migrations/20261108193000_role_hierarchy_chef_de_projet/`
+  - `manager` → `chef_de_projet` (no DROP/TRUNCATE of business data)
+- Seed: Julien = Chef de projet, Camille = RH, Léa = Collaborateur
 
-- Modified: `src/middleware.ts`, `src/auth.config.ts`, `src/auth.ts`, `src/app/(app)/layout.tsx`, `src/app/connexion/page.tsx`, `.env.example`, `docs/DEPLOYMENT.md`
-- Deleted then recreated: `docs/PROGRESS.md`
+## Tests and results
 
-## Checks
+```text
+npm test
+Test Files  23 passed (23)
+Tests       137 passed | 1 skipped (138)
+```
 
-| Check | Result |
-|-------|--------|
-| `npm run typecheck` | Pass |
-| `npm run lint` | Pass |
-| Focused Vitest (auth + approvals) | 19 passed |
-| `npm run build` | Pass |
+Coverage added/updated for permissions, approvals, approval workflows, employee directory/profiles, authorization routes.
 
-## Vercel env — action required?
+## Typecheck / lint / build
 
-| Variable | Action |
-|----------|--------|
-| `AUTH_SECRET` | **Required** — must be set at runtime (same value always). |
-| `AUTH_URL` | **Recommended** — canonical HTTPS URL of the deployment (e.g. `https://<project>.vercel.app`). Helps cookie/host consistency. |
-| Passwords / seed | **No change** for this fix. |
+```text
+npm run typecheck  → OK
+npm run lint       → OK
+npm run build      → OK (Next.js 16.4.5 production build)
+```
 
-After deploy: clear site cookies for the deployment host once (or private window), then login again.
+## Remaining issues
 
-## Exact next step
+- Organizational “team” filter uses hierarchical `managerId` (no separate Team entity in schema).
+- Create-employee UI not exposed yet (update/deactivate available); provisioning remains seed/admin controlled so Chef de projet cannot be self-assigned.
+- Apply migration + reseed on deployed Postgres if not already migrated.
 
-Redeploy Production with this commit, set `AUTH_URL` if missing, clear cookies, verify `/connexion` → dashboard without redirect loop.
+## Exact next recommended phase
+
+**Phase 10 — Employee provisioning & org structure hardening**  
+Add controlled employee creation / deactivation flows for Chef de projet & RH, optional Team entity if required by PKF org chart, and Entra ID account linking without changing the definitive role hierarchy.

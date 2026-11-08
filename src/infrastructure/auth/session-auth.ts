@@ -11,7 +11,7 @@ import type { DemoRole } from "@/domain/types/hr";
 function asRole(value: string | undefined): DemoRole | null {
   if (
     value === "collaborateur" ||
-    value === "manager" ||
+    value === "chef_de_projet" ||
     value === "admin_rh"
   ) {
     return value;

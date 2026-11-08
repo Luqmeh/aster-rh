@@ -2,11 +2,14 @@ import {
   assertCanDecideRequest,
   decisionNotificationCopy,
   initialStatusAfterSubmit,
-  nextStatusAfterHrDecision,
   nextStatusAfterManagerDecision,
   type Decision,
 } from "@/domain/rules/approvals";
 import { monthBounds } from "@/domain/rules/dates";
+import {
+  canApproveRequests,
+  canViewAllRequests,
+} from "@/domain/rules/permissions";
 import {
   assertTeleworkEligibility,
   canModifyTeleworkPlan,
@@ -28,17 +31,20 @@ export function createTeleworkService(deps: {
       return deps.hr.listTeleworkRequests({ employeeId: session.employee.id });
     },
 
-    async listTeamPending(session: AuthSession) {
-      if (session.role === "collaborateur") return [];
-      if (session.role === "admin_rh") {
-        const items = await deps.hr.listTeleworkRequests();
-        return items.filter((r) => r.status === "en_attente_rh");
+    async listVisible(session: AuthSession) {
+      if (canViewAllRequests(session.role)) {
+        return deps.hr.listTeleworkRequests();
       }
-      return (
-        await deps.hr.listTeleworkRequests({
-          managerId: session.employee.id,
-        })
-      ).filter((r) => r.status === "en_attente_manager");
+      return deps.hr.listTeleworkRequests({ employeeId: session.employee.id });
+    },
+
+    async listTeamPending(session: AuthSession) {
+      if (!canViewAllRequests(session.role)) return [];
+      const items = await deps.hr.listTeleworkRequests();
+      return items.filter(
+        (r) =>
+          r.status === "en_attente_manager" || r.status === "en_attente_rh",
+      );
     },
 
     async getApprovedLeaveForEmployee(employeeId: string) {
@@ -129,7 +135,9 @@ export function createTeleworkService(deps: {
 
       const input = monthlyTeleworkPlanInputSchema.parse(raw);
       if (request.month && request.month !== input.month) {
-        throw new Error("Le mois du plan ne peut pas être changé. Créez un nouveau plan.");
+        throw new Error(
+          "Le mois du plan ne peut pas être changé. Créez un nouveau plan.",
+        );
       }
 
       const approvedLeave = (
@@ -177,6 +185,14 @@ export function createTeleworkService(deps: {
       const subject = await deps.hr.getEmployee(request.employeeId);
       if (!subject) throw new Error("Collaborateur introuvable.");
 
+      if (!canApproveRequests(session.role)) {
+        throw new Error(
+          session.role === "admin_rh"
+            ? "Les ressources humaines peuvent consulter les demandes mais ne peuvent pas les approuver ni les refuser."
+            : "Action réservée au Chef de projet.",
+        );
+      }
+
       const authz = assertCanDecideRequest({
         role: session.role,
         actor: session.employee,
@@ -189,10 +205,7 @@ export function createTeleworkService(deps: {
         throw new Error("Un motif de refus est obligatoire.");
       }
 
-      const status =
-        authz.mode === "admin_rh"
-          ? nextStatusAfterHrDecision(decision)
-          : nextStatusAfterManagerDecision(decision, false);
+      const status = nextStatusAfterManagerDecision(decision, false);
       const updated = await deps.hr.updateTeleworkRequest(requestId, {
         status,
         managerComment: comment?.trim() || null,

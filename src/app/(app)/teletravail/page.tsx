@@ -23,6 +23,11 @@ import {
   formatMonthYearFr,
   isoWeekKey,
 } from "@/domain/rules/dates";
+import {
+  canApproveRequests,
+  canViewAllRequests,
+  hasGlobalPeopleScope,
+} from "@/domain/rules/permissions";
 import { assertTeleworkEligibility } from "@/domain/rules/telework-monthly";
 import { getContainer } from "@/infrastructure/container";
 import { cn, formatDateFr, fullName } from "@/lib/utils";
@@ -39,14 +44,16 @@ export default async function TeletravailPage({
   const service = createTeleworkService(container);
   const calendar = createCalendarService(container);
   const month = currentMonthKey();
+  const canViewQueue = canViewAllRequests(session.role);
+  const canDecide = canApproveRequests(session.role);
 
   const [mine, pending, employees, calendarData] = await Promise.all([
     service.listForCurrentUser(session),
     service.listTeamPending(session),
     container.hr.listEmployees(),
-    session.role === "collaborateur"
-      ? calendar.getEmployeeMonth(session, month)
-      : calendar.getTeamMonth(session, month),
+    hasGlobalPeopleScope(session.role)
+      ? calendar.getTeamMonth(session, month)
+      : calendar.getEmployeeMonth(session, month),
   ]);
   const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
   const eligibility = assertTeleworkEligibility(session.employee);
@@ -67,7 +74,7 @@ export default async function TeletravailPage({
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Télétravail"
-        description="Planification mensuelle : plafond 12 j/mois (guide RH p.106) et limite produit 2 j/semaine. Validations manager."
+        description="Planification mensuelle : plafond 12 j/mois (guide RH p.106) et limite produit 2 j/semaine. Validations Chef de projet."
       />
 
       {editError ? (
@@ -104,17 +111,25 @@ export default async function TeletravailPage({
           </CardContent>
         </Card>
 
-        {(session.role === "manager" || session.role === "admin_rh") && (
+        {canViewQueue && (
           <Card>
             <CardHeader>
-              <CardTitle>Plans à valider</CardTitle>
+              <CardTitle>
+                {canDecide ? "Plans à valider" : "Plans en cours (lecture)"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {!canDecide ? (
+                <p className="text-xs text-[var(--aster-muted)]">
+                  Les ressources humaines consultent les plans sans pouvoir les
+                  approuver ni les refuser.
+                </p>
+              ) : null}
               {pending.length === 0 ? (
                 <EmptyState
                   icon={Laptop}
                   title="Aucun plan en attente"
-                  description="Les plans mensuels de l'équipe apparaîtront ici."
+                  description="Les plans mensuels à traiter apparaîtront ici."
                 />
               ) : (
                 pending.map((item) => {
@@ -148,11 +163,13 @@ export default async function TeletravailPage({
                           </p>
                         ))}
                       </div>
-                      <ApprovalButtons
-                        kind="telework"
-                        requestId={item.id}
-                        requireRejectionReason
-                      />
+                      {canDecide ? (
+                        <ApprovalButtons
+                          kind="telework"
+                          requestId={item.id}
+                          requireRejectionReason
+                        />
+                      ) : null}
                     </div>
                   );
                 })
@@ -205,7 +222,7 @@ export default async function TeletravailPage({
                     </p>
                     {item.managerComment ? (
                       <p className="mt-1 text-xs text-[var(--aster-muted)]">
-                        Manager : {item.managerComment}
+                        Décision : {item.managerComment}
                       </p>
                     ) : null}
                   </div>

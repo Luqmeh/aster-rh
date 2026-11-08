@@ -1,4 +1,5 @@
 import { buildCalendarEvents } from "@/domain/rules/calendar-events";
+import { hasGlobalPeopleScope } from "@/domain/rules/permissions";
 import type { CalendarEvent } from "@/domain/types/calendar";
 import type { AuthSession } from "@/infrastructure/auth/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
@@ -48,18 +49,14 @@ export function createCalendarService(deps: { hr: HrRepository }) {
       session: AuthSession,
       month: string,
     ): Promise<{ month: string; events: CalendarEvent[] }> {
-      if (session.role === "collaborateur") {
+      if (!hasGlobalPeopleScope(session.role)) {
         const events = await buildForEmployees(deps.hr, month, [
           session.employee.id,
         ]);
         return { month, events };
       }
 
-      const team =
-        session.role === "admin_rh"
-          ? await deps.hr.listEmployees()
-          : await deps.hr.listTeamMembers(session.employee.id);
-
+      const team = await deps.hr.listEmployees();
       const ids = [
         ...new Set([session.employee.id, ...team.map((e) => e.id)]),
       ];

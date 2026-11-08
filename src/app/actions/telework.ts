@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createTeleworkService } from "@/application/services/telework-service";
 import type { MonthlyTeleworkPlanInput } from "@/domain/rules/telework-monthly";
+import { canApproveRequests } from "@/domain/rules/permissions";
 import {
   AuthError,
   requireSession,
@@ -55,9 +56,11 @@ export async function decideTeleworkAction(
 ) {
   const container = getContainer();
   const session = requireSession(await container.auth.getSession());
-  if (session.role === "collaborateur") {
+  if (!canApproveRequests(session.role)) {
     throw new AuthError(
-      "Action réservée au manager ou à l'administrateur RH.",
+      session.role === "admin_rh"
+        ? "Les ressources humaines peuvent consulter les demandes mais ne peuvent pas les approuver ni les refuser."
+        : "Action réservée au Chef de projet.",
       403,
     );
   }

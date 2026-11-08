@@ -11,12 +11,23 @@ export const demoHrRepository: HrRepository = {
     return getDemoStore().departments;
   },
 
-  async listEmployees() {
-    return getDemoStore().employees.filter((e) => e.isActive);
+  async listEmployees(filter) {
+    const rows = getDemoStore().employees;
+    if (filter?.includeInactive) return [...rows];
+    return rows.filter((e) => e.isActive);
   },
 
   async getEmployee(id) {
     return getDemoStore().employees.find((e) => e.id === id) ?? null;
+  },
+
+  async updateEmployee(id, patch) {
+    const store = getDemoStore();
+    const index = store.employees.findIndex((e) => e.id === id);
+    if (index < 0) throw new Error("Collaborateur introuvable.");
+    const updated = { ...store.employees[index], ...patch };
+    store.employees[index] = updated;
+    return updated;
   },
 
   async listTeamMembers(managerId) {
