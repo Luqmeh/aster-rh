@@ -7,21 +7,24 @@
  * sur un bucket privé est la configuration attendue pour ASTER (accès serveur uniquement).
  */
 import { createClient } from "@supabase/supabase-js";
-import { ASTER_PRIVATE_DOCS_BUCKET } from "../src/infrastructure/storage/supabase-storage";
+import {
+  ASTER_PRIVATE_DOCS_BUCKET,
+  formatStorageDiagnostics,
+  resolveStorageConfig,
+} from "../src/infrastructure/storage/supabase-storage";
 
 async function main() {
-  const url =
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    process.env.SUPABASE_URL?.trim();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) {
+  const config = resolveStorageConfig(process.env);
+  if (!config.url || !config.serviceKey) {
     console.error(
-      "Manque NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.",
+      "Manque SUPABASE_URL (ou NEXT_PUBLIC_SUPABASE_URL) / SUPABASE_SERVICE_ROLE_KEY.",
     );
     process.exit(1);
   }
 
-  const client = createClient(url, key, {
+  console.log(`Diagnostic: ${formatStorageDiagnostics(config)}`);
+
+  const client = createClient(config.url, config.serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -31,10 +34,21 @@ async function main() {
     process.exit(1);
   }
 
-  const bucket = buckets?.find((b) => b.name === ASTER_PRIVATE_DOCS_BUCKET);
+  console.log(
+    `Buckets visibles: ${
+      buckets && buckets.length > 0
+        ? buckets.map((b) => `${b.name}(public=${b.public})`).join(", ")
+        : "(aucun)"
+    }`,
+  );
+
+  const bucket = buckets?.find(
+    (b) =>
+      b.name === ASTER_PRIVATE_DOCS_BUCKET || b.id === ASTER_PRIVATE_DOCS_BUCKET,
+  );
   if (!bucket) {
     console.error(
-      `Bucket "${ASTER_PRIVATE_DOCS_BUCKET}" introuvable. Créez-le en privé dans Supabase Storage.`,
+      `Bucket "${ASTER_PRIVATE_DOCS_BUCKET}" introuvable sur projet=${config.projectRef ?? "inconnu"}. Créez-le en privé dans CE projet Supabase Storage, ou alignez les variables Vercel sur le bon projet.`,
     );
     process.exit(1);
   }

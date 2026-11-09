@@ -1,56 +1,61 @@
 # ASTER — Progress report
 
 **Date :** 2026-11-09  
-**Focus :** Correctif urgent React #441 (recrutement / CV)  
-**Statut :** Correctif poussé — **workflow Production pas encore re-vérifié après déploiement**
+**Focus :** Production CV upload — `Échec upload stockage : Bucket not found`  
+**Statut :** Correctif code poussé — **alignement projet Supabase à confirmer en Production**
 
-## Cause réelle (logs runtime Vercel)
+## Cause
 
-Entrée runtime Production (pas un log de build) :
+### Ce que fait le code
 
-- **Deployment :** `dpl_CnaoFsthEgsqFExPjmQFSmxUm21M` (`aster-kjj53nm10-…`)
-- **Request :** `POST /entretiens/rec-mw8as5bh-884xe`
-- **Niveau :** `error` / function / `cdg1` / `nodejs26.x`
-- **Message :** `Error: Un CV est obligatoire avant soumission.`
-- **Digest :** `1412190641`
-- **Stack :** `recruitment-service.submit` → `recruitment` Server Action (throw)
+- Bucket demandé partout (upload / signed URL / delete) : **`aster-private-docs`** (`ASTER_PRIVATE_DOCS_BUCKET`).
+- `ASTER_STORAGE_BUCKET` **non défini** en Production Vercel → défaut `aster-private-docs` (pas un mauvais nom dans le code).
+- Auth Storage fonctionne assez pour joindre l’API → l’erreur « Bucket not found » signifie : **sur le projet Supabase pointé par l’URL/clé serveur, ce bucket n’existe pas**.
 
-React #441 masque cette exception côté navigateur. L’erreur s’affichait sous le formulaire candidat (zone partagée avec les contrôles CV) après « Soumettre pour revue » sans CV.
+### Config Production (sans secrets)
 
-Env Production : `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` sont présentes ; le mock Storage n’est pas la cause de ce digest.
+| Variable | État |
+|----------|------|
+| `ASTER_STORAGE_BUCKET` | unset (défaut OK) |
+| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | présentes (marquées Sensitive — valeur non lisible via CLI pull) |
+| `SUPABASE_SERVICE_ROLE_KEY` | présente |
+| `ASTER_ALLOW_MOCK_STORAGE` | unset |
 
-## Changements
+**Référence projet :** non extractible depuis l’agent (env Sensitive / non déchiffrable). À lire dans le dashboard Vercel (URL) ou dans les logs runtime après ce déploiement (`projet=<ref>`).
 
-1. **Server Actions recrutement** — plus de throw vers le client : retour `{ ok, message }` (FR) pour create/update/upload/submit/decide/assign/CV URL.
-2. **Upload CV** — `FormData` natif (`candidateId` + `cv`) au lieu de base64 Server Action args.
-3. **UI** — lit `result.ok` / `result.message` (plus de try/catch sur throw masqué).
-4. **Container** — `storage` lazy : `createDocumentStorage()` seulement à l’accès CV (évite un assert Storage sur tout le layout).
-5. **Tests** — régression FormData + conversion erreur stockage + digest prod « CV obligatoire ».
+**Hypothèse la plus probable :** le bucket a été créé sur un projet Supabase **différent** de celui configuré dans Vercel (ou seule `NEXT_PUBLIC_…` était lue alors que `SUPABASE_URL` pointe ailleurs). Ce n’est **pas** un bucket public manquant ni un mock Production.
 
-## Fichiers modifiés / ajoutés
+## Changements code
+
+1. **Préférence URL serveur** : `SUPABASE_URL` puis `NEXT_PUBLIC_SUPABASE_URL` (alignement Postgres/intégration).
+2. **Fallback clé** : `SUPABASE_SERVICE_ROLE_KEY` puis `SUPABASE_SECRET_KEY`.
+3. **Diagnostics sûrs** : `projet=<ref> bucket=aster-private-docs urlSource=…` dans logs + messages d’erreur (jamais de credentials).
+4. **Vérification bucket** avant upload/sign : `listBuckets` → message FR explicite + liste des buckets visibles si absent.
+5. Script `verify-storage-bucket.ts` + docs/env example alignés.
+
+## Fichiers
 
 | Fichier | Rôle |
 |---------|------|
-| `src/app/actions/recruitment.ts` | Actions non-throwing + upload FormData |
-| `src/components/modules/recruitment-forms.tsx` | Feedback métier via `result.ok` |
-| `src/infrastructure/container.ts` | Getter lazy `storage` |
-| `src/app/actions/recruitment-cv-upload.test.ts` | Régressions upload/submit #441 |
-| `src/infrastructure/container-storage-lazy.test.ts` | Laziness storage |
-| `docs/PROGRESS.md` | Rapport frais (remplacé) |
+| `src/infrastructure/storage/supabase-storage.ts` | Préférence URL, diagnostics, assert bucket |
+| `src/infrastructure/storage/supabase-storage.test.ts` | Régressions ref / priorité URL / secret fallback |
+| `scripts/verify-storage-bucket.ts` | Diagnostic CLI |
+| `.env.example` | `SUPABASE_URL` documenté |
+| `docs/DEPLOYMENT.md` | Variables Storage |
+| `docs/PROGRESS.md` | Rapport frais |
 
 ## Dépendances
 
 Aucune nouvelle dépendance npm.
 
-## Résultats tests ciblés
+## Tests
 
 ```
-npx vitest run src/app/actions/recruitment-cv-upload.test.ts \
-  src/infrastructure/container-storage-lazy.test.ts
-→ 6 passed
+npx vitest run src/infrastructure/storage/supabase-storage.test.ts \
+  src/infrastructure/container-storage-lazy.test.ts \
+  src/app/actions/recruitment-cv-upload.test.ts
+→ 15 passed
 ```
-
-Autres déjà verts dans la même session : `supabase-storage.test.ts`, `recruitment-service.test.ts`.
 
 ## Typecheck / lint / build
 
@@ -58,23 +63,24 @@ Autres déjà verts dans la même session : `supabase-storage.test.ts`, `recruit
 |-------|----------|
 | `npm run typecheck` | OK |
 | `npm run lint` | OK |
-| `npm run build` (`ASTER_BUILD_WITHOUT_DB=1`) | OK |
+| `npm run build` | OK |
 
-## Non modifié (volontaire)
+## Ce qui n’a pas changé
 
-- Hiérarchie rôles (HR crée/upload ; Chef décide ; HR ne décide pas)
-- Bucket privé `aster-private-docs`
-- Pas de fallback mock Storage en Production
-- Pas de redesign UI
+- Bucket cible toujours `aster-private-docs` (privé)
+- Pas de mock Storage en Production
+- Pas d’affaiblissement auth / pas de bucket public
+- Pas de création automatique de bucket
 
 ## Issues restantes
 
-- **Production non re-vérifiée** après ce commit : attendre le déploiement Vercel, puis tester soumission sans CV (message FR clair, pas #441) et upload CV réel.
-- Si un digest Storage apparaît après déploiement, chercher dans Runtime Logs : `Échec upload stockage`, `Stockage Supabase requis`, ou digest associé — **ne pas confondre avec Build Logs**.
+- **Confirm project match** : après déploiement, l’erreur enrichie (ou les logs `[aster-storage]`) indiquera `projet=<ref>`. Comparer avec le projet où le bucket a été créé dans le dashboard Supabase.
+- Si les refs diffèrent → **changement d’env Vercel** (pas seulement redeploy) : aligner `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` sur le projet qui contient `aster-private-docs`, **ou** créer le bucket sur le projet déjà configuré (manuellement — pas via l’app).
 
 ## Prochaine étape exacte
 
-1. Après déploiement de ce commit sur `aster-rh.vercel.app`.
-2. Se connecter RH → dossier brouillon → **Soumettre pour revue** sans CV → attendre le message « Un CV est obligatoire avant soumission. » (pas React #441).
-3. Téléverser un PDF ≤ 5 Mo → succès, puis soumettre.
-4. Si échec upload : ouvrir **Vercel → Project aster-rh → Logs (Runtime / Functions)** pour le `POST` sur `/entretiens/[id]` et noter `message` + `digest`.
+1. Attendre le déploiement de ce commit sur `aster-rh.vercel.app`.
+2. Retenter un upload CV.
+3. Si échec : noter dans le message UI / Runtime Logs la ligne `projet=… bucket=aster-private-docs urlSource=…`.
+4. Dans Supabase Dashboard du **même** `projet=…` : Storage → confirmer `aster-private-docs` (privé). Sinon créer le bucket **sur ce projet** ou corriger les env Vercel pour pointer vers le projet où il existe déjà.
+5. Optionnel local : `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npx tsx scripts/verify-storage-bucket.ts`
