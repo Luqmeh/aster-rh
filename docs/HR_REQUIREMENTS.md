@@ -79,8 +79,22 @@ Le mapping vers les groupes Microsoft Entra ID reste à définir (`docs/INTEGRAT
 ## 5. Documents & confidentialité
 
 - Aucun document RH confidentiel réel dans le dépôt.
-- Les PDF listés dans l’UI sont des **métadonnées mock**.
 - Ne jamais committer le guide RH source.
+
+### Demandes documentaires collaborateur (ASTER)
+
+| Sujet | Statut | Notes / source |
+|-------|--------|----------------|
+| Bulletins de paie | **Guide p.65–66** | Diffusion PeopleDoc — **pas** de demande de génération RH dans ASTER |
+| Mutuelle / santé complémentaire | **Guide p.54** | Procédures Helium (hors workflow documentaire ASTER) |
+| Mises à jour dossier personnel | **Guide p.69** | Formulaires Kammi (hors catalogue ASTER) |
+| Attestation annuelle CNCC | **Guide p.81** | Professionnels CAC éligibles |
+| Certificats de réussite / primes | **Guide p.93** | Remise RH pour primes applicables |
+| Catalogue de demandes ASTER | **HYPOTHÈSE DÉMO** | Types proposés dans l’UI **non** présentés comme inventaire exhaustif du guide |
+| Éligibilité CNCC (démo) | **HYPOTHÈSE DÉMO** | Intitulé de poste contenant « CAC » ou « commissaire » |
+| Documents de départ | **HYPOTHÈSE DÉMO** | Proposés si statut `parti` ou `inactif` avec date de départ |
+
+Code : `src/domain/rules/document-requests.ts`, `src/application/services/document-request-service.ts`.
 
 ---
 

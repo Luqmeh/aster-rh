@@ -18,6 +18,10 @@ Hiérarchie définitive (permanente) :
 | Approuver / refuser recrutement | Non | **Non** | Oui |
 | Assigner intervieweur (`Appliquer`) | Non | Non | Oui |
 | Voir CV recrutement | Assignés uniquement | Tous | Tous |
+| Demander un document administratif | Soi | Soi | Soi |
+| Voir / traiter toutes les demandes documentaires | Non | Oui | Oui |
+| Uploader + « Mettre à disposition » un document | Non | Oui | Oui |
+| Télécharger document publié | Soi uniquement | Tous (traitement) | Tous (traitement) |
 | Administration RH | Non | Oui | Oui |
 
 ## Règles d’or
@@ -26,4 +30,5 @@ Hiérarchie définitive (permanente) :
 2. RH ne décide jamais sur congés, télétravail ou recrutement.
 3. Départ / inactif → `UserAccount.isActive=false` + refus d’auth.
 4. Pas d’auto-provisioning privilégié.
-5. CV : stockage privé + URL signée courte uniquement.
+5. CV / documents : stockage privé `aster-private-docs` + URL signée courte uniquement ; namespaces séparés `recruitment/…` et `employee-documents/…`.
+6. Publication documentaire explicite (« Mettre à disposition ») — l’upload seul ne rend pas le fichier visible au collaborateur.

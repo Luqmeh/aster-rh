@@ -32,6 +32,10 @@ export type Permission =
   | "recruitment.decide"
   | "recruitment.assign_interviewer"
   | "recruitment.view_assigned"
+  | "document_request.submit"
+  | "document_request.view_own"
+  | "document_request.view_all"
+  | "document_request.process"
   | "dashboard.hr"
   | "dashboard.management";
 
@@ -60,6 +64,10 @@ const CHEF: Permission[] = [
   "recruitment.decide",
   "recruitment.assign_interviewer",
   "recruitment.view_assigned",
+  "document_request.submit",
+  "document_request.view_own",
+  "document_request.view_all",
+  "document_request.process",
   "dashboard.hr",
   "dashboard.management",
 ];
@@ -83,6 +91,10 @@ const HR: Permission[] = [
   "request.telework.submit",
   "recruitment.create",
   "recruitment.view_all",
+  "document_request.submit",
+  "document_request.view_own",
+  "document_request.view_all",
+  "document_request.process",
   "dashboard.hr",
   // pas de *.approve / recruitment.decide
 ];
@@ -95,6 +107,8 @@ const EMPLOYEE: Permission[] = [
   "request.telework.view_own",
   "request.telework.submit",
   "recruitment.view_assigned",
+  "document_request.submit",
+  "document_request.view_own",
 ];
 
 const ROLE_PERMISSIONS: Record<DemoRole, ReadonlySet<Permission>> = {
@@ -190,4 +204,12 @@ export function canViewAllRecruitment(role: DemoRole): boolean {
 
 export function canAssignInterviewer(role: DemoRole): boolean {
   return hasPermission(role, "recruitment.assign_interviewer");
+}
+
+export function canProcessDocumentRequests(role: DemoRole): boolean {
+  return hasPermission(role, "document_request.process");
+}
+
+export function canViewAllDocumentRequests(role: DemoRole): boolean {
+  return hasPermission(role, "document_request.view_all");
 }

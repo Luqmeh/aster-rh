@@ -10,7 +10,7 @@ Prototype de plateforme RH en français pour **PKF Arsilon**, destiné à rempla
 - Next.js App Router (React, TypeScript)
 - Auth.js (next-auth v5) — credentials temporaires + Microsoft Entra ID (config)
 - Tailwind CSS + composants style shadcn/ui + Lucide
-- Zod · Prisma · PostgreSQL (Supabase) · Supabase Storage (CV privés)
+- Zod · Prisma · PostgreSQL (Supabase) · Supabase Storage (CV + documents privés)
 
 ## Hiérarchie des rôles (définitive)
 

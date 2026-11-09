@@ -14,8 +14,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatMonthYearFr } from "@/domain/rules/dates";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, fullName } from "@/lib/utils";
-import { ClipboardList, Users } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, FolderOpen, Users } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export default async function AdministrationPage() {
   const container = getContainer();
@@ -45,6 +47,14 @@ export default async function AdministrationPage() {
           canDecide
             ? "Pilotage transverse Chef de projet — administration RH et validations."
             : "Vue transverse Ressources humaines — consultation des demandes sans autorité de validation."
+        }
+        actions={
+          <Button asChild size="sm" variant="secondary">
+            <Link href="/administration/documents">
+              <FolderOpen className="mr-1.5 h-4 w-4" />
+              Demandes de documents
+            </Link>
+          </Button>
         }
       />
 

@@ -78,6 +78,28 @@ enum RecruitmentStatus {
   entretien_termine
 }
 
+enum DocumentRequestType {
+  attestation_travail
+  attestation_employeur
+  attestation_remuneration
+  copie_contrat
+  copie_avenant
+  attestation_formation
+  attestation_cncc
+  certificat_travail
+  attestation_france_travail
+  recu_solde_tout_compte
+  autre
+}
+
+enum DocumentRequestStatus {
+  en_attente
+  en_traitement
+  informations_demandees
+  document_disponible
+  refusee
+}
+
 /// Compte applicatif ASTER — distinct de la fiche Employee (données RH).
 model UserAccount {
   id              String       @id @default(cuid())
@@ -164,6 +186,8 @@ model Employee {
   recruitmentCreated  RecruitmentCandidate[] @relation("RecruitmentCreator")
   recruitmentDecided  RecruitmentCandidate[] @relation("RecruitmentDecider")
   interviewsAssigned  RecruitmentCandidate[] @relation("RecruitmentInterviewer")
+  documentRequests    DocumentRequest[]      @relation("DocumentRequestEmployee")
+  documentRequestsProcessed DocumentRequest[] @relation("DocumentRequestProcessor")
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -313,4 +337,46 @@ model HrDocument {
 
   @@index([employeeId])
   @@index([isCompanyWide])
+}
+
+/// Demande documentaire collaborateur → traitement RH / Chef.
+model DocumentRequest {
+  id                     String                @id @default(cuid())
+  employeeId             String
+  employee               Employee              @relation("DocumentRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType           DocumentRequestType
+  customLabel            String?
+  reason                 String
+  status                 DocumentRequestStatus @default(en_attente)
+  hrMessage              String?
+  hrInternalNote         String?
+  storageKey             String?
+  fileName               String?
+  contentType            String?
+  published              Boolean               @default(false)
+  publishedAt            DateTime?
+  processedByEmployeeId  String?
+  processedBy            Employee?             @relation("DocumentRequestProcessor", fields: [processedByEmployeeId], references: [id], onDelete: SetNull)
+  events                 DocumentRequestEvent[]
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([documentType])
+  @@index([employeeId, status])
+  @@index([createdAt])
+}
+
+model DocumentRequestEvent {
+  id        String          @id @default(cuid())
+  requestId String
+  request   DocumentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  kind      String
+  message   String
+  actorId   String?
+  createdAt DateTime        @default(now())
+
+  @@index([requestId])
+  @@index([createdAt])
 }

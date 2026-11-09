@@ -319,4 +319,81 @@ export const demoHrRepository: HrRepository = {
       .recruitmentEvents.filter((e) => e.candidateId === candidateId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
+
+  async listDocumentRequests(filter) {
+    let items = [...getDemoStore().documentRequests];
+    if (filter?.employeeId) {
+      items = items.filter((r) => r.employeeId === filter.employeeId);
+    }
+    if (filter?.status) {
+      const statuses = Array.isArray(filter.status)
+        ? filter.status
+        : [filter.status];
+      items = items.filter((r) => statuses.includes(r.status));
+    }
+    if (filter?.documentType) {
+      items = items.filter((r) => r.documentType === filter.documentType);
+    }
+    if (filter?.q?.trim()) {
+      const q = filter.q.trim().toLowerCase();
+      const emps = getDemoStore().employees;
+      items = items.filter((r) => {
+        const emp = emps.find((e) => e.id === r.employeeId);
+        const name = emp
+          ? `${emp.firstName} ${emp.lastName}`.toLowerCase()
+          : "";
+        return (
+          name.includes(q) ||
+          r.reason.toLowerCase().includes(q) ||
+          (r.customLabel ?? "").toLowerCase().includes(q)
+        );
+      });
+    }
+    return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  },
+
+  async getDocumentRequest(id) {
+    return getDemoStore().documentRequests.find((r) => r.id === id) ?? null;
+  },
+
+  async createDocumentRequest(input) {
+    const now = new Date().toISOString();
+    const row = {
+      ...input,
+      id: uid("docreq"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    getDemoStore().documentRequests.unshift(row);
+    return row;
+  },
+
+  async updateDocumentRequest(id, patch) {
+    const store = getDemoStore();
+    const index = store.documentRequests.findIndex((r) => r.id === id);
+    if (index < 0) throw new Error("Demande documentaire introuvable.");
+    const updated = {
+      ...store.documentRequests[index],
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    store.documentRequests[index] = updated;
+    return updated;
+  },
+
+  async addDocumentRequestEvent(input) {
+    const event = {
+      ...input,
+      id: uid("docreqevt"),
+      createdAt: new Date().toISOString(),
+    };
+    getDemoStore().documentRequestEvents.unshift(event);
+    return event;
+  },
+
+  async listDocumentRequestEvents(requestId) {
+    return getDemoStore()
+      .documentRequestEvents.filter((e) => e.requestId === requestId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
 };

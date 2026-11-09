@@ -1,5 +1,9 @@
 import type {
   ContractType,
+  DocumentRequest,
+  DocumentRequestEvent,
+  DocumentRequestStatus,
+  DocumentRequestType,
   Employee,
   EmployeeCategory,
   EmploymentStatus,
@@ -309,5 +313,67 @@ export function mapDocument(row: PrismaDocument): HrDocument {
     uploadedAt: utcToIso(row.uploadedAt),
     storageKey: row.storageKey,
     isCompanyWide: row.isCompanyWide,
+  };
+}
+
+type PrismaDocumentRequest = {
+  id: string;
+  employeeId: string;
+  documentType: DocumentRequestType;
+  customLabel: string | null;
+  reason: string;
+  status: DocumentRequestStatus;
+  hrMessage: string | null;
+  hrInternalNote: string | null;
+  storageKey: string | null;
+  fileName: string | null;
+  contentType: string | null;
+  published: boolean;
+  publishedAt: Date | null;
+  processedByEmployeeId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PrismaDocumentRequestEvent = {
+  id: string;
+  requestId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: Date;
+};
+
+export function mapDocumentRequest(row: PrismaDocumentRequest): DocumentRequest {
+  return {
+    id: row.id,
+    employeeId: row.employeeId,
+    documentType: row.documentType,
+    customLabel: row.customLabel,
+    reason: row.reason,
+    status: row.status,
+    hrMessage: row.hrMessage,
+    hrInternalNote: row.hrInternalNote,
+    storageKey: row.storageKey,
+    fileName: row.fileName,
+    contentType: row.contentType,
+    published: row.published,
+    publishedAt: row.publishedAt ? utcToIso(row.publishedAt) : null,
+    processedByEmployeeId: row.processedByEmployeeId,
+    createdAt: utcToIso(row.createdAt),
+    updatedAt: utcToIso(row.updatedAt),
+  };
+}
+
+export function mapDocumentRequestEvent(
+  row: PrismaDocumentRequestEvent,
+): DocumentRequestEvent {
+  return {
+    id: row.id,
+    requestId: row.requestId,
+    kind: row.kind,
+    message: row.message,
+    actorId: row.actorId,
+    createdAt: utcToIso(row.createdAt),
   };
 }

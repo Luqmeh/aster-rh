@@ -110,6 +110,12 @@ export const navigationGroups: NavGroup[] = [
         icon: FileText,
         roles: ["chef_de_projet", "admin_rh"],
       },
+      {
+        href: "/administration/documents",
+        label: "Demandes de documents",
+        icon: FolderOpen,
+        roles: ["chef_de_projet", "admin_rh"],
+      },
       { href: "/parametres", label: "Paramètres", icon: Settings },
     ],
   },

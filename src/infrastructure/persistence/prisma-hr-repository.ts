@@ -497,4 +497,120 @@ export const prismaHrRepository: HrRepository = {
     });
     return rows.map(mapRecruitmentEvent);
   },
+
+  async listDocumentRequests(filter) {
+    const { mapDocumentRequest } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const where: Record<string, unknown> = {};
+    if (filter?.employeeId) where.employeeId = filter.employeeId;
+    if (filter?.documentType) where.documentType = filter.documentType;
+    if (filter?.status) {
+      where.status = Array.isArray(filter.status)
+        ? { in: filter.status }
+        : filter.status;
+    }
+    if (filter?.q?.trim()) {
+      const q = filter.q.trim();
+      where.OR = [
+        { reason: { contains: q, mode: "insensitive" } },
+        { customLabel: { contains: q, mode: "insensitive" } },
+        {
+          employee: {
+            OR: [
+              { firstName: { contains: q, mode: "insensitive" } },
+              { lastName: { contains: q, mode: "insensitive" } },
+            ],
+          },
+        },
+      ];
+    }
+    const rows = await getPrismaClient().documentRequest.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(mapDocumentRequest);
+  },
+
+  async getDocumentRequest(id) {
+    const { mapDocumentRequest } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().documentRequest.findUnique({
+      where: { id },
+    });
+    return row ? mapDocumentRequest(row) : null;
+  },
+
+  async createDocumentRequest(input) {
+    const { mapDocumentRequest } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().documentRequest.create({
+      data: {
+        id: newId("docreq"),
+        employeeId: input.employeeId,
+        documentType: input.documentType,
+        customLabel: input.customLabel,
+        reason: input.reason,
+        status: input.status,
+        hrMessage: input.hrMessage,
+        hrInternalNote: input.hrInternalNote,
+        storageKey: input.storageKey,
+        fileName: input.fileName,
+        contentType: input.contentType,
+        published: input.published,
+        publishedAt: input.publishedAt ? new Date(input.publishedAt) : null,
+        processedByEmployeeId: input.processedByEmployeeId,
+      },
+    });
+    return mapDocumentRequest(row);
+  },
+
+  async updateDocumentRequest(id, patch) {
+    const { mapDocumentRequest } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const data: Record<string, unknown> = { ...patch };
+    if (patch.publishedAt !== undefined) {
+      data.publishedAt = patch.publishedAt
+        ? new Date(patch.publishedAt)
+        : null;
+    }
+    delete data.id;
+    delete data.createdAt;
+    delete data.updatedAt;
+    const row = await getPrismaClient().documentRequest.update({
+      where: { id },
+      data,
+    });
+    return mapDocumentRequest(row);
+  },
+
+  async addDocumentRequestEvent(input) {
+    const { mapDocumentRequestEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().documentRequestEvent.create({
+      data: {
+        id: newId("docreqevt"),
+        requestId: input.requestId,
+        kind: input.kind,
+        message: input.message,
+        actorId: input.actorId,
+      },
+    });
+    return mapDocumentRequestEvent(row);
+  },
+
+  async listDocumentRequestEvents(requestId) {
+    const { mapDocumentRequestEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const rows = await getPrismaClient().documentRequestEvent.findMany({
+      where: { requestId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapDocumentRequestEvent);
+  },
 };

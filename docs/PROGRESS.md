@@ -1,48 +1,43 @@
 # ASTER — Progress report
 
 **Date :** 2026-11-09  
-**Focus :** Production CV upload — `Échec upload stockage : Bucket not found`  
-**Statut :** Correctif code poussé — **alignement projet Supabase à confirmer en Production**
+**Focus :** Demandes documentaires collaborateur + file RH  
+**Statut :** Implémenté et poussé sur `main` — **workflow Production non vérifié** (attendre déploiement Vercel + migrate)
 
-## Cause
+## Fonctionnalités livrées
 
-### Ce que fait le code
+### Collaborateur — `/documents`
+- Catalogue de demandes (attestations, contrats, formation, CNCC si éligible, documents de départ si cycle de vie pertinent, « Autre » avec revue RH).
+- Formulaire type + motif / usage.
+- Suivi des demandes en cours, historique (disponible / refusée).
+- Bibliothèque des documents **publiés** + téléchargement URL signée.
+- Zone PeopleDoc informative (guide p.65–66) — **pas** de demande de bulletin RH, **pas** d’URL inventée.
+- Notifications : soumission, clarification, refus, disponibilité.
 
-- Bucket demandé partout (upload / signed URL / delete) : **`aster-private-docs`** (`ASTER_PRIVATE_DOCS_BUCKET`).
-- `ASTER_STORAGE_BUCKET` **non défini** en Production Vercel → défaut `aster-private-docs` (pas un mauvais nom dans le code).
-- Auth Storage fonctionne assez pour joindre l’API → l’erreur « Bucket not found » signifie : **sur le projet Supabase pointé par l’URL/clé serveur, ce bucket n’existe pas**.
+### RH / Chef — `/administration/documents`
+- File de travail (filtres statut / type / recherche nom).
+- Détail demande, prise en traitement, clarification, refus.
+- Upload fichier (non visible tant que non publié).
+- Action explicite **Mettre à disposition**.
+- Note interne RH (jamais exposée au collaborateur).
+- Historique d’événements / timestamps.
 
-### Config Production (sans secrets)
+### Données & storage
+- Modèles Prisma `DocumentRequest` + `DocumentRequestEvent` + migration `20261109020000_document_requests`.
+- Namespace Storage séparé : `employee-documents/{employeeId}/{requestId}/…` (CV recrutement inchangé).
+- Ownership serveur + publication explicite + révocation libre-service si compte inactif/parti.
+- Permissions centralisées (`document_request.*`) — Chef hérite RH ; RH ne gagne pas d’approbations manager ailleurs.
 
-| Variable | État |
-|----------|------|
-| `ASTER_STORAGE_BUCKET` | unset (défaut OK) |
-| `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | présentes (marquées Sensitive — valeur non lisible via CLI pull) |
-| `SUPABASE_SERVICE_ROLE_KEY` | présente |
-| `ASTER_ALLOW_MOCK_STORAGE` | unset |
+## Fichiers principaux
 
-**Référence projet :** non extractible depuis l’agent (env Sensitive / non déchiffrable). À lire dans le dashboard Vercel (URL) ou dans les logs runtime après ce déploiement (`projet=<ref>`).
-
-**Hypothèse la plus probable :** le bucket a été créé sur un projet Supabase **différent** de celui configuré dans Vercel (ou seule `NEXT_PUBLIC_…` était lue alors que `SUPABASE_URL` pointe ailleurs). Ce n’est **pas** un bucket public manquant ni un mock Production.
-
-## Changements code
-
-1. **Préférence URL serveur** : `SUPABASE_URL` puis `NEXT_PUBLIC_SUPABASE_URL` (alignement Postgres/intégration).
-2. **Fallback clé** : `SUPABASE_SERVICE_ROLE_KEY` puis `SUPABASE_SECRET_KEY`.
-3. **Diagnostics sûrs** : `projet=<ref> bucket=aster-private-docs urlSource=…` dans logs + messages d’erreur (jamais de credentials).
-4. **Vérification bucket** avant upload/sign : `listBuckets` → message FR explicite + liste des buckets visibles si absent.
-5. Script `verify-storage-bucket.ts` + docs/env example alignés.
-
-## Fichiers
-
-| Fichier | Rôle |
-|---------|------|
-| `src/infrastructure/storage/supabase-storage.ts` | Préférence URL, diagnostics, assert bucket |
-| `src/infrastructure/storage/supabase-storage.test.ts` | Régressions ref / priorité URL / secret fallback |
-| `scripts/verify-storage-bucket.ts` | Diagnostic CLI |
-| `.env.example` | `SUPABASE_URL` documenté |
-| `docs/DEPLOYMENT.md` | Variables Storage |
-| `docs/PROGRESS.md` | Rapport frais |
+| Zone | Fichiers |
+|------|----------|
+| Domaine | `document-requests.ts`, types `DocumentRequest*`, permissions |
+| App | `document-request-service.ts` (+ tests) |
+| Persistence | `hr-repository`, demo/prisma repos, mappers, demo-store |
+| Prisma | `schema.prisma`, migration SQL |
+| Actions / UI | `document-requests.ts` actions, forms, `/documents`, `/administration/documents/*` |
+| Docs | `HR_REQUIREMENTS.md`, `AUTHORIZATION_MATRIX.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `README.md` |
 
 ## Dépendances
 
@@ -51,11 +46,13 @@ Aucune nouvelle dépendance npm.
 ## Tests
 
 ```
-npx vitest run src/infrastructure/storage/supabase-storage.test.ts \
-  src/infrastructure/container-storage-lazy.test.ts \
-  src/app/actions/recruitment-cv-upload.test.ts
-→ 15 passed
+npx vitest run src/domain/rules/document-requests.test.ts \
+  src/application/services/document-request-service.test.ts \
+  src/infrastructure/storage/supabase-storage.test.ts
+→ 19 passed
 ```
+
+Couvre : création soi / refus autrui, isolation vues, RH+Chef traitement, non-publication avant publish, download owner, refus chemins `recruitment/`, éligibilité départ/CNCC, anti-doublon notifs.
 
 ## Typecheck / lint / build
 
@@ -63,24 +60,23 @@ npx vitest run src/infrastructure/storage/supabase-storage.test.ts \
 |-------|----------|
 | `npm run typecheck` | OK |
 | `npm run lint` | OK |
-| `npm run build` | OK |
+| `npm run build` | OK (routes `/administration/documents` présentes) |
 
-## Ce qui n’a pas changé
+## Hypothèses démo (non attribuées au guide comme catalogue)
 
-- Bucket cible toujours `aster-private-docs` (privé)
-- Pas de mock Storage en Production
-- Pas d’affaiblissement auth / pas de bucket public
-- Pas de création automatique de bucket
+- Catalogue de types ASTER = proposition produit, **pas** inventaire exhaustif du guide.
+- CNCC : éligible si intitulé contient « CAC » / « commissaire » (Léa démo mise à jour).
+- Documents de départ : `parti` ou `inactif` + date de départ.
 
 ## Issues restantes
 
-- **Confirm project match** : après déploiement, l’erreur enrichie (ou les logs `[aster-storage]`) indiquera `projet=<ref>`. Comparer avec le projet où le bucket a été créé dans le dashboard Supabase.
-- Si les refs diffèrent → **changement d’env Vercel** (pas seulement redeploy) : aligner `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` sur le projet qui contient `aster-private-docs`, **ou** créer le bucket sur le projet déjà configuré (manuellement — pas via l’app).
+- Production : migration `DocumentRequest` via `build:vercel` / `prisma migrate deploy` — à confirmer après déploiement.
+- Upload Production dépend toujours du bucket privé `aster-private-docs` sur le **bon** projet Supabase.
+- Vérification manuelle du parcours live (collaborateur → RH → publier → télécharger) **non faite** dans cette session.
 
 ## Prochaine étape exacte
 
-1. Attendre le déploiement de ce commit sur `aster-rh.vercel.app`.
-2. Retenter un upload CV.
-3. Si échec : noter dans le message UI / Runtime Logs la ligne `projet=… bucket=aster-private-docs urlSource=…`.
-4. Dans Supabase Dashboard du **même** `projet=…` : Storage → confirmer `aster-private-docs` (privé). Sinon créer le bucket **sur ce projet** ou corriger les env Vercel pour pointer vers le projet où il existe déjà.
-5. Optionnel local : `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npx tsx scripts/verify-storage-bucket.ts`
+1. Attendre le déploiement Vercel de ce commit (migrate Production).
+2. Se connecter collaborateur → `/documents` → créer une attestation.
+3. Se connecter RH → `/administration/documents` → traiter, uploader, **Mettre à disposition**.
+4. Revenir collaborateur → télécharger ; confirmer qu’un fichier non publié reste inaccessible.

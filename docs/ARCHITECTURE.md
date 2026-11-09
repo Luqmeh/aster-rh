@@ -21,8 +21,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 ## Couches
 
 1. **Présentation** — pages App Router, composants React, server actions minces.
-2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, …).
-3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, validations) sans I/O.
+2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, `document-request-service`, …).
+3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, demandes documentaires, validations) sans I/O.
 4. **Infrastructure** — implémentations des ports.
 
 ## Ports principaux
@@ -33,7 +33,9 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 | Persistence RH | `HrRepository` | `demo-hr-repository` (mémoire) **ou** `prisma-hr-repository` (PostgreSQL) |
 | Comptes applicatifs | `UserAccount` | Provisioning RH/Chef + audit `RoleChangeAudit` (pas d’auto-inscription privilégiée) |
 | E-mail | `EmailPort` | `mock-email` |
-| Stockage docs | `DocumentStoragePort` | Supabase Storage privé si configuré, sinon `mock-storage` |
+| Stockage docs | `DocumentStoragePort` | Supabase Storage privé (`aster-private-docs`) si configuré, sinon `mock-storage` (interdit en Production) |
+
+Namespaces Storage : `recruitment/{candidateId}/…` (CV) et `employee-documents/{employeeId}/{requestId}/…` (demandes documentaires) — ownership serveur, URL signées courtes.
 
 Composition : `src/infrastructure/container.ts`.
 

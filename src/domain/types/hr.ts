@@ -37,6 +37,27 @@ export type RecruitmentStatus =
   | "entretien_planifie"
   | "entretien_termine";
 
+/** Catalogue de demandes documentaires collaborateur (ASTER) — hors inventaire exhaustif du guide. */
+export type DocumentRequestType =
+  | "attestation_travail"
+  | "attestation_employeur"
+  | "attestation_remuneration"
+  | "copie_contrat"
+  | "copie_avenant"
+  | "attestation_formation"
+  | "attestation_cncc"
+  | "certificat_travail"
+  | "attestation_france_travail"
+  | "recu_solde_tout_compte"
+  | "autre";
+
+export type DocumentRequestStatus =
+  | "en_attente"
+  | "en_traitement"
+  | "informations_demandees"
+  | "document_disponible"
+  | "refusee";
+
 export interface OrganizationUnit {
   id: string;
   name: string;
@@ -193,6 +214,38 @@ export interface RecruitmentCandidate {
 export interface RecruitmentEvent {
   id: string;
   candidateId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: string;
+}
+
+export interface DocumentRequest {
+  id: string;
+  employeeId: string;
+  documentType: DocumentRequestType;
+  /** Libellé libre si documentType = autre. */
+  customLabel: string | null;
+  reason: string;
+  status: DocumentRequestStatus;
+  /** Message RH visible par le collaborateur (clarification / refus). */
+  hrMessage: string | null;
+  /** Note interne RH — jamais exposée au collaborateur. */
+  hrInternalNote: string | null;
+  storageKey: string | null;
+  fileName: string | null;
+  contentType: string | null;
+  /** true uniquement après action explicite « Mettre à disposition ». */
+  published: boolean;
+  publishedAt: string | null;
+  processedByEmployeeId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentRequestEvent {
+  id: string;
+  requestId: string;
   kind: string;
   message: string;
   actorId: string | null;

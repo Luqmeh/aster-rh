@@ -77,7 +77,7 @@ export const employees: Employee[] = [
     firstName: "Léa",
     lastName: "Dubois",
     email: "lea.dubois@demo.aster-rh.local",
-    jobTitle: "Consultante Audit Senior",
+    jobTitle: "Consultante Audit Senior CAC",
     departmentId: "dept-audit",
     managerId: "emp-julien",
     site: "Lyon (démo)",

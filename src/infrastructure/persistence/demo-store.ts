@@ -8,6 +8,8 @@ import {
   teleworkRequests,
 } from "@/data/demo-seed";
 import type {
+  DocumentRequest,
+  DocumentRequestEvent,
   Employee,
   HrDocument,
   LeaveBalance,
@@ -31,6 +33,8 @@ export interface DemoStore {
   documents: HrDocument[];
   recruitmentCandidates: RecruitmentCandidate[];
   recruitmentEvents: RecruitmentEvent[];
+  documentRequests: DocumentRequest[];
+  documentRequestEvents: DocumentRequestEvent[];
   roleChangeAudits: RoleChangeAuditEntry[];
   accounts: StoredUserAccount[];
 }
@@ -50,6 +54,8 @@ function cloneStore(): DemoStore {
     documents: structuredClone(documents),
     recruitmentCandidates: [],
     recruitmentEvents: [],
+    documentRequests: [],
+    documentRequestEvents: [],
     roleChangeAudits: [],
     accounts: [],
   };

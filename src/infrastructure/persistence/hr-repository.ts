@@ -1,5 +1,9 @@
 import type {
   DemoRole,
+  DocumentRequest,
+  DocumentRequestEvent,
+  DocumentRequestStatus,
+  DocumentRequestType,
   Employee,
   EmploymentStatus,
   HrDocument,
@@ -118,4 +122,25 @@ export interface HrRepository {
     input: Omit<RecruitmentEvent, "id" | "createdAt">,
   ): Promise<RecruitmentEvent>;
   listRecruitmentEvents(candidateId: string): Promise<RecruitmentEvent[]>;
+
+  listDocumentRequests(filter?: {
+    employeeId?: string;
+    status?: DocumentRequestStatus | DocumentRequestStatus[];
+    documentType?: DocumentRequestType;
+    q?: string;
+  }): Promise<DocumentRequest[]>;
+  getDocumentRequest(id: string): Promise<DocumentRequest | null>;
+  createDocumentRequest(
+    input: Omit<DocumentRequest, "id" | "createdAt" | "updatedAt">,
+  ): Promise<DocumentRequest>;
+  updateDocumentRequest(
+    id: string,
+    patch: Partial<DocumentRequest>,
+  ): Promise<DocumentRequest>;
+  addDocumentRequestEvent(
+    input: Omit<DocumentRequestEvent, "id" | "createdAt">,
+  ): Promise<DocumentRequestEvent>;
+  listDocumentRequestEvents(
+    requestId: string,
+  ): Promise<DocumentRequestEvent[]>;
 }
