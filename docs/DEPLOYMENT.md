@@ -45,7 +45,7 @@ Vercel n’offre pas de « release phase » séparée pour ce setup : le moment 
 2. **Aucune** policy Storage pour `anon` / `authenticated` (service role serveur uniquement)
 3. Variables `SUPABASE_URL` (ou `NEXT_PUBLIC_SUPABASE_URL`) + `SUPABASE_SERVICE_ROLE_KEY` obligatoires en Production (sinon erreur explicite, pas de mock silencieux)
 4. Le bucket doit exister **sur le même projet** que l’URL configurée (les erreurs incluent `projet=<ref> bucket=aster-private-docs`)
-5. Namespaces objets : `recruitment/{candidateId}/…` (CV) et `employee-documents/{employeeId}/{requestId}/…` (demandes documentaires)
+5. Namespaces objets : `recruitment/{candidateId}/…` (CV), `employee-documents/{employeeId}/{requestId}/…` (demandes documentaires), `employee-absence-documents/{employeeId}/{absenceId}/…` (justificatifs d’arrêt — RH uniquement)
 6. Vérifier : `npx tsx scripts/verify-storage-bucket.ts`
 7. Détails : `docs/RECRUITMENT.md` ; demandes documentaires : `docs/HR_REQUIREMENTS.md` §5
 

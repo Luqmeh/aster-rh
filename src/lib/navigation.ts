@@ -50,6 +50,11 @@ export const navigationGroups: NavGroup[] = [
     label: "Gestion du temps",
     items: [
       { href: "/conges", label: "Congés et absences", icon: CalendarDays },
+      {
+        href: "/absences",
+        label: "Arrêts & absences spéciales",
+        icon: ClipboardList,
+      },
       { href: "/teletravail", label: "Télétravail", icon: Building2 },
       {
         href: "/temps-de-travail",
@@ -121,6 +126,12 @@ export const navigationGroups: NavGroup[] = [
         href: "/administration/rapports",
         label: "Reporting RH",
         icon: BarChart3,
+        roles: ["chef_de_projet", "admin_rh"],
+      },
+      {
+        href: "/administration/absences",
+        label: "Arrêts / absences spéciales",
+        icon: ClipboardList,
         roles: ["chef_de_projet", "admin_rh"],
       },
       { href: "/parametres", label: "Paramètres", icon: Settings },

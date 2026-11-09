@@ -28,6 +28,10 @@ Hiérarchie définitive (permanente) :
 | Corriger / ajouter jours fériés | Non | Oui | Oui |
 | Administration RH | Non | Oui | Oui |
 | Reporting RH + exports Excel | Non | Oui | Oui |
+| Déclarer arrêt / congé spécial (soi) | Oui | Oui | Oui |
+| Voir toutes les absences (opérationnel) | Non | Oui | Oui |
+| Traiter dossiers absences (statuts, notes RH) | Non | Oui | **Non** |
+| Télécharger justificatifs médicaux | Soi | Oui | **Non** |
 
 ## Règles d’or
 
@@ -37,3 +41,4 @@ Hiérarchie définitive (permanente) :
 4. Pas d’auto-provisioning privilégié.
 5. CV / documents : stockage privé `aster-private-docs` + URL signée courte uniquement ; namespaces séparés `recruitment/…` et `employee-documents/…`.
 6. Publication documentaire explicite (« Mettre à disposition ») — l’upload seul ne rend pas le fichier visible au collaborateur.
+7. Justificatifs d’arrêt : namespace `employee-absence-documents/…` — accès médical RH uniquement ; Chef en vue opérationnelle sans fichiers.

@@ -4,7 +4,8 @@ export type CalendarEventKind =
   | "leave"
   | "telework"
   | "holiday"
-  | "work_on_holiday";
+  | "work_on_holiday"
+  | "work_absence";
 
 export type CalendarEventTone =
   | "leave_approved"
@@ -16,7 +17,9 @@ export type CalendarEventTone =
   | "holiday_provisional"
   | "work_holiday_pending"
   | "work_holiday_approved"
-  | "work_holiday_done";
+  | "work_holiday_done"
+  | "work_absence_recorded"
+  | "work_absence_pending";
 
 export interface CalendarEvent {
   id: string;
@@ -86,5 +89,15 @@ export const CALENDAR_TONE_CLASSES: Record<
     dot: "bg-[#083f3a]",
     label: "Travail férié confirmé",
     chip: "bg-[#cfe8e4] text-[#083f3a]",
+  },
+  work_absence_recorded: {
+    dot: "bg-[#6b4f3a]",
+    label: "Absence enregistrée",
+    chip: "bg-[#f3ebe4] text-[#6b4f3a]",
+  },
+  work_absence_pending: {
+    dot: "bg-[#9a7b5f]",
+    label: "Absence déclarée",
+    chip: "bg-[#f7f1eb] text-[#7a5f45]",
   },
 };

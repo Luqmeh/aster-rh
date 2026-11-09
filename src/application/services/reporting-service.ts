@@ -56,6 +56,7 @@ export type ReportingDashboard = {
     teleworkDaysByMonth: ChartBucket[];
     recruitmentByStatus: ChartBucket[];
     documentRequestsByStatus: ChartBucket[];
+    workAbsencesByCategory: ChartBucket[];
   };
   employees: Employee[];
   departments: OrganizationUnit[];
@@ -212,12 +213,14 @@ export function createReportingService(container: AppContainer) {
       documentRequests,
       candidates,
       wohRequests,
+      workAbsencesAll,
     ] = await Promise.all([
       container.hr.listLeaveRequests(),
       container.hr.listTeleworkRequests(),
       container.hr.listDocumentRequests(),
       container.hr.listRecruitmentCandidates(),
       container.hr.listWorkOnHolidayRequests(),
+      container.hr.listWorkAbsences(),
     ]);
 
     const leaves = leaveRequests.filter((r) => scopedIds.has(r.employeeId));
@@ -226,6 +229,9 @@ export function createReportingService(container: AppContainer) {
     );
     const docs = documentRequests.filter((r) => scopedIds.has(r.employeeId));
     const woh = wohRequests.filter((r) => scopedIds.has(r.employeeId));
+    const workAbsences = workAbsencesAll.filter((r) =>
+      scopedIds.has(r.employeeId),
+    );
 
     const statusFilter = filters.requestStatus;
 
@@ -303,6 +309,30 @@ export function createReportingService(container: AppContainer) {
         (s, c) => s + c.daysCredited,
         0,
       ),
+      arretsEnCours: workAbsences.filter(
+        (a) =>
+          a.status !== "refuse" &&
+          a.status !== "termine" &&
+          a.startDate <= filters.endDate &&
+          a.endDate >= filters.startDate,
+      ).length,
+      justificatifsManquants: workAbsences.filter(
+        (a) =>
+          !a.documentsReceived ||
+          a.status === "en_attente_justificatif" ||
+          a.status === "informations_demandees",
+      ).length,
+      congesSpeciauxPeriode: workAbsences.filter(
+        (a) =>
+          a.family === "conge_special" &&
+          isoInRange(a.createdAt, filters.startDate, filters.endDate),
+      ).length,
+      visitesRepriseAPlanifier: workAbsences.filter(
+        (a) =>
+          a.returnVisitRequired &&
+          (a.returnVisitStatus === "a_planifier" ||
+            a.returnVisitStatus === "planifiee"),
+      ).length,
     };
 
     const workforceByDepartment: ChartBucket[] = departments
@@ -390,6 +420,29 @@ export function createReportingService(container: AppContainer) {
       value,
     }));
 
+    const { workAbsenceCategoryLabel } = await import(
+      "@/domain/rules/work-absence"
+    );
+    const waCounts = new Map<string, number>();
+    for (const a of workAbsences) {
+      if (
+        !(a.startDate <= filters.endDate && a.endDate >= filters.startDate) &&
+        !isoInRange(a.createdAt, filters.startDate, filters.endDate)
+      ) {
+        continue;
+      }
+      waCounts.set(a.category, (waCounts.get(a.category) ?? 0) + 1);
+    }
+    const workAbsencesByCategory: ChartBucket[] = [...waCounts.entries()].map(
+      ([key, value]) => ({
+        key,
+        label: workAbsenceCategoryLabel(
+          key as import("@/domain/types/hr").WorkAbsenceCategory,
+        ),
+        value,
+      }),
+    );
+
     return {
       filters,
       kpis,
@@ -400,6 +453,7 @@ export function createReportingService(container: AppContainer) {
         teleworkDaysByMonth,
         recruitmentByStatus,
         documentRequestsByStatus,
+        workAbsencesByCategory,
       },
       employees,
       departments,

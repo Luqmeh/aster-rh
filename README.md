@@ -48,6 +48,7 @@ Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 - Recrutement externe (`/entretiens`) avec CV privés et revue Chef de projet
 - Demandes de documents RH (`/documents`, `/administration/documents`)
 - Reporting RH & exports Excel (`/administration/rapports`) — RH + Chef de projet
+- Arrêts de travail & absences spéciales (`/absences`, `/administration/absences`)
 
 ## Scripts
 
@@ -65,6 +66,7 @@ Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 - [docs/AUTHORIZATION_MATRIX.md](./docs/AUTHORIZATION_MATRIX.md)
 - [docs/RECRUITMENT.md](./docs/RECRUITMENT.md)
 - [docs/REPORTING.md](./docs/REPORTING.md)
+- [docs/ABSENCES.md](./docs/ABSENCES.md)
 - [docs/SSO_HANDOVER.md](./docs/SSO_HANDOVER.md)
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 - [docs/DEMO_GUIDE.md](./docs/DEMO_GUIDE.md)

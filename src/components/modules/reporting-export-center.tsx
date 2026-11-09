@@ -32,6 +32,8 @@ const DESCRIPTIONS: Record<ReportExportKey, string> = {
     "Onboarding et cycle de vie (sans secrets d'authentification).",
   historique:
     "Historique consolidé congés, télétravail et travail férié, avec types de demande distincts.",
+  arrets_absences:
+    "Arrêts et congés spéciaux (statuts, retours, visite reprise, mois paie cible) — sans certificats ni notes médicales.",
 };
 
 export function ReportingExportCenter({

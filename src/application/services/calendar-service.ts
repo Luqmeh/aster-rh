@@ -17,7 +17,7 @@ async function buildForEmployees(
   const idSet = new Set(employeeIds);
   const year = Number(month.slice(0, 4));
   const wohService = createWorkOnHolidayService({ hr, email });
-  const [allEmployees, leavesNested, twNested, holidays, wohAll] =
+  const [allEmployees, leavesNested, twNested, holidays, wohAll, absencesAll] =
     await Promise.all([
       hr.listEmployees(),
       Promise.all(
@@ -28,11 +28,17 @@ async function buildForEmployees(
       ),
       wohService.listHolidays([year]),
       wohService.listVisible(session),
+      Promise.all(
+        employeeIds.map((id) => hr.listWorkAbsences({ employeeId: id })),
+      ),
     ]);
 
   const leaves = leavesNested.flat().filter((l) => idSet.has(l.employeeId));
   const telework = twNested.flat().filter((t) => idSet.has(t.employeeId));
   const workOnHoliday = wohAll.filter((r) => idSet.has(r.employeeId));
+  const workAbsences = absencesAll
+    .flat()
+    .filter((a) => idSet.has(a.employeeId));
   const employeesById = Object.fromEntries(allEmployees.map((e) => [e.id, e]));
 
   return buildCalendarEvents({
@@ -41,7 +47,10 @@ async function buildForEmployees(
     telework,
     holidays,
     workOnHoliday,
+    workAbsences,
     employeesById,
+    viewerRole: session.role,
+    viewerEmployeeId: session.employee.id,
     includeRejected: true,
   });
 }

@@ -826,6 +826,203 @@ export const prismaHrRepository: HrRepository = {
     });
     return mapRecoveryCredit(row);
   },
+
+  async listWorkAbsences(filter) {
+    const { mapWorkAbsence } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const where: Record<string, unknown> = {};
+    if (filter?.employeeId) where.employeeId = filter.employeeId;
+    if (filter?.family) where.family = filter.family;
+    if (filter?.category) where.category = filter.category;
+    if (filter?.status) {
+      where.status = Array.isArray(filter.status)
+        ? { in: filter.status }
+        : filter.status;
+    }
+    const rows = await getPrismaClient().workAbsence.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapWorkAbsence);
+  },
+
+  async getWorkAbsence(id) {
+    const { mapWorkAbsence } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().workAbsence.findUnique({
+      where: { id },
+    });
+    return row ? mapWorkAbsence(row) : null;
+  },
+
+  async createWorkAbsence(input) {
+    const { mapWorkAbsence, dateOnlyToUtc } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().workAbsence.create({
+      data: {
+        id: newId("wabs"),
+        employeeId: input.employeeId,
+        family: input.family,
+        category: input.category,
+        status: input.status,
+        startDate: dateOnlyToUtc(input.startDate),
+        endDate: dateOnlyToUtc(input.endDate),
+        daysCount: input.daysCount,
+        employeeComment: input.employeeComment,
+        hrInternalNote: input.hrInternalNote,
+        hrMessage: input.hrMessage,
+        rejectionReason: input.rejectionReason,
+        parentAbsenceId: input.parentAbsenceId,
+        recurrenceOfId: input.recurrenceOfId,
+        dateGapFlag: input.dateGapFlag,
+        recurrenceWithin3MonthsFlag: input.recurrenceWithin3MonthsFlag,
+        requiresHrReview: input.requiresHrReview,
+        hospitalAdmissionDate: input.hospitalAdmissionDate
+          ? dateOnlyToUtc(input.hospitalAdmissionDate)
+          : null,
+        hospitalDischargeDate: input.hospitalDischargeDate
+          ? dateOnlyToUtc(input.hospitalDischargeDate)
+          : null,
+        documentsReceived: input.documentsReceived,
+        firstDocumentReceivedAt: input.firstDocumentReceivedAt
+          ? new Date(input.firstDocumentReceivedAt)
+          : null,
+        payrollProcessingMonth: input.payrollProcessingMonth,
+        expectedReturnDate: input.expectedReturnDate
+          ? dateOnlyToUtc(input.expectedReturnDate)
+          : null,
+        actualReturnDate: input.actualReturnDate
+          ? dateOnlyToUtc(input.actualReturnDate)
+          : null,
+        returnVisitRequired: input.returnVisitRequired,
+        returnVisitStatus: input.returnVisitStatus,
+        returnVisitPlannedDate: input.returnVisitPlannedDate
+          ? dateOnlyToUtc(input.returnVisitPlannedDate)
+          : null,
+        returnVisitDeadline: input.returnVisitDeadline
+          ? dateOnlyToUtc(input.returnVisitDeadline)
+          : null,
+        processedByEmployeeId: input.processedByEmployeeId,
+        processedAt: input.processedAt ? new Date(input.processedAt) : null,
+      },
+    });
+    return mapWorkAbsence(row);
+  },
+
+  async updateWorkAbsence(id, patch) {
+    const { mapWorkAbsence, dateOnlyToUtc } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const data: Record<string, unknown> = { ...patch };
+    for (const key of [
+      "startDate",
+      "endDate",
+      "hospitalAdmissionDate",
+      "hospitalDischargeDate",
+      "expectedReturnDate",
+      "actualReturnDate",
+      "returnVisitPlannedDate",
+      "returnVisitDeadline",
+    ] as const) {
+      if (patch[key] !== undefined) {
+        data[key] = patch[key] ? dateOnlyToUtc(patch[key] as string) : null;
+      }
+    }
+    for (const key of ["firstDocumentReceivedAt", "processedAt"] as const) {
+      if (patch[key] !== undefined) {
+        data[key] = patch[key] ? new Date(patch[key] as string) : null;
+      }
+    }
+    delete data.id;
+    delete data.createdAt;
+    delete data.updatedAt;
+    const row = await getPrismaClient().workAbsence.update({
+      where: { id },
+      data,
+    });
+    return mapWorkAbsence(row);
+  },
+
+  async listWorkAbsenceDocuments(absenceId) {
+    const { mapWorkAbsenceDocument } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const rows = await getPrismaClient().workAbsenceDocument.findMany({
+      where: { absenceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapWorkAbsenceDocument);
+  },
+
+  async createWorkAbsenceDocument(input) {
+    const { mapWorkAbsenceDocument } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().workAbsenceDocument.create({
+      data: {
+        id: newId("wadoc"),
+        absenceId: input.absenceId,
+        kind: input.kind,
+        fileName: input.fileName,
+        contentType: input.contentType,
+        storageKey: input.storageKey,
+        uploadedByEmployeeId: input.uploadedByEmployeeId,
+        receivedByHrAt: input.receivedByHrAt
+          ? new Date(input.receivedByHrAt)
+          : null,
+      },
+    });
+    return mapWorkAbsenceDocument(row);
+  },
+
+  async updateWorkAbsenceDocument(id, patch) {
+    const { mapWorkAbsenceDocument } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const data: Record<string, unknown> = { ...patch };
+    if (patch.receivedByHrAt !== undefined) {
+      data.receivedByHrAt = patch.receivedByHrAt
+        ? new Date(patch.receivedByHrAt)
+        : null;
+    }
+    delete data.id;
+    delete data.createdAt;
+    const row = await getPrismaClient().workAbsenceDocument.update({
+      where: { id },
+      data,
+    });
+    return mapWorkAbsenceDocument(row);
+  },
+
+  async addWorkAbsenceEvent(input) {
+    const { mapWorkAbsenceEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().workAbsenceEvent.create({
+      data: {
+        id: newId("waevt"),
+        absenceId: input.absenceId,
+        kind: input.kind,
+        message: input.message,
+        actorId: input.actorId,
+      },
+    });
+    return mapWorkAbsenceEvent(row);
+  },
+
+  async listWorkAbsenceEvents(absenceId) {
+    const { mapWorkAbsenceEvent } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const rows = await getPrismaClient().workAbsenceEvent.findMany({
+      where: { absenceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapWorkAbsenceEvent);
+  },
 };
 
 function mapWorkOnHoliday(row: {

@@ -42,6 +42,11 @@ export type Permission =
   | "work_on_holiday.approve"
   | "holiday.manage"
   | "hr.reporting"
+  | "work_absence.submit"
+  | "work_absence.view_own"
+  | "work_absence.view_all"
+  | "work_absence.manage"
+  | "work_absence.view_medical_docs"
   | "dashboard.hr"
   | "dashboard.management";
 
@@ -80,6 +85,10 @@ const CHEF: Permission[] = [
   "work_on_holiday.approve",
   "holiday.manage",
   "hr.reporting",
+  "work_absence.submit",
+  "work_absence.view_own",
+  "work_absence.view_all",
+  // Chef : vue opérationnelle ; pas de traitement RH ni justificatifs médicaux
   "dashboard.hr",
   "dashboard.management",
 ];
@@ -112,6 +121,11 @@ const HR: Permission[] = [
   "work_on_holiday.view_all",
   "holiday.manage",
   "hr.reporting",
+  "work_absence.submit",
+  "work_absence.view_own",
+  "work_absence.view_all",
+  "work_absence.manage",
+  "work_absence.view_medical_docs",
   "dashboard.hr",
   // pas de *.approve / recruitment.decide / work_on_holiday.approve
 ];
@@ -128,6 +142,8 @@ const EMPLOYEE: Permission[] = [
   "document_request.view_own",
   "work_on_holiday.submit",
   "work_on_holiday.view_own",
+  "work_absence.submit",
+  "work_absence.view_own",
 ];
 
 const ROLE_PERMISSIONS: Record<DemoRole, ReadonlySet<Permission>> = {
@@ -247,4 +263,21 @@ export function canManageHolidays(role: DemoRole): boolean {
 
 export function canAccessHrReporting(role: DemoRole): boolean {
   return hasPermission(role, "hr.reporting");
+}
+
+export function canSubmitWorkAbsence(role: DemoRole): boolean {
+  return hasPermission(role, "work_absence.submit");
+}
+
+export function canViewAllWorkAbsences(role: DemoRole): boolean {
+  return hasPermission(role, "work_absence.view_all");
+}
+
+export function canManageWorkAbsences(role: DemoRole): boolean {
+  return hasPermission(role, "work_absence.manage");
+}
+
+/** Accès aux certificats / justificatifs médicaux privés. */
+export function canViewWorkAbsenceMedicalDocs(role: DemoRole): boolean {
+  return hasPermission(role, "work_absence.view_medical_docs");
 }

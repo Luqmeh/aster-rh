@@ -17,6 +17,10 @@ import type {
   RecruitmentEvent,
   RoleChangeAuditEntry,
   TeleworkRequest,
+  WorkAbsence,
+  WorkAbsenceDocument,
+  WorkAbsenceEvent,
+  WorkAbsenceStatus,
   WorkOnHolidayRequest,
   WorkOnHolidayStatus,
 } from "@/domain/types/hr";
@@ -187,4 +191,31 @@ export interface HrRepository {
   createRecoveryCredit(
     input: Omit<RecoveryCreditLedgerEntry, "id" | "createdAt">,
   ): Promise<RecoveryCreditLedgerEntry>;
+
+  listWorkAbsences(filter?: {
+    employeeId?: string;
+    status?: WorkAbsenceStatus | WorkAbsenceStatus[];
+    family?: WorkAbsence["family"];
+    category?: WorkAbsence["category"];
+  }): Promise<WorkAbsence[]>;
+  getWorkAbsence(id: string): Promise<WorkAbsence | null>;
+  createWorkAbsence(
+    input: Omit<WorkAbsence, "id" | "createdAt" | "updatedAt">,
+  ): Promise<WorkAbsence>;
+  updateWorkAbsence(
+    id: string,
+    patch: Partial<WorkAbsence>,
+  ): Promise<WorkAbsence>;
+  listWorkAbsenceDocuments(absenceId: string): Promise<WorkAbsenceDocument[]>;
+  createWorkAbsenceDocument(
+    input: Omit<WorkAbsenceDocument, "id" | "createdAt">,
+  ): Promise<WorkAbsenceDocument>;
+  updateWorkAbsenceDocument(
+    id: string,
+    patch: Partial<WorkAbsenceDocument>,
+  ): Promise<WorkAbsenceDocument>;
+  addWorkAbsenceEvent(
+    input: Omit<WorkAbsenceEvent, "id" | "createdAt">,
+  ): Promise<WorkAbsenceEvent>;
+  listWorkAbsenceEvents(absenceId: string): Promise<WorkAbsenceEvent[]>;
 }

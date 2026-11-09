@@ -1,4 +1,6 @@
 import type {
+  AbsenceDocumentKind,
+  AbsenceFamily,
   ContractType,
   DocumentRequest,
   DocumentRequestEvent,
@@ -17,8 +19,14 @@ import type {
   RecruitmentEvent,
   RecruitmentStatus,
   RequestStatus,
+  ReturnVisitStatus,
   TeleworkRequest,
   TeleworkType,
+  WorkAbsence,
+  WorkAbsenceCategory,
+  WorkAbsenceDocument,
+  WorkAbsenceEvent,
+  WorkAbsenceStatus,
 } from "@/domain/types/hr";
 
 /** Date métier (yyyy-mm-dd) → Date UTC midnight pour Prisma. */
@@ -379,6 +387,142 @@ export function mapDocumentRequestEvent(
   return {
     id: row.id,
     requestId: row.requestId,
+    kind: row.kind,
+    message: row.message,
+    actorId: row.actorId,
+    createdAt: utcToIso(row.createdAt),
+  };
+}
+
+type PrismaWorkAbsence = {
+  id: string;
+  employeeId: string;
+  family: AbsenceFamily;
+  category: WorkAbsenceCategory;
+  status: WorkAbsenceStatus;
+  startDate: Date;
+  endDate: Date;
+  daysCount: number;
+  employeeComment: string | null;
+  hrInternalNote: string | null;
+  hrMessage: string | null;
+  rejectionReason: string | null;
+  parentAbsenceId: string | null;
+  recurrenceOfId: string | null;
+  dateGapFlag: boolean;
+  recurrenceWithin3MonthsFlag: boolean;
+  requiresHrReview: boolean;
+  hospitalAdmissionDate: Date | null;
+  hospitalDischargeDate: Date | null;
+  documentsReceived: boolean;
+  firstDocumentReceivedAt: Date | null;
+  payrollProcessingMonth: string | null;
+  expectedReturnDate: Date | null;
+  actualReturnDate: Date | null;
+  returnVisitRequired: boolean;
+  returnVisitStatus: ReturnVisitStatus;
+  returnVisitPlannedDate: Date | null;
+  returnVisitDeadline: Date | null;
+  processedByEmployeeId: string | null;
+  processedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PrismaWorkAbsenceDocument = {
+  id: string;
+  absenceId: string;
+  kind: AbsenceDocumentKind;
+  fileName: string;
+  contentType: string;
+  storageKey: string;
+  uploadedByEmployeeId: string;
+  receivedByHrAt: Date | null;
+  createdAt: Date;
+};
+
+type PrismaWorkAbsenceEvent = {
+  id: string;
+  absenceId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: Date;
+};
+
+export function mapWorkAbsence(row: PrismaWorkAbsence): WorkAbsence {
+  return {
+    id: row.id,
+    employeeId: row.employeeId,
+    family: row.family,
+    category: row.category,
+    status: row.status,
+    startDate: utcToDateOnly(row.startDate),
+    endDate: utcToDateOnly(row.endDate),
+    daysCount: row.daysCount,
+    employeeComment: row.employeeComment,
+    hrInternalNote: row.hrInternalNote,
+    hrMessage: row.hrMessage,
+    rejectionReason: row.rejectionReason,
+    parentAbsenceId: row.parentAbsenceId,
+    recurrenceOfId: row.recurrenceOfId,
+    dateGapFlag: row.dateGapFlag,
+    recurrenceWithin3MonthsFlag: row.recurrenceWithin3MonthsFlag,
+    requiresHrReview: row.requiresHrReview,
+    hospitalAdmissionDate: row.hospitalAdmissionDate
+      ? utcToDateOnly(row.hospitalAdmissionDate)
+      : null,
+    hospitalDischargeDate: row.hospitalDischargeDate
+      ? utcToDateOnly(row.hospitalDischargeDate)
+      : null,
+    documentsReceived: row.documentsReceived,
+    firstDocumentReceivedAt: row.firstDocumentReceivedAt
+      ? utcToIso(row.firstDocumentReceivedAt)
+      : null,
+    payrollProcessingMonth: row.payrollProcessingMonth,
+    expectedReturnDate: row.expectedReturnDate
+      ? utcToDateOnly(row.expectedReturnDate)
+      : null,
+    actualReturnDate: row.actualReturnDate
+      ? utcToDateOnly(row.actualReturnDate)
+      : null,
+    returnVisitRequired: row.returnVisitRequired,
+    returnVisitStatus: row.returnVisitStatus,
+    returnVisitPlannedDate: row.returnVisitPlannedDate
+      ? utcToDateOnly(row.returnVisitPlannedDate)
+      : null,
+    returnVisitDeadline: row.returnVisitDeadline
+      ? utcToDateOnly(row.returnVisitDeadline)
+      : null,
+    processedByEmployeeId: row.processedByEmployeeId,
+    processedAt: row.processedAt ? utcToIso(row.processedAt) : null,
+    createdAt: utcToIso(row.createdAt),
+    updatedAt: utcToIso(row.updatedAt),
+  };
+}
+
+export function mapWorkAbsenceDocument(
+  row: PrismaWorkAbsenceDocument,
+): WorkAbsenceDocument {
+  return {
+    id: row.id,
+    absenceId: row.absenceId,
+    kind: row.kind,
+    fileName: row.fileName,
+    contentType: row.contentType,
+    storageKey: row.storageKey,
+    uploadedByEmployeeId: row.uploadedByEmployeeId,
+    receivedByHrAt: row.receivedByHrAt ? utcToIso(row.receivedByHrAt) : null,
+    createdAt: utcToIso(row.createdAt),
+  };
+}
+
+export function mapWorkAbsenceEvent(
+  row: PrismaWorkAbsenceEvent,
+): WorkAbsenceEvent {
+  return {
+    id: row.id,
+    absenceId: row.absenceId,
     kind: row.kind,
     message: row.message,
     actorId: row.actorId,

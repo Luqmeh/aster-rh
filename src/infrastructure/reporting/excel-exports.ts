@@ -44,6 +44,8 @@ export async function buildWorkbook(
       return exportLifecycle(ctx);
     case "historique":
       return exportHistorique(container, ctx, filters);
+    case "arrets_absences":
+      return exportArretsAbsences(container, ctx, filters);
     default: {
       const _exhaustive: never = key;
       throw new Error(`Export inconnu: ${_exhaustive}`);
@@ -613,6 +615,68 @@ async function exportHistorique(
       { header: "Date de décision", key: "decisionDate", width: 14 },
       { header: "Décideur", key: "decisionMaker", width: 22 },
       { header: "Détail", key: "detail", width: 36 },
+    ],
+    rows,
+  );
+}
+
+async function exportArretsAbsences(
+  container: AppContainer,
+  ctx: ReportingContext,
+  filters: ReportFilters,
+) {
+  const { workAbsenceCategoryLabel, workAbsenceStatusLabel } = await import(
+    "@/domain/rules/work-absence"
+  );
+  const absences = (await container.hr.listWorkAbsences()).filter((r) =>
+    ctx.scopedIds.has(r.employeeId),
+  );
+  const rows = absences
+    .filter(
+      (r) =>
+        (r.startDate <= filters.endDate && r.endDate >= filters.startDate) ||
+        isoInRange(r.createdAt, filters.startDate, filters.endDate),
+    )
+    .map((r) => ({
+      employee: ctx.employeeName(r.employeeId),
+      department: ctx.departmentOf(r.employeeId),
+      family: r.family === "conge_special" ? "Congé spécial" : "Arrêt",
+      category: workAbsenceCategoryLabel(r.category),
+      startDate: r.startDate,
+      endDate: r.endDate,
+      days: formatNumberFr(r.daysCount, 1),
+      status: workAbsenceStatusLabel(r.status),
+      documentsReceived: r.documentsReceived ? "Oui" : "Non",
+      payrollMonth: r.payrollProcessingMonth ?? "",
+      expectedReturn: r.expectedReturnDate ?? "",
+      actualReturn: r.actualReturnDate ?? "",
+      returnVisitRequired: r.returnVisitRequired ? "Oui" : "Non",
+      returnVisitStatus: r.returnVisitStatus,
+      requiresHrReview: r.requiresHrReview ? "Oui" : "Non",
+      dateGapFlag: r.dateGapFlag ? "Oui" : "Non",
+      recurrenceFlag: r.recurrenceWithin3MonthsFlag ? "Oui" : "Non",
+    }));
+
+  return createStyledWorkbook(
+    "Arrêts & absences",
+    [
+      { header: "Collaborateur", key: "employee", width: 24 },
+      { header: "Département", key: "department", width: 20 },
+      { header: "Famille", key: "family", width: 14 },
+      { header: "Catégorie", key: "category", width: 28 },
+      { header: "Début", key: "startDate", width: 12 },
+      { header: "Fin", key: "endDate", width: 12 },
+      { header: "Jours", key: "days", width: 10 },
+      { header: "Statut", key: "status", width: 22 },
+      { header: "Justificatif reçu", key: "documentsReceived", width: 16 },
+      { header: "Mois paie cible", key: "payrollMonth", width: 14 },
+      { header: "Retour prévu", key: "expectedReturn", width: 14 },
+      { header: "Retour effectif", key: "actualReturn", width: 14 },
+      { header: "Visite reprise requise", key: "returnVisitRequired", width: 18 },
+      { header: "Statut visite", key: "returnVisitStatus", width: 14 },
+      { header: "Revue RH", key: "requiresHrReview", width: 12 },
+      { header: "Écart prolongation", key: "dateGapFlag", width: 16 },
+      { header: "Rechute < 3 mois", key: "recurrenceFlag", width: 14 },
     ],
     rows,
   );

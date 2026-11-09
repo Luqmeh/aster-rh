@@ -29,6 +29,7 @@ Les collaborateurs sont refusés côté serveur (redirection / `AuthError` sur e
 | `travail_ferie` | Travail férié & récupération |
 | `lifecycle` | Onboarding & cycle de vie |
 | `historique` | Historique congés / télétravail / férié |
+| `arrets_absences` | Arrêts & absences spéciales (sans certificats / notes médicales) |
 
 Chaque export journalise une notification « Export Excel reporting » pour l’acteur (piste d’audit légère en l’absence d’une table d’audit générique).
 

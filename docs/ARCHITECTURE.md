@@ -41,6 +41,8 @@ Jours fériés : dataset versionné `src/data/morocco-holidays.ts` + overrides R
 
 Reporting RH : `reporting-service` + builders Excel (`exceljs`) sous `src/infrastructure/reporting/` — mêmes filtres pour KPI dashboard et exports `.xlsx`. Permission `hr.reporting` (RH + Chef). Fuseau `Africa/Casablanca`. Pas de paie / pointage / timesheet.
 
+Arrêts / absences spéciales : modèle `WorkAbsence` (+ documents / events) distinct de `LeaveRequest`. Storage `employee-absence-documents/{employeeId}/{absenceId}/…`. Calendrier dérivé avec titres privacy-aware.
+
 Composition : `src/infrastructure/container.ts`.
 
 ## Authentification (Phase 8)

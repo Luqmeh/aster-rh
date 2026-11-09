@@ -62,6 +62,7 @@ export function ReportingCharts({
     teleworkDaysByMonth: ChartBucket[];
     recruitmentByStatus: ChartBucket[];
     documentRequestsByStatus: ChartBucket[];
+    workAbsencesByCategory: ChartBucket[];
   };
 }) {
   return (
@@ -95,6 +96,11 @@ export function ReportingCharts({
         title="Demandes de documents par statut"
         data={charts.documentRequestsByStatus}
         emptyLabel="Aucune demande documentaire sur la période."
+      />
+      <BarChart
+        title="Arrêts / absences spéciales par catégorie"
+        data={charts.workAbsencesByCategory}
+        emptyLabel="Aucun arrêt ni congé spécial sur la période."
       />
     </div>
   );

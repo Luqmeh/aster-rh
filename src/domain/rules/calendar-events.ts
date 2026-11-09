@@ -3,14 +3,17 @@ import { leaveTypeLabel } from "@/domain/rules/leave";
 import { confirmationLabel } from "@/domain/rules/morocco-holidays";
 import type { CalendarHoliday } from "@/domain/rules/morocco-holidays";
 import { workOnHolidayStatusLabel } from "@/domain/rules/work-on-holiday";
+import { calendarTitleForViewer } from "@/domain/rules/work-absence";
 import type {
   CalendarEvent,
   CalendarEventTone,
 } from "@/domain/types/calendar";
 import type {
+  DemoRole,
   Employee,
   LeaveRequest,
   TeleworkRequest,
+  WorkAbsence,
   WorkOnHolidayRequest,
 } from "@/domain/types/hr";
 
@@ -40,7 +43,10 @@ export function buildCalendarEvents(input: {
   telework: TeleworkRequest[];
   holidays?: CalendarHoliday[];
   workOnHoliday?: WorkOnHolidayRequest[];
+  workAbsences?: WorkAbsence[];
   employeesById?: Record<string, Employee>;
+  viewerRole?: DemoRole;
+  viewerEmployeeId?: string;
   includeRejected?: boolean;
 }): CalendarEvent[] {
   const { start, end } = monthBounds(input.month);
@@ -166,6 +172,53 @@ export function buildCalendarEvents(input: {
         employeeId: plan.employeeId,
         employeeName: nameOf(plan.employeeId, employeesById),
         sourceRequestId: plan.id,
+      });
+    }
+  }
+
+  for (const absence of input.workAbsences ?? []) {
+    if (absence.status === "refuse" && !includeRejected) continue;
+    if (
+      ![
+        "declare",
+        "en_attente_justificatif",
+        "en_cours_verification",
+        "informations_demandees",
+        "enregistre",
+        "termine",
+        "refuse",
+      ].includes(absence.status)
+    ) {
+      continue;
+    }
+    const viewer =
+      absence.employeeId === input.viewerEmployeeId
+        ? "self"
+        : input.viewerRole === "admin_rh"
+          ? "hr"
+          : input.viewerRole === "chef_de_projet"
+            ? "chef"
+            : "peer";
+    const title = calendarTitleForViewer(absence.category, viewer);
+    const tone: CalendarEventTone =
+      absence.status === "refuse"
+        ? "rejected"
+        : absence.status === "enregistre" || absence.status === "termine"
+          ? "work_absence_recorded"
+          : "work_absence_pending";
+    for (const date of expandDateRange(absence.startDate, absence.endDate)) {
+      if (date < start || date > end) continue;
+      events.push({
+        id: `wabs:${absence.id}:${date}`,
+        date,
+        kind: "work_absence",
+        tone,
+        status: absence.status,
+        title,
+        subtitle: null,
+        employeeId: absence.employeeId,
+        employeeName: nameOf(absence.employeeId, employeesById),
+        sourceRequestId: absence.id,
       });
     }
   }

@@ -120,6 +120,60 @@ enum DocumentRequestStatus {
   refusee
 }
 
+enum AbsenceFamily {
+  arret
+  conge_special
+}
+
+enum WorkAbsenceCategory {
+  arret_maladie
+  accident_travail
+  accident_trajet
+  maladie_professionnelle
+  conge_maternite
+  conge_paternite
+  conge_pathologique
+  prolongation_arret
+  rechute
+  mariage_pacs
+  naissance_adoption
+  deces_proche
+  demenagement
+  hospitalisation_enfant
+  annonce_handicap_ald
+  rdv_medicaux_handicap
+  preparation_examen_alternant
+}
+
+enum WorkAbsenceStatus {
+  declare
+  en_attente_justificatif
+  en_cours_verification
+  informations_demandees
+  enregistre
+  termine
+  refuse
+}
+
+enum AbsenceDocumentKind {
+  certificat_initial
+  certificat_prolongation
+  bulletin_hospitalisation
+  dossier_at_mp
+  calendrier_maternite
+  notification_paternite
+  justificatif_special
+  autre
+}
+
+enum ReturnVisitStatus {
+  non_applicable
+  a_planifier
+  planifiee
+  realisee
+  non_requise
+}
+
 /// Compte applicatif ASTER — distinct de la fiche Employee (données RH).
 model UserAccount {
   id              String       @id @default(cuid())
@@ -216,6 +270,9 @@ model Employee {
   holidayOverridesCreated HolidayOverride[] @relation("HolidayOverrideCreator")
   recoveryCredits     RecoveryCreditLedger[] @relation("RecoveryCreditEmployee")
   recoveryCreditsActed RecoveryCreditLedger[] @relation("RecoveryCreditActor")
+  workAbsences        WorkAbsence[]          @relation("WorkAbsenceEmployee")
+  workAbsencesProcessed WorkAbsence[]        @relation("WorkAbsenceProcessor")
+  workAbsenceDocumentsUploaded WorkAbsenceDocument[] @relation("WorkAbsenceDocUploader")
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -463,6 +520,89 @@ model WorkOnHolidayRequest {
   @@index([holidayDate])
   @@index([status])
   @@index([employeeId, holidayDate])
+}
+
+/// Arrêts de travail & congés spéciaux (distinct des LeaveRequest CP/RTT).
+model WorkAbsence {
+  id                         String               @id @default(cuid())
+  employeeId                 String
+  employee                   Employee             @relation("WorkAbsenceEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  family                     AbsenceFamily
+  category                   WorkAbsenceCategory
+  status                     WorkAbsenceStatus    @default(declare)
+  startDate                  DateTime
+  endDate                    DateTime
+  daysCount                  Float
+  employeeComment            String?
+  hrInternalNote             String?
+  hrMessage                  String?
+  rejectionReason            String?
+  parentAbsenceId            String?
+  parentAbsence              WorkAbsence?         @relation("AbsenceExtension", fields: [parentAbsenceId], references: [id], onDelete: SetNull)
+  extensions                 WorkAbsence[]        @relation("AbsenceExtension")
+  recurrenceOfId             String?
+  recurrenceOf               WorkAbsence?         @relation("AbsenceRecurrence", fields: [recurrenceOfId], references: [id], onDelete: SetNull)
+  recurrences                WorkAbsence[]        @relation("AbsenceRecurrence")
+  dateGapFlag                Boolean              @default(false)
+  recurrenceWithin3MonthsFlag Boolean             @default(false)
+  requiresHrReview           Boolean              @default(false)
+  hospitalAdmissionDate      DateTime?
+  hospitalDischargeDate      DateTime?
+  documentsReceived          Boolean              @default(false)
+  firstDocumentReceivedAt    DateTime?
+  payrollProcessingMonth     String?
+  expectedReturnDate         DateTime?
+  actualReturnDate           DateTime?
+  returnVisitRequired        Boolean              @default(false)
+  returnVisitStatus          ReturnVisitStatus    @default(non_applicable)
+  returnVisitPlannedDate     DateTime?
+  returnVisitDeadline        DateTime?
+  processedByEmployeeId      String?
+  processedBy                Employee?            @relation("WorkAbsenceProcessor", fields: [processedByEmployeeId], references: [id], onDelete: SetNull)
+  processedAt                DateTime?
+  documents                  WorkAbsenceDocument[]
+  events                     WorkAbsenceEvent[]
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([category])
+  @@index([family])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([parentAbsenceId])
+  @@index([employeeId, status])
+}
+
+model WorkAbsenceDocument {
+  id                   String              @id @default(cuid())
+  absenceId            String
+  absence              WorkAbsence         @relation(fields: [absenceId], references: [id], onDelete: Cascade)
+  kind                 AbsenceDocumentKind
+  fileName             String
+  contentType          String
+  storageKey           String
+  uploadedByEmployeeId String
+  uploadedBy           Employee            @relation("WorkAbsenceDocUploader", fields: [uploadedByEmployeeId], references: [id], onDelete: Restrict)
+  receivedByHrAt       DateTime?
+  createdAt            DateTime            @default(now())
+
+  @@index([absenceId])
+  @@index([uploadedByEmployeeId])
+}
+
+model WorkAbsenceEvent {
+  id        String      @id @default(cuid())
+  absenceId String
+  absence   WorkAbsence @relation(fields: [absenceId], references: [id], onDelete: Cascade)
+  kind      String
+  message   String
+  actorId   String?
+  createdAt DateTime    @default(now())
+
+  @@index([absenceId])
+  @@index([createdAt])
 }
 
 /// Ledger auditable des crédits de récupération (1 h confirmée = 1 h crédit).

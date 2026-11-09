@@ -159,6 +159,24 @@ export default async function RapportsPage({
             hint={`${formatNumberFr(kpis.recuperationCrediteeJours, 2)} j · ledger période`}
           />
           <Kpi
+            label="Arrêts en cours"
+            value={String(kpis.arretsEnCours)}
+            hint="Hors refusés / terminés"
+          />
+          <Kpi
+            label="Justificatifs manquants"
+            value={String(kpis.justificatifsManquants)}
+          />
+          <Kpi
+            label="Congés spéciaux (période)"
+            value={String(kpis.congesSpeciauxPeriode)}
+          />
+          <Kpi
+            label="Visites de reprise"
+            value={String(kpis.visitesRepriseAPlanifier)}
+            hint="À planifier ou planifiées"
+          />
+          <Kpi
             label="Périmètre collaborateurs"
             value={String(employees.length)}
             hint="Après filtres département / statut"

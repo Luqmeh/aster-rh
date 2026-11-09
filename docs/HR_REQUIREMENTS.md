@@ -28,7 +28,8 @@ Code : `src/domain/rules/leave.ts` → `defaultAnnualEntitlement`.
 | Calcul des jours (ouvrés lun–ven) | **HYPOTHÈSE DÉMO** | Simplifié ; hors jours fériés & conventions locales |
 | Demi-journées | **Implémenté (démo)** | Flags `halfDayStart` / `halfDayEnd` |
 | Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Chef de projet (RH en lecture seule) |
-| Types d’absence | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental |
+| Types d’absence (CP/RTT) | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental (LeaveRequest) |
+| Arrêts / absences spéciales | **Guide + workflow ASTER** | Module `WorkAbsence` — voir §7 |
 
 Références guide à compléter :
 
@@ -115,3 +116,22 @@ Code : `src/domain/rules/work-on-holiday.ts`, `src/application/services/work-on-
 2. Mettre à jour ce fichier avec la référence.
 3. Ajuster `src/domain/rules/*` et les tests.
 4. Retirer le marquage « HYPOTHÈSE DÉMO » uniquement lorsque la valeur est confirmée.
+
+---
+
+## 7. Arrêts de travail & congés spéciaux (Phase 13)
+
+**Source :** Guide des pratiques RH — novembre 2026 (confidentiel, non versionné).
+
+| Sujet | Statut | Notes |
+|-------|--------|-------|
+| Notification employeur 24 h | **Guide** | Rappel UI |
+| Justificatif 48 h | **Guide** | Rappel UI ; déclaration possible sans document |
+| Congés spéciaux (mariage/PACS, naissance, décès, déménagement, hosp. enfant, handicap/ALD, RDV TH, examen alternant) | **Guide p.46** | Catalogue ASTER ; plafonds numériques = hypothèse / revue RH si non confirmés |
+| Paternité : préavis 1 mois | **Guide** | Rappel + flag revue RH |
+| Cutoff justificatifs paie (j. 20) | **Guide** | Champ `payrollProcessingMonth` — pas de connecteur paie |
+| Visite de reprise | **Guide p.62** | Maternité, AT/MP/trajet, ≥ 30 j ; organiser sous 8 j après retour |
+| RTT non-cadres / titres-restaurant pendant arrêt | **Guide** | Info RH uniquement |
+| Maintien CP maternité/paternité ; 1 an AT/MP | **Guide** | Info RH uniquement |
+
+Code : `src/domain/rules/work-absence.ts`, `special-leave-entitlements.ts`, `work-absence-service.ts`. Doc produit : `docs/ABSENCES.md`.

@@ -10,6 +10,7 @@
 - [x] Télétravail (soumission + validation)
 - [x] Administration RH overview
 - [x] Reporting RH + exports Excel (Phase 12)
+- [x] Arrêts de travail & absences spéciales (Phase 13)
 - [x] Modules planifiés signalés
 - [x] Documentation + tests règles métier
 - [ ] Affinage UX selon retours de répétition de démo

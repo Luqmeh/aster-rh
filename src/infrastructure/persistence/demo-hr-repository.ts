@@ -536,4 +536,86 @@ export const demoHrRepository: HrRepository = {
     getDemoStore().recoveryCredits.unshift(row);
     return row;
   },
+
+  async listWorkAbsences(filter) {
+    let rows = [...getDemoStore().workAbsences];
+    if (filter?.employeeId) rows = rows.filter((r) => r.employeeId === filter.employeeId);
+    if (filter?.family) rows = rows.filter((r) => r.family === filter.family);
+    if (filter?.category) rows = rows.filter((r) => r.category === filter.category);
+    if (filter?.status) {
+      const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+      rows = rows.filter((r) => statuses.includes(r.status));
+    }
+    return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async getWorkAbsence(id) {
+    return getDemoStore().workAbsences.find((r) => r.id === id) ?? null;
+  },
+
+  async createWorkAbsence(input) {
+    const row = {
+      ...input,
+      id: uid("wabs"),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    getDemoStore().workAbsences.unshift(row);
+    return row;
+  },
+
+  async updateWorkAbsence(id, patch) {
+    const store = getDemoStore();
+    const index = store.workAbsences.findIndex((r) => r.id === id);
+    if (index < 0) throw new Error("Absence introuvable.");
+    const updated = {
+      ...store.workAbsences[index],
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    store.workAbsences[index] = updated;
+    return updated;
+  },
+
+  async listWorkAbsenceDocuments(absenceId) {
+    return getDemoStore()
+      .workAbsenceDocuments.filter((d) => d.absenceId === absenceId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async createWorkAbsenceDocument(input) {
+    const row = {
+      ...input,
+      id: uid("wadoc"),
+      createdAt: new Date().toISOString(),
+    };
+    getDemoStore().workAbsenceDocuments.unshift(row);
+    return row;
+  },
+
+  async updateWorkAbsenceDocument(id, patch) {
+    const store = getDemoStore();
+    const index = store.workAbsenceDocuments.findIndex((d) => d.id === id);
+    if (index < 0) throw new Error("Document d'absence introuvable.");
+    const updated = { ...store.workAbsenceDocuments[index], ...patch };
+    store.workAbsenceDocuments[index] = updated;
+    return updated;
+  },
+
+  async addWorkAbsenceEvent(input) {
+    const row = {
+      ...input,
+      id: uid("waevt"),
+      createdAt: new Date().toISOString(),
+    };
+    getDemoStore().workAbsenceEvents.unshift(row);
+    return row;
+  },
+
+  async listWorkAbsenceEvents(absenceId) {
+    return getDemoStore()
+      .workAbsenceEvents.filter((e) => e.absenceId === absenceId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
 };
+

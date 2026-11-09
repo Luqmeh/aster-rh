@@ -130,6 +130,10 @@ export type ReportingKpis = {
   recrutementsEnCours: number;
   recuperationCrediteeHeures: number;
   recuperationCrediteeJours: number;
+  arretsEnCours: number;
+  justificatifsManquants: number;
+  congesSpeciauxPeriode: number;
+  visitesRepriseAPlanifier: number;
 };
 
 export const PENDING_LEAVE_STATUSES = new Set([
@@ -170,6 +174,7 @@ export const REPORT_EXPORT_KEYS = [
   "travail_ferie",
   "lifecycle",
   "historique",
+  "arrets_absences",
 ] as const;
 
 export type ReportExportKey = (typeof REPORT_EXPORT_KEYS)[number];
@@ -186,6 +191,7 @@ export function reportExportLabel(key: ReportExportKey): string {
     travail_ferie: "Travail férié & récupération",
     lifecycle: "Onboarding & cycle de vie",
     historique: "Historique des demandes",
+    arrets_absences: "Arrêts & absences spéciales",
   };
   return labels[key];
 }

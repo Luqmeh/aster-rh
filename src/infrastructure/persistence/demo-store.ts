@@ -22,6 +22,9 @@ import type {
   RecruitmentEvent,
   RoleChangeAuditEntry,
   TeleworkRequest,
+  WorkAbsence,
+  WorkAbsenceDocument,
+  WorkAbsenceEvent,
   WorkOnHolidayRequest,
 } from "@/domain/types/hr";
 import type { StoredUserAccount } from "@/infrastructure/auth/account-store";
@@ -41,6 +44,9 @@ export interface DemoStore {
   holidayOverrides: HolidayOverride[];
   workOnHolidayRequests: WorkOnHolidayRequest[];
   recoveryCredits: RecoveryCreditLedgerEntry[];
+  workAbsences: WorkAbsence[];
+  workAbsenceDocuments: WorkAbsenceDocument[];
+  workAbsenceEvents: WorkAbsenceEvent[];
   roleChangeAudits: RoleChangeAuditEntry[];
   accounts: StoredUserAccount[];
 }
@@ -65,6 +71,9 @@ function cloneStore(): DemoStore {
     holidayOverrides: [],
     workOnHolidayRequests: [],
     recoveryCredits: [],
+    workAbsences: [],
+    workAbsenceDocuments: [],
+    workAbsenceEvents: [],
     roleChangeAudits: [],
     accounts: [],
   };

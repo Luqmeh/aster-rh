@@ -319,3 +319,107 @@ export interface RecoveryCreditLedgerEntry {
   actorEmployeeId: string;
   createdAt: string;
 }
+
+/** Famille d'absence administrative (hors CP/RTT LeaveRequest). */
+export type AbsenceFamily = "arret" | "conge_special";
+
+export type WorkAbsenceCategory =
+  | "arret_maladie"
+  | "accident_travail"
+  | "accident_trajet"
+  | "maladie_professionnelle"
+  | "conge_maternite"
+  | "conge_paternite"
+  | "conge_pathologique"
+  | "prolongation_arret"
+  | "rechute"
+  | "mariage_pacs"
+  | "naissance_adoption"
+  | "deces_proche"
+  | "demenagement"
+  | "hospitalisation_enfant"
+  | "annonce_handicap_ald"
+  | "rdv_medicaux_handicap"
+  | "preparation_examen_alternant";
+
+export type WorkAbsenceStatus =
+  | "declare"
+  | "en_attente_justificatif"
+  | "en_cours_verification"
+  | "informations_demandees"
+  | "enregistre"
+  | "termine"
+  | "refuse";
+
+export type AbsenceDocumentKind =
+  | "certificat_initial"
+  | "certificat_prolongation"
+  | "bulletin_hospitalisation"
+  | "dossier_at_mp"
+  | "calendrier_maternite"
+  | "notification_paternite"
+  | "justificatif_special"
+  | "autre";
+
+export type ReturnVisitStatus =
+  | "non_applicable"
+  | "a_planifier"
+  | "planifiee"
+  | "realisee"
+  | "non_requise";
+
+export interface WorkAbsenceDocument {
+  id: string;
+  absenceId: string;
+  kind: AbsenceDocumentKind;
+  fileName: string;
+  contentType: string;
+  storageKey: string;
+  uploadedByEmployeeId: string;
+  receivedByHrAt: string | null;
+  createdAt: string;
+}
+
+export interface WorkAbsenceEvent {
+  id: string;
+  absenceId: string;
+  kind: string;
+  message: string;
+  actorId: string | null;
+  createdAt: string;
+}
+
+export interface WorkAbsence {
+  id: string;
+  employeeId: string;
+  family: AbsenceFamily;
+  category: WorkAbsenceCategory;
+  status: WorkAbsenceStatus;
+  startDate: string;
+  endDate: string;
+  daysCount: number;
+  employeeComment: string | null;
+  hrInternalNote: string | null;
+  hrMessage: string | null;
+  rejectionReason: string | null;
+  parentAbsenceId: string | null;
+  recurrenceOfId: string | null;
+  dateGapFlag: boolean;
+  recurrenceWithin3MonthsFlag: boolean;
+  requiresHrReview: boolean;
+  hospitalAdmissionDate: string | null;
+  hospitalDischargeDate: string | null;
+  documentsReceived: boolean;
+  firstDocumentReceivedAt: string | null;
+  payrollProcessingMonth: string | null;
+  expectedReturnDate: string | null;
+  actualReturnDate: string | null;
+  returnVisitRequired: boolean;
+  returnVisitStatus: ReturnVisitStatus;
+  returnVisitPlannedDate: string | null;
+  returnVisitDeadline: string | null;
+  processedByEmployeeId: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
