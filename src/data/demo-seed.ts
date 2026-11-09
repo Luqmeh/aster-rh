@@ -48,6 +48,7 @@ export const employees: Employee[] = [
     phoneInternal: "10-01",
     avatarInitials: "CM",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
   {
     id: "emp-julien",
@@ -70,6 +71,7 @@ export const employees: Employee[] = [
     phoneInternal: "20-14",
     avatarInitials: "JB",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
   {
     id: "emp-lea",
@@ -92,6 +94,7 @@ export const employees: Employee[] = [
     phoneInternal: "20-22",
     avatarInitials: "LD",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
   {
     id: "emp-thomas",
@@ -114,6 +117,7 @@ export const employees: Employee[] = [
     phoneInternal: "30-08",
     avatarInitials: "TP",
     teleworkDaysPerWeek: 1,
+    standardDailyHours: 7,
   },
   {
     id: "emp-ines",
@@ -136,6 +140,7 @@ export const employees: Employee[] = [
     phoneInternal: "40-11",
     avatarInitials: "IL",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
   {
     id: "emp-hugo",
@@ -158,6 +163,7 @@ export const employees: Employee[] = [
     phoneInternal: "50-03",
     avatarInitials: "HG",
     teleworkDaysPerWeek: 1,
+    standardDailyHours: 7,
   },
   {
     id: "emp-sarah",
@@ -180,6 +186,7 @@ export const employees: Employee[] = [
     phoneInternal: "10-04",
     avatarInitials: "SN",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
   {
     id: "emp-marc",
@@ -202,6 +209,7 @@ export const employees: Employee[] = [
     phoneInternal: "20-18",
     avatarInitials: "MR",
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
   },
 ];
 
@@ -239,6 +247,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 10,
     rttPris: 3,
     rttRestants: 7,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-julien",
@@ -249,6 +260,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 10,
     rttPris: 4,
     rttRestants: 6,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-camille",
@@ -259,6 +273,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 10,
     rttPris: 2,
     rttRestants: 8,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-thomas",
@@ -269,6 +286,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 8,
     rttPris: 2,
     rttRestants: 6,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-ines",
@@ -279,6 +299,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 10,
     rttPris: 1,
     rttRestants: 9,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-hugo",
@@ -289,6 +312,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 0,
     rttPris: 0,
     rttRestants: 0,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-sarah",
@@ -299,6 +325,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 8,
     rttPris: 3,
     rttRestants: 5,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
   {
     employeeId: "emp-marc",
@@ -309,6 +338,9 @@ export const leaveBalances: LeaveBalance[] = [
     rttAcquis: 10,
     rttPris: 5,
     rttRestants: 5,
+    recoveryDaysAcquis: 0,
+    recoveryDaysPris: 0,
+    recoveryDaysRestants: 0,
   },
 ];
 

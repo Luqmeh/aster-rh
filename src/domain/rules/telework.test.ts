@@ -23,6 +23,7 @@ const employee: Employee = {
   phoneInternal: null,
   avatarInitials: "LD",
   teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
 };
 
 describe("telework weekly cap", () => {

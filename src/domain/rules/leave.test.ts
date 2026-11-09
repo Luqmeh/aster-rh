@@ -17,6 +17,9 @@ const balance: LeaveBalance = {
   rttAcquis: 10,
   rttPris: 2,
   rttRestants: 8,
+  recoveryDaysAcquis: 0,
+  recoveryDaysPris: 0,
+  recoveryDaysRestants: 0,
 };
 
 describe("countBusinessDays", () => {

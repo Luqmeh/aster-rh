@@ -19,10 +19,18 @@ export type RequestStatus =
 export type LeaveType =
   | "conges_payes"
   | "rtt"
+  | "recuperation"
   | "sans_solde"
   | "maladie"
   | "exceptionnel"
   | "parental";
+
+export type WorkOnHolidayStatus =
+  | "en_attente"
+  | "approuvee"
+  | "refusee"
+  | "travail_effectue_a_confirmer"
+  | "confirmee_credit_appliquee";
 
 export type TeleworkType = "regulier" | "occasionnel" | "exceptionnel";
 
@@ -96,6 +104,11 @@ export interface Employee {
    * Le plafond planification mensuelle reste 2 j/semaine (p.106 / règle produit).
    */
   teleworkDaysPerWeek: number;
+  /**
+   * Heures journalières de référence pour convertir les crédits de récupération.
+   * HYPOTHÈSE DÉMO (défaut 7) — ne pas présenter comme règle guide.
+   */
+  standardDailyHours: number;
 }
 
 export interface LeaveBalance {
@@ -107,6 +120,10 @@ export interface LeaveBalance {
   rttAcquis: number;
   rttPris: number;
   rttRestants: number;
+  /** Récupération jours fériés travaillés (jours fractionnaires) — distincte des RTT annuels. */
+  recoveryDaysAcquis: number;
+  recoveryDaysPris: number;
+  recoveryDaysRestants: number;
 }
 
 export interface LeaveRequest {
@@ -249,5 +266,56 @@ export interface DocumentRequestEvent {
   kind: string;
   message: string;
   actorId: string | null;
+  createdAt: string;
+}
+
+export interface HolidayOverride {
+  id: string;
+  sourceKey: string;
+  date: string;
+  nameFr: string;
+  kind: "national" | "religious" | "company";
+  confirmation: "confirmed" | "provisional";
+  isActive: boolean;
+  year: number;
+  createdByEmployeeId: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface WorkOnHolidayRequest {
+  id: string;
+  employeeId: string;
+  holidayDate: string;
+  holidaySourceKey: string;
+  holidayName: string;
+  plannedHours: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  reason: string;
+  status: WorkOnHolidayStatus;
+  decidedByEmployeeId: string | null;
+  decisionComment: string | null;
+  decidedAt: string | null;
+  actualHours: number | null;
+  actualDeclaredAt: string | null;
+  confirmedHours: number | null;
+  confirmedByEmployeeId: string | null;
+  confirmedAt: string | null;
+  creditLedgerId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecoveryCreditLedgerEntry {
+  id: string;
+  employeeId: string;
+  year: number;
+  sourceKind: "work_on_holiday";
+  sourceRequestId: string;
+  hoursConfirmed: number;
+  daysCredited: number;
+  dailyHoursUsed: number;
+  actorEmployeeId: string;
   createdAt: string;
 }

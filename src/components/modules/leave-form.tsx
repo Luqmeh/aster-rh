@@ -20,6 +20,10 @@ import type { LeaveType } from "@/domain/types/hr";
 const TYPES: { value: LeaveType; label: string }[] = [
   { value: "conges_payes", label: "Congés payés" },
   { value: "rtt", label: "RTT" },
+  {
+    value: "recuperation",
+    label: "Récupération (jour férié travaillé)",
+  },
   { value: "sans_solde", label: "Congé sans solde" },
   { value: "exceptionnel", label: "Congé exceptionnel" },
   { value: "maladie", label: "Absence maladie" },

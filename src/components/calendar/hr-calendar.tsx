@@ -14,9 +14,15 @@ import {
 } from "@/domain/rules/dates";
 import { eventsByDate } from "@/domain/rules/calendar-events";
 import {
+  WorkOnHolidayChefActions,
+  WorkOnHolidayDeclareActual,
+  WorkOnHolidayRequestForm,
+} from "@/components/modules/work-on-holiday-forms";
+import {
   CALENDAR_TONE_CLASSES,
   type CalendarEvent,
 } from "@/domain/types/calendar";
+import type { DemoRole } from "@/domain/types/hr";
 import { cn, formatDateFr } from "@/lib/utils";
 
 function padCalendarDays(month: string): (string | null)[] {
@@ -35,12 +41,14 @@ export function HrCalendar({
   title,
   subtitle,
   compact = false,
+  role = "collaborateur",
 }: {
   initialMonth: string;
   events: CalendarEvent[];
   title?: string;
   subtitle?: string;
   compact?: boolean;
+  role?: DemoRole;
 }) {
   const [month, setMonth] = useState(initialMonth);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -220,12 +228,40 @@ export function HrCalendar({
                     )}
                   >
                     <p className="font-medium">{event.title}</p>
+                    {event.subtitle ? (
+                      <p className="text-xs opacity-90">{event.subtitle}</p>
+                    ) : null}
                     {event.employeeName ? (
                       <p className="text-xs opacity-90">{event.employeeName}</p>
                     ) : null}
                     <p className="text-[11px] opacity-80">
                       {CALENDAR_TONE_CLASSES[event.tone].label}
                     </p>
+                    {event.kind === "holiday" && event.actionableHoliday ? (
+                      <div className="mt-2 text-[var(--aster-ink)]">
+                        <WorkOnHolidayRequestForm
+                          holidayDate={event.date}
+                          holidayName={event.title}
+                        />
+                      </div>
+                    ) : null}
+                    {event.kind === "work_on_holiday" ? (
+                      <div className="mt-2 space-y-2 text-[var(--aster-ink)]">
+                        {event.status === "approuvee" ? (
+                          <WorkOnHolidayDeclareActual
+                            requestId={event.sourceRequestId}
+                            plannedHours={7}
+                          />
+                        ) : null}
+                        <WorkOnHolidayChefActions
+                          requestId={event.sourceRequestId}
+                          status={String(event.status)}
+                          actualHours={null}
+                          plannedHours={7}
+                          role={role}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ))
               )}

@@ -66,6 +66,7 @@ type PrismaEmployee = {
   avatarInitials: string;
   teleworkEligible: boolean;
   teleworkDaysPerWeek: number;
+  standardDailyHours: number;
 };
 
 type PrismaLeaveBalance = {
@@ -77,6 +78,9 @@ type PrismaLeaveBalance = {
   rttAcquis: number;
   rttPris: number;
   rttRestants: number;
+  recoveryDaysAcquis: number;
+  recoveryDaysPris: number;
+  recoveryDaysRestants: number;
 };
 
 type PrismaLeaveRequest = {
@@ -165,6 +169,7 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     avatarInitials: row.avatarInitials,
     teleworkEligible: row.teleworkEligible,
     teleworkDaysPerWeek: row.teleworkDaysPerWeek,
+    standardDailyHours: row.standardDailyHours ?? 7,
   };
 }
 
@@ -252,6 +257,9 @@ export function mapLeaveBalance(row: PrismaLeaveBalance): LeaveBalance {
     rttAcquis: row.rttAcquis,
     rttPris: row.rttPris,
     rttRestants: row.rttRestants,
+    recoveryDaysAcquis: row.recoveryDaysAcquis ?? 0,
+    recoveryDaysPris: row.recoveryDaysPris ?? 0,
+    recoveryDaysRestants: row.recoveryDaysRestants ?? 0,
   };
 }
 

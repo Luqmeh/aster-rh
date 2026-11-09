@@ -16,6 +16,7 @@ export const leaveRequestInputSchema = z
     type: z.enum([
       "conges_payes",
       "rtt",
+      "recuperation",
       "sans_solde",
       "maladie",
       "exceptionnel",
@@ -39,8 +40,8 @@ export const leaveRequestInputSchema = z
 
 export type LeaveRequestInput = z.infer<typeof leaveRequestInputSchema>;
 
-/** Démo : CP et RTT consomment le solde ; maladie / exceptionnel / parental / sans solde non. */
-const BALANCE_CONSUMING: LeaveType[] = ["conges_payes", "rtt"];
+/** Démo : CP, RTT et récupération férié consomment le solde ; maladie / exceptionnel / parental / sans solde non. */
+const BALANCE_CONSUMING: LeaveType[] = ["conges_payes", "rtt", "recuperation"];
 
 export function usesLeaveBalance(type: LeaveType): boolean {
   return BALANCE_CONSUMING.includes(type);
@@ -68,6 +69,7 @@ export function remainingBalanceForType(
 ): number | null {
   if (type === "conges_payes") return balance.congesPayesRestants;
   if (type === "rtt") return balance.rttRestants;
+  if (type === "recuperation") return balance.recoveryDaysRestants;
   return null;
 }
 
@@ -131,6 +133,7 @@ export function leaveTypeLabel(type: LeaveType): string {
   const labels: Record<LeaveType, string> = {
     conges_payes: "Congés payés",
     rtt: "RTT",
+    recuperation: "Récupération (jour férié travaillé)",
     sans_solde: "Congé sans solde",
     maladie: "Absence maladie",
     exceptionnel: "Congé exceptionnel",

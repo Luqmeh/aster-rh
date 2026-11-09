@@ -96,6 +96,17 @@ Le mapping vers les groupes Microsoft Entra ID reste à définir (`docs/INTEGRAT
 
 Code : `src/domain/rules/document-requests.ts`, `src/application/services/document-request-service.ts`.
 
+### Jours fériés marocains & récupération
+
+| Sujet | Statut | Notes / source |
+|-------|--------|----------------|
+| Calendrier national / religieux | **Sources officielles** | maroc.ma ; MMSP — dataset versionné `src/data/morocco-holidays.ts` |
+| Dates religieuses futures | **Provisoires** | Sous réserve annonce Ministère des Habous |
+| RTT annuels | **Guide** | Arrangements RTT existants — non modifiés par ce module |
+| Récupération 1 h travaillée = 1 h créditée | **RÈGLE PRODUIT ASTER** | **Non** présentée comme politique PKF du guide ; indépendante BEEYE/AGIRIS |
+
+Code : `src/domain/rules/work-on-holiday.ts`, `src/application/services/work-on-holiday-service.ts`.
+
 ---
 
 ## 6. Procédure de mise à jour

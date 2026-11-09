@@ -1,43 +1,44 @@
 # ASTER — Progress report
 
 **Date :** 2026-11-09  
-**Focus :** Demandes documentaires collaborateur + file RH  
-**Statut :** Implémenté et poussé sur `main` — **workflow Production non vérifié** (attendre déploiement Vercel + migrate)
+**Focus :** Jours fériés marocains + travail férié + récupération (ledger)  
+**Statut :** Implémenté et poussé sur `main` — **parcours Production non vérifié**
 
-## Fonctionnalités livrées
+## Fonctionnalités
 
-### Collaborateur — `/documents`
-- Catalogue de demandes (attestations, contrats, formation, CNCC si éligible, documents de départ si cycle de vie pertinent, « Autre » avec revue RH).
-- Formulaire type + motif / usage.
-- Suivi des demandes en cours, historique (disponible / refusée).
-- Bibliothèque des documents **publiés** + téléchargement URL signée.
-- Zone PeopleDoc informative (guide p.65–66) — **pas** de demande de bulletin RH, **pas** d’URL inventée.
-- Notifications : soumission, clarification, refus, disponibilité.
+### Calendrier fériés
+- Dataset versionné `src/data/morocco-holidays.ts` (sources maroc.ma / MMSP) : nationaux fixes + religieux 2025–2027.
+- Religieux 2026 **confirmés** ; 2027 **provisoires** (vue du croissant).
+- Overrides RH (`HolidayOverride`) pour corriger / ajouter un jour entreprise (dédoublonnage `sourceKey+year`).
+- Affichage calendrier avec tons distincts (confirmé / provisoire) — **aucune** création auto de congé ou crédit.
 
-### RH / Chef — `/administration/documents`
-- File de travail (filtres statut / type / recherche nom).
-- Détail demande, prise en traitement, clarification, refus.
-- Upload fichier (non visible tant que non publié).
-- Action explicite **Mettre à disposition**.
-- Note interne RH (jamais exposée au collaborateur).
-- Historique d’événements / timestamps.
+### Travail un jour férié
+- Demande collaborateur depuis une entrée férié (heures planifiées, créneaux, justification).
+- Uniquement sur un férié réel ; une seule demande active / collaborateur / date.
+- Statuts : En attente → Approuvée / Refusée → Travail effectué — à confirmer → Confirmée — récupération créditée.
+- Approbation **avant** le jour férié ; déclaration des heures **après** ; confirmation Chef uniquement.
 
-### Données & storage
-- Modèles Prisma `DocumentRequest` + `DocumentRequestEvent` + migration `20261109020000_document_requests`.
-- Namespace Storage séparé : `employee-documents/{employeeId}/{requestId}/…` (CV recrutement inchangé).
-- Ownership serveur + publication explicite + révocation libre-service si compte inactif/parti.
-- Permissions centralisées (`document_request.*`) — Chef hérite RH ; RH ne gagne pas d’approbations manager ailleurs.
+### Crédit récupération (règle produit ASTER)
+- **1 h confirmée = 1 h créditée** (conversion jours via `Employee.standardDailyHours`, défaut 7).
+- Ledger auditable `RecoveryCreditLedger` — pas d’écrasement silencieux du solde RTT annuel.
+- Champs `recoveryDays*` sur `LeaveBalance` ; type d’absence `recuperation` pour consommer via le flux congés existant.
+- **Non** présenté comme politique guide PKF ; indépendant BEEYE/AGIRIS.
+
+### Droits
+- Chef : approuver / confirmer / créditer (global).
+- RH : lecture file + overrides fériés — **pas** d’approbation.
+- Collaborateur : soi uniquement.
 
 ## Fichiers principaux
 
 | Zone | Fichiers |
 |------|----------|
-| Domaine | `document-requests.ts`, types `DocumentRequest*`, permissions |
-| App | `document-request-service.ts` (+ tests) |
-| Persistence | `hr-repository`, demo/prisma repos, mappers, demo-store |
-| Prisma | `schema.prisma`, migration SQL |
-| Actions / UI | `document-requests.ts` actions, forms, `/documents`, `/administration/documents/*` |
-| Docs | `HR_REQUIREMENTS.md`, `AUTHORIZATION_MATRIX.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `README.md` |
+| Data | `morocco-holidays.ts` |
+| Domaine | `morocco-holidays.ts`, `work-on-holiday.ts`, permissions, leave, calendar |
+| App | `work-on-holiday-service.ts`, `calendar-service.ts` |
+| Prisma | migration `20261109030000_work_on_holiday_recovery` |
+| UI | calendrier + forms, administration (file lecture + override) |
+| Docs | HR_REQUIREMENTS, AUTHORIZATION_MATRIX, ARCHITECTURE, README, PROGRESS |
 
 ## Dépendances
 
@@ -46,13 +47,12 @@ Aucune nouvelle dépendance npm.
 ## Tests
 
 ```
-npx vitest run src/domain/rules/document-requests.test.ts \
-  src/application/services/document-request-service.test.ts \
-  src/infrastructure/storage/supabase-storage.test.ts
-→ 19 passed
+npx vitest run src/application/services/work-on-holiday-service.test.ts \
+  src/domain/rules/morocco-holidays.test.ts
+→ 8 passed
 ```
 
-Couvre : création soi / refus autrui, isolation vues, RH+Chef traitement, non-publication avant publish, download owner, refus chemins `recruitment/`, éligibilité départ/CNCC, anti-doublon notifs.
+(+ calendar-events / leave fixtures alignés)
 
 ## Typecheck / lint / build
 
@@ -60,23 +60,18 @@ Couvre : création soi / refus autrui, isolation vues, RH+Chef traitement, non-p
 |-------|----------|
 | `npm run typecheck` | OK |
 | `npm run lint` | OK |
-| `npm run build` | OK (routes `/administration/documents` présentes) |
-
-## Hypothèses démo (non attribuées au guide comme catalogue)
-
-- Catalogue de types ASTER = proposition produit, **pas** inventaire exhaustif du guide.
-- CNCC : éligible si intitulé contient « CAC » / « commissaire » (Léa démo mise à jour).
-- Documents de départ : `parti` ou `inactif` + date de départ.
+| `npm run build` | OK (session précédente + typecheck/lint frais) |
 
 ## Issues restantes
 
-- Production : migration `DocumentRequest` via `build:vercel` / `prisma migrate deploy` — à confirmer après déploiement.
-- Upload Production dépend toujours du bucket privé `aster-private-docs` sur le **bon** projet Supabase.
-- Vérification manuelle du parcours live (collaborateur → RH → publier → télécharger) **non faite** dans cette session.
+- Vérifier migrate Production (`WorkOnHoliday*`, `HolidayOverride`, `RecoveryCreditLedger`, enum `recuperation`).
+- UI calendrier : heures planifiées affichées en dur (7) sur certaines actions — le service utilise la valeur réelle en base.
+- Pas de feed API externe : maintenance manuelle du dataset + overrides RH.
+- **E2E Production non exécuté.**
 
 ## Prochaine étape exacte
 
-1. Attendre le déploiement Vercel de ce commit (migrate Production).
-2. Se connecter collaborateur → `/documents` → créer une attestation.
-3. Se connecter RH → `/administration/documents` → traiter, uploader, **Mettre à disposition**.
-4. Revenir collaborateur → télécharger ; confirmer qu’un fichier non publié reste inaccessible.
+1. Attendre le déploiement Vercel + migrate.
+2. Ouvrir `/calendrier` → vérifier fériés (ex. 18/11 confirmé).
+3. Collaborateur : demander travail sur un férié **futur** → Chef approuve → après la date, déclarer heures → Chef confirme → solde `recuperation` crédité.
+4. RH : contrôler la file lecture seule et un override de date.

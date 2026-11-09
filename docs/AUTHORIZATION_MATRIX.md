@@ -22,6 +22,10 @@ Hiérarchie définitive (permanente) :
 | Voir / traiter toutes les demandes documentaires | Non | Oui | Oui |
 | Uploader + « Mettre à disposition » un document | Non | Oui | Oui |
 | Télécharger document publié | Soi uniquement | Tous (traitement) | Tous (traitement) |
+| Demander travail un jour férié | Soi | Soi | Soi |
+| Approuver / confirmer travail férié + crédit | Non | **Non** | Oui |
+| Voir toutes les demandes travail férié | Non | Oui (lecture) | Oui |
+| Corriger / ajouter jours fériés | Non | Oui | Oui |
 | Administration RH | Non | Oui | Oui |
 
 ## Règles d’or

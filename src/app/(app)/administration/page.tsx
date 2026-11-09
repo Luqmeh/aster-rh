@@ -1,12 +1,15 @@
 import { createLeaveService } from "@/application/services/leave-service";
 import { createTeleworkService } from "@/application/services/telework-service";
+import { createWorkOnHolidayService } from "@/application/services/work-on-holiday-service";
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import { teleworkTypeLabel } from "@/domain/rules/telework";
+import { workOnHolidayStatusLabel } from "@/domain/rules/work-on-holiday";
 import {
   canAccessHrAdministration,
   canApproveRequests,
 } from "@/domain/rules/permissions";
 import { ApprovalButtons } from "@/components/modules/approval-buttons";
+import { HolidayOverrideForm } from "@/components/modules/holiday-override-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -30,14 +33,25 @@ export default async function AdministrationPage() {
   const canDecide = canApproveRequests(session.role);
   const leaveService = createLeaveService(container);
   const teleworkService = createTeleworkService(container);
-  const [employees, departments, pendingLeaves, pendingTw] = await Promise.all([
-    container.hr.listEmployees(),
-    container.hr.listDepartments(),
-    leaveService.listTeamPending(session),
-    teleworkService.listTeamPending(session),
-  ]);
+  const wohService = createWorkOnHolidayService(container);
+  const [employees, departments, pendingLeaves, pendingTw, wohRequests] =
+    await Promise.all([
+      container.hr.listEmployees(),
+      container.hr.listDepartments(),
+      leaveService.listTeamPending(session),
+      teleworkService.listTeamPending(session),
+      wohService.listVisible(session),
+    ]);
   const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
   const pendingTotal = pendingLeaves.length + pendingTw.length;
+  const wohUpcoming = wohRequests.filter((r) => r.status === "en_attente");
+  const wohApproved = wohRequests.filter((r) => r.status === "approuvee");
+  const wohAwaitingConfirm = wohRequests.filter(
+    (r) => r.status === "travail_effectue_a_confirmer",
+  );
+  const wohCredited = wohRequests.filter(
+    (r) => r.status === "confirmee_credit_appliquee",
+  );
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -173,6 +187,72 @@ export default async function AdministrationPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Calendrier férié — corrections RH</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HolidayOverrideForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Travail les jours fériés (lecture RH)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p className="text-[var(--aster-muted)]">
+            Vue de rapprochement — les RH consultent sans pouvoir approuver ni
+            confirmer (réservé au Chef de projet). Règle produit ASTER : 1 h
+            confirmée = 1 h de récupération (hors guide PKF).
+          </p>
+          <div className="grid gap-2 sm:grid-cols-4">
+            <Stat label="En attente" value={String(wohUpcoming.length)} />
+            <Stat label="Approuvées" value={String(wohApproved.length)} />
+            <Stat
+              label="À confirmer"
+              value={String(wohAwaitingConfirm.length)}
+            />
+            <Stat label="Créditées" value={String(wohCredited.length)} />
+          </div>
+          {wohRequests.length === 0 ? (
+            <EmptyState
+              compact
+              icon={ClipboardList}
+              title="Aucune demande"
+              description="Les demandes de travail un jour férié apparaîtront ici."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {wohRequests.slice(0, 8).map((r) => {
+                const emp = byId[r.employeeId];
+                return (
+                  <li
+                    key={r.id}
+                    className="rounded-[10px] border border-[var(--aster-border)] px-3 py-2"
+                  >
+                    <p className="font-medium text-[var(--aster-ink)]">
+                      {emp
+                        ? fullName(emp.firstName, emp.lastName)
+                        : r.employeeId}{" "}
+                      · {r.holidayDate} · {r.holidayName}
+                    </p>
+                    <p className="text-xs text-[var(--aster-muted)]">
+                      {workOnHolidayStatusLabel(r.status)}
+                      {r.confirmedHours != null
+                        ? ` · ${r.confirmedHours} h confirmées`
+                        : r.plannedHours
+                          ? ` · ${r.plannedHours} h planifiées`
+                          : ""}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

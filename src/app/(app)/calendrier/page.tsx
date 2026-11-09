@@ -23,14 +23,15 @@ export default async function CalendrierPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Calendrier RH"
-        description="Absences et télétravail dérivés des demandes existantes. Les demandes refusées restent distinctes des événements confirmés."
+        description="Jours fériés marocains, absences, télétravail et demandes de travail un jour férié. Les fêtes religieuses peuvent être provisoires jusqu'à l'annonce officielle."
         eyebrow={scope}
       />
       <HrCalendar
         initialMonth={data.month}
         events={data.events}
         title="Calendrier"
-        subtitle="Navigation mensuelle · indicateurs par statut · détail au clic."
+        subtitle="Fériés · congés · télétravail · travail férié — détail et actions au clic."
+        role={session.role}
       />
     </div>
   );

@@ -121,6 +121,7 @@ export async function seedAsterDemoData(
         avatarInitials: emp.avatarInitials,
         teleworkEligible: emp.teleworkEligible,
         teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
+        standardDailyHours: emp.standardDailyHours ?? 7,
       },
       update: preserveExisting
         ? {}
@@ -145,6 +146,7 @@ export async function seedAsterDemoData(
             avatarInitials: emp.avatarInitials,
             teleworkEligible: emp.teleworkEligible,
             teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
+            standardDailyHours: emp.standardDailyHours ?? 7,
           },
     });
   }
@@ -177,6 +179,9 @@ export async function seedAsterDemoData(
         rttAcquis: balance.rttAcquis,
         rttPris: balance.rttPris,
         rttRestants: balance.rttRestants,
+        recoveryDaysAcquis: balance.recoveryDaysAcquis ?? 0,
+        recoveryDaysPris: balance.recoveryDaysPris ?? 0,
+        recoveryDaysRestants: balance.recoveryDaysRestants ?? 0,
       },
       update: preserveExisting
         ? {}
@@ -187,6 +192,9 @@ export async function seedAsterDemoData(
             rttAcquis: balance.rttAcquis,
             rttPris: balance.rttPris,
             rttRestants: balance.rttRestants,
+        recoveryDaysAcquis: balance.recoveryDaysAcquis ?? 0,
+        recoveryDaysPris: balance.recoveryDaysPris ?? 0,
+        recoveryDaysRestants: balance.recoveryDaysRestants ?? 0,
           },
     });
   }

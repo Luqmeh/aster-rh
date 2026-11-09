@@ -79,6 +79,7 @@ export const demoHrRepository: HrRepository = {
         `${input.firstName.charAt(0)}${input.lastName.charAt(0)}`.toUpperCase(),
       teleworkEligible: input.teleworkEligible ?? true,
       teleworkDaysPerWeek: input.teleworkDaysPerWeek ?? 2,
+      standardDailyHours: input.standardDailyHours ?? 7,
     };
     store.employees.push(employee);
     return employee;
@@ -395,5 +396,144 @@ export const demoHrRepository: HrRepository = {
     return getDemoStore()
       .documentRequestEvents.filter((e) => e.requestId === requestId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async updateLeaveBalance(employeeId, year, patch) {
+    const store = getDemoStore();
+    const index = store.leaveBalances.findIndex(
+      (b) => b.employeeId === employeeId && b.year === year,
+    );
+    if (index < 0) {
+      const created = {
+        employeeId,
+        year,
+        congesPayesAcquis: 0,
+        congesPayesPris: 0,
+        congesPayesRestants: 0,
+        rttAcquis: 0,
+        rttPris: 0,
+        rttRestants: 0,
+        recoveryDaysAcquis: 0,
+        recoveryDaysPris: 0,
+        recoveryDaysRestants: 0,
+        ...patch,
+      };
+      store.leaveBalances.push(created);
+      return created;
+    }
+    const updated = { ...store.leaveBalances[index], ...patch };
+    store.leaveBalances[index] = updated;
+    return updated;
+  },
+
+  async listHolidayOverrides(year) {
+    const rows = getDemoStore().holidayOverrides;
+    return year ? rows.filter((r) => r.year === year) : [...rows];
+  },
+
+  async upsertHolidayOverride(input) {
+    const store = getDemoStore();
+    const existing = store.holidayOverrides.findIndex(
+      (h) =>
+        h.sourceKey === input.sourceKey &&
+        h.year === input.year,
+    );
+    const now = new Date().toISOString();
+    if (existing >= 0) {
+      const updated = {
+        ...store.holidayOverrides[existing],
+        ...input,
+        id: store.holidayOverrides[existing].id,
+        updatedAt: now,
+      };
+      store.holidayOverrides[existing] = updated;
+      return updated;
+    }
+    const created = {
+      ...input,
+      id: input.id ?? uid("hol"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.holidayOverrides.unshift(created);
+    return created;
+  },
+
+  async listWorkOnHolidayRequests(filter) {
+    let items = [...getDemoStore().workOnHolidayRequests];
+    if (filter?.employeeId) {
+      items = items.filter((r) => r.employeeId === filter.employeeId);
+    }
+    if (filter?.holidayDate) {
+      items = items.filter((r) => r.holidayDate === filter.holidayDate);
+    }
+    if (filter?.status) {
+      const statuses = Array.isArray(filter.status)
+        ? filter.status
+        : [filter.status];
+      items = items.filter((r) => statuses.includes(r.status));
+    }
+    return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  },
+
+  async getWorkOnHolidayRequest(id) {
+    return (
+      getDemoStore().workOnHolidayRequests.find((r) => r.id === id) ?? null
+    );
+  },
+
+  async createWorkOnHolidayRequest(input) {
+    const now = new Date().toISOString();
+    const row = {
+      ...input,
+      id: uid("woh"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    getDemoStore().workOnHolidayRequests.unshift(row);
+    return row;
+  },
+
+  async updateWorkOnHolidayRequest(id, patch) {
+    const store = getDemoStore();
+    const index = store.workOnHolidayRequests.findIndex((r) => r.id === id);
+    if (index < 0) throw new Error("Demande travail férié introuvable.");
+    const updated = {
+      ...store.workOnHolidayRequests[index],
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    store.workOnHolidayRequests[index] = updated;
+    return updated;
+  },
+
+  async listRecoveryCredits(employeeId) {
+    return getDemoStore()
+      .recoveryCredits.filter((c) => c.employeeId === employeeId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  async getRecoveryCreditBySourceRequest(sourceRequestId) {
+    return (
+      getDemoStore().recoveryCredits.find(
+        (c) => c.sourceRequestId === sourceRequestId,
+      ) ?? null
+    );
+  },
+
+  async createRecoveryCredit(input) {
+    const existing = getDemoStore().recoveryCredits.find(
+      (c) => c.sourceRequestId === input.sourceRequestId,
+    );
+    if (existing) {
+      throw new Error("Crédit déjà enregistré pour cette demande.");
+    }
+    const row = {
+      ...input,
+      id: uid("rcred"),
+      createdAt: new Date().toISOString(),
+    };
+    getDemoStore().recoveryCredits.unshift(row);
+    return row;
   },
 };

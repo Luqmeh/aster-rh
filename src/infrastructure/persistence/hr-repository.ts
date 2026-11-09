@@ -6,24 +6,33 @@ import type {
   DocumentRequestType,
   Employee,
   EmploymentStatus,
+  HolidayOverride,
   HrDocument,
   LeaveBalance,
   LeaveRequest,
   NotificationItem,
   OrganizationUnit,
+  RecoveryCreditLedgerEntry,
   RecruitmentCandidate,
   RecruitmentEvent,
   RoleChangeAuditEntry,
   TeleworkRequest,
+  WorkOnHolidayRequest,
+  WorkOnHolidayStatus,
 } from "@/domain/types/hr";
 
 export type EmployeeCreateInput = Omit<
   Employee,
-  "demoIdentityId" | "avatarInitials" | "isActive" | "teleworkDaysPerWeek"
+  | "demoIdentityId"
+  | "avatarInitials"
+  | "isActive"
+  | "teleworkDaysPerWeek"
+  | "standardDailyHours"
 > & {
   demoIdentityId?: string | null;
   avatarInitials?: string;
   teleworkDaysPerWeek?: number;
+  standardDailyHours?: number;
   teleworkEligible?: boolean;
 };
 
@@ -61,10 +70,16 @@ export interface HrRepository {
         | "phoneInternal"
         | "teleworkEligible"
         | "teleworkDaysPerWeek"
+        | "standardDailyHours"
         | "avatarInitials"
       >
     >,
   ): Promise<Employee>;
+  updateLeaveBalance(
+    employeeId: string,
+    year: number,
+    patch: Partial<LeaveBalance>,
+  ): Promise<LeaveBalance>;
   listTeamMembers(managerId: string): Promise<Employee[]>;
   getLeaveBalance(employeeId: string, year: number): Promise<LeaveBalance | null>;
   listLeaveRequests(filter?: {
@@ -143,4 +158,33 @@ export interface HrRepository {
   listDocumentRequestEvents(
     requestId: string,
   ): Promise<DocumentRequestEvent[]>;
+
+  listHolidayOverrides(year?: number): Promise<HolidayOverride[]>;
+  upsertHolidayOverride(
+    input: Omit<HolidayOverride, "id" | "createdAt" | "updatedAt"> & {
+      id?: string;
+    },
+  ): Promise<HolidayOverride>;
+
+  listWorkOnHolidayRequests(filter?: {
+    employeeId?: string;
+    status?: WorkOnHolidayStatus | WorkOnHolidayStatus[];
+    holidayDate?: string;
+  }): Promise<WorkOnHolidayRequest[]>;
+  getWorkOnHolidayRequest(id: string): Promise<WorkOnHolidayRequest | null>;
+  createWorkOnHolidayRequest(
+    input: Omit<WorkOnHolidayRequest, "id" | "createdAt" | "updatedAt">,
+  ): Promise<WorkOnHolidayRequest>;
+  updateWorkOnHolidayRequest(
+    id: string,
+    patch: Partial<WorkOnHolidayRequest>,
+  ): Promise<WorkOnHolidayRequest>;
+
+  listRecoveryCredits(employeeId: string): Promise<RecoveryCreditLedgerEntry[]>;
+  getRecoveryCreditBySourceRequest(
+    sourceRequestId: string,
+  ): Promise<RecoveryCreditLedgerEntry | null>;
+  createRecoveryCredit(
+    input: Omit<RecoveryCreditLedgerEntry, "id" | "createdAt">,
+  ): Promise<RecoveryCreditLedgerEntry>;
 }

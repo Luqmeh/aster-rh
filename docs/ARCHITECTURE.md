@@ -37,6 +37,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 
 Namespaces Storage : `recruitment/{candidateId}/…` (CV) et `employee-documents/{employeeId}/{requestId}/…` (demandes documentaires) — ownership serveur, URL signées courtes.
 
+Jours fériés : dataset versionné `src/data/morocco-holidays.ts` + overrides RH (`HolidayOverride`). Travail férié : `WorkOnHolidayRequest` + ledger `RecoveryCreditLedger` (1 h confirmée = 1 h, conversion jours via `standardDailyHours`).
+
 Composition : `src/infrastructure/container.ts`.
 
 ## Authentification (Phase 8)

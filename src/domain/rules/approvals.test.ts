@@ -30,6 +30,7 @@ const chef: Employee = {
   phoneInternal: null,
   avatarInitials: "AB",
   teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
 };
 
 const report: Employee = {

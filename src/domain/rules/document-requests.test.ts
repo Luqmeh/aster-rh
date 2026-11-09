@@ -32,6 +32,7 @@ function emp(partial: Partial<Employee>): Employee {
     avatarInitials: "AB",
     teleworkEligible: true,
     teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
     ...partial,
   };
 }

@@ -95,6 +95,7 @@ export const prismaHrRepository: HrRepository = {
             `${input.firstName.charAt(0)}${input.lastName.charAt(0)}`.toUpperCase(),
           teleworkEligible: input.teleworkEligible ?? true,
           teleworkDaysPerWeek: input.teleworkDaysPerWeek ?? 2,
+          standardDailyHours: input.standardDailyHours ?? 7,
         },
       });
       return mapEmployee(row);
@@ -613,4 +614,290 @@ export const prismaHrRepository: HrRepository = {
     });
     return rows.map(mapDocumentRequestEvent);
   },
+
+  async updateLeaveBalance(employeeId, year, patch) {
+    const { mapLeaveBalance } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const existing = await getPrismaClient().leaveBalance.findUnique({
+      where: { employeeId_year: { employeeId, year } },
+    });
+    if (!existing) {
+      const row = await getPrismaClient().leaveBalance.create({
+        data: {
+          employeeId,
+          year,
+          congesPayesAcquis: patch.congesPayesAcquis ?? 0,
+          congesPayesPris: patch.congesPayesPris ?? 0,
+          congesPayesRestants: patch.congesPayesRestants ?? 0,
+          rttAcquis: patch.rttAcquis ?? 0,
+          rttPris: patch.rttPris ?? 0,
+          rttRestants: patch.rttRestants ?? 0,
+          recoveryDaysAcquis: patch.recoveryDaysAcquis ?? 0,
+          recoveryDaysPris: patch.recoveryDaysPris ?? 0,
+          recoveryDaysRestants: patch.recoveryDaysRestants ?? 0,
+        },
+      });
+      return mapLeaveBalance(row);
+    }
+    const row = await getPrismaClient().leaveBalance.update({
+      where: { employeeId_year: { employeeId, year } },
+      data: {
+        congesPayesAcquis: patch.congesPayesAcquis,
+        congesPayesPris: patch.congesPayesPris,
+        congesPayesRestants: patch.congesPayesRestants,
+        rttAcquis: patch.rttAcquis,
+        rttPris: patch.rttPris,
+        rttRestants: patch.rttRestants,
+        recoveryDaysAcquis: patch.recoveryDaysAcquis,
+        recoveryDaysPris: patch.recoveryDaysPris,
+        recoveryDaysRestants: patch.recoveryDaysRestants,
+      },
+    });
+    return mapLeaveBalance(row);
+  },
+
+  async listHolidayOverrides(year) {
+    const rows = await getPrismaClient().holidayOverride.findMany({
+      where: year ? { year } : undefined,
+      orderBy: { date: "asc" },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      sourceKey: row.sourceKey,
+      date: row.date.toISOString().slice(0, 10),
+      nameFr: row.nameFr,
+      kind: row.kind,
+      confirmation: row.confirmation,
+      isActive: row.isActive,
+      year: row.year,
+      createdByEmployeeId: row.createdByEmployeeId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    }));
+  },
+
+  async upsertHolidayOverride(input) {
+    const date = new Date(`${input.date}T00:00:00.000Z`);
+    const row = await getPrismaClient().holidayOverride.upsert({
+      where: {
+        sourceKey_year: { sourceKey: input.sourceKey, year: input.year },
+      },
+      create: {
+        sourceKey: input.sourceKey,
+        date,
+        nameFr: input.nameFr,
+        kind: input.kind,
+        confirmation: input.confirmation,
+        isActive: input.isActive,
+        year: input.year,
+        createdByEmployeeId: input.createdByEmployeeId,
+      },
+      update: {
+        date,
+        nameFr: input.nameFr,
+        kind: input.kind,
+        confirmation: input.confirmation,
+        isActive: input.isActive,
+        createdByEmployeeId: input.createdByEmployeeId,
+      },
+    });
+    return {
+      id: row.id,
+      sourceKey: row.sourceKey,
+      date: row.date.toISOString().slice(0, 10),
+      nameFr: row.nameFr,
+      kind: row.kind,
+      confirmation: row.confirmation,
+      isActive: row.isActive,
+      year: row.year,
+      createdByEmployeeId: row.createdByEmployeeId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  },
+
+  async listWorkOnHolidayRequests(filter) {
+    const where: Record<string, unknown> = {};
+    if (filter?.employeeId) where.employeeId = filter.employeeId;
+    if (filter?.holidayDate) {
+      where.holidayDate = new Date(`${filter.holidayDate}T00:00:00.000Z`);
+    }
+    if (filter?.status) {
+      where.status = Array.isArray(filter.status)
+        ? { in: filter.status }
+        : filter.status;
+    }
+    const rows = await getPrismaClient().workOnHolidayRequest.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(mapWorkOnHoliday);
+  },
+
+  async getWorkOnHolidayRequest(id) {
+    const row = await getPrismaClient().workOnHolidayRequest.findUnique({
+      where: { id },
+    });
+    return row ? mapWorkOnHoliday(row) : null;
+  },
+
+  async createWorkOnHolidayRequest(input) {
+    const row = await getPrismaClient().workOnHolidayRequest.create({
+      data: {
+        id: newId("woh"),
+        employeeId: input.employeeId,
+        holidayDate: new Date(`${input.holidayDate}T00:00:00.000Z`),
+        holidaySourceKey: input.holidaySourceKey,
+        holidayName: input.holidayName,
+        plannedHours: input.plannedHours,
+        plannedStart: input.plannedStart,
+        plannedEnd: input.plannedEnd,
+        reason: input.reason,
+        status: input.status,
+        decidedByEmployeeId: input.decidedByEmployeeId,
+        decisionComment: input.decisionComment,
+        decidedAt: input.decidedAt ? new Date(input.decidedAt) : null,
+        actualHours: input.actualHours,
+        actualDeclaredAt: input.actualDeclaredAt
+          ? new Date(input.actualDeclaredAt)
+          : null,
+        confirmedHours: input.confirmedHours,
+        confirmedByEmployeeId: input.confirmedByEmployeeId,
+        confirmedAt: input.confirmedAt ? new Date(input.confirmedAt) : null,
+        creditLedgerId: input.creditLedgerId,
+      },
+    });
+    return mapWorkOnHoliday(row);
+  },
+
+  async updateWorkOnHolidayRequest(id, patch) {
+    const data: Record<string, unknown> = { ...patch };
+    if (patch.holidayDate !== undefined) {
+      data.holidayDate = new Date(`${patch.holidayDate}T00:00:00.000Z`);
+    }
+    for (const key of [
+      "decidedAt",
+      "actualDeclaredAt",
+      "confirmedAt",
+    ] as const) {
+      if (patch[key] !== undefined) {
+        data[key] = patch[key] ? new Date(patch[key] as string) : null;
+      }
+    }
+    delete data.id;
+    delete data.createdAt;
+    delete data.updatedAt;
+    const row = await getPrismaClient().workOnHolidayRequest.update({
+      where: { id },
+      data,
+    });
+    return mapWorkOnHoliday(row);
+  },
+
+  async listRecoveryCredits(employeeId) {
+    const rows = await getPrismaClient().recoveryCreditLedger.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapRecoveryCredit);
+  },
+
+  async getRecoveryCreditBySourceRequest(sourceRequestId) {
+    const row = await getPrismaClient().recoveryCreditLedger.findUnique({
+      where: { sourceRequestId },
+    });
+    return row ? mapRecoveryCredit(row) : null;
+  },
+
+  async createRecoveryCredit(input) {
+    const row = await getPrismaClient().recoveryCreditLedger.create({
+      data: {
+        id: newId("rcred"),
+        employeeId: input.employeeId,
+        year: input.year,
+        sourceKind: input.sourceKind,
+        sourceRequestId: input.sourceRequestId,
+        hoursConfirmed: input.hoursConfirmed,
+        daysCredited: input.daysCredited,
+        dailyHoursUsed: input.dailyHoursUsed,
+        actorEmployeeId: input.actorEmployeeId,
+      },
+    });
+    return mapRecoveryCredit(row);
+  },
 };
+
+function mapWorkOnHoliday(row: {
+  id: string;
+  employeeId: string;
+  holidayDate: Date;
+  holidaySourceKey: string;
+  holidayName: string;
+  plannedHours: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  reason: string;
+  status: import("@/domain/types/hr").WorkOnHolidayStatus;
+  decidedByEmployeeId: string | null;
+  decisionComment: string | null;
+  decidedAt: Date | null;
+  actualHours: number | null;
+  actualDeclaredAt: Date | null;
+  confirmedHours: number | null;
+  confirmedByEmployeeId: string | null;
+  confirmedAt: Date | null;
+  creditLedgerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): import("@/domain/types/hr").WorkOnHolidayRequest {
+  return {
+    id: row.id,
+    employeeId: row.employeeId,
+    holidayDate: row.holidayDate.toISOString().slice(0, 10),
+    holidaySourceKey: row.holidaySourceKey,
+    holidayName: row.holidayName,
+    plannedHours: row.plannedHours,
+    plannedStart: row.plannedStart,
+    plannedEnd: row.plannedEnd,
+    reason: row.reason,
+    status: row.status,
+    decidedByEmployeeId: row.decidedByEmployeeId,
+    decisionComment: row.decisionComment,
+    decidedAt: row.decidedAt?.toISOString() ?? null,
+    actualHours: row.actualHours,
+    actualDeclaredAt: row.actualDeclaredAt?.toISOString() ?? null,
+    confirmedHours: row.confirmedHours,
+    confirmedByEmployeeId: row.confirmedByEmployeeId,
+    confirmedAt: row.confirmedAt?.toISOString() ?? null,
+    creditLedgerId: row.creditLedgerId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function mapRecoveryCredit(row: {
+  id: string;
+  employeeId: string;
+  year: number;
+  sourceKind: string;
+  sourceRequestId: string;
+  hoursConfirmed: number;
+  daysCredited: number;
+  dailyHoursUsed: number;
+  actorEmployeeId: string;
+  createdAt: Date;
+}): import("@/domain/types/hr").RecoveryCreditLedgerEntry {
+  return {
+    id: row.id,
+    employeeId: row.employeeId,
+    year: row.year,
+    sourceKind: "work_on_holiday",
+    sourceRequestId: row.sourceRequestId,
+    hoursConfirmed: row.hoursConfirmed,
+    daysCredited: row.daysCredited,
+    dailyHoursUsed: row.dailyHoursUsed,
+    actorEmployeeId: row.actorEmployeeId,
+    createdAt: row.createdAt.toISOString(),
+  };
+}

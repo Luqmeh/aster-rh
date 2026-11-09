@@ -28,6 +28,7 @@ const eligible: Employee = {
   phoneInternal: null,
   avatarInitials: "AB",
   teleworkDaysPerWeek: 2,
+    standardDailyHours: 7,
 };
 
 describe("validateMonthlyTeleworkPlan", () => {

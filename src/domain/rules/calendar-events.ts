@@ -1,10 +1,18 @@
 import { expandDateRange, monthBounds } from "@/domain/rules/dates";
 import { leaveTypeLabel } from "@/domain/rules/leave";
+import { confirmationLabel } from "@/domain/rules/morocco-holidays";
+import type { CalendarHoliday } from "@/domain/rules/morocco-holidays";
+import { workOnHolidayStatusLabel } from "@/domain/rules/work-on-holiday";
 import type {
   CalendarEvent,
   CalendarEventTone,
 } from "@/domain/types/calendar";
-import type { Employee, LeaveRequest, TeleworkRequest } from "@/domain/types/hr";
+import type {
+  Employee,
+  LeaveRequest,
+  TeleworkRequest,
+  WorkOnHolidayRequest,
+} from "@/domain/types/hr";
 
 function toneFor(
   kind: "leave" | "telework",
@@ -30,6 +38,8 @@ export function buildCalendarEvents(input: {
   month: string;
   leaves: LeaveRequest[];
   telework: TeleworkRequest[];
+  holidays?: CalendarHoliday[];
+  workOnHoliday?: WorkOnHolidayRequest[];
   employeesById?: Record<string, Employee>;
   includeRejected?: boolean;
 }): CalendarEvent[] {
@@ -37,6 +47,54 @@ export function buildCalendarEvents(input: {
   const includeRejected = input.includeRejected ?? true;
   const employeesById = input.employeesById ?? {};
   const events: CalendarEvent[] = [];
+
+  for (const holiday of input.holidays ?? []) {
+    if (holiday.date < start || holiday.date > end) continue;
+    events.push({
+      id: `holiday:${holiday.sourceKey}:${holiday.date}`,
+      date: holiday.date,
+      kind: "holiday",
+      tone:
+        holiday.confirmation === "confirmed"
+          ? "holiday_confirmed"
+          : "holiday_provisional",
+      status: holiday.confirmation,
+      title: holiday.nameFr,
+      subtitle: `${confirmationLabel(holiday.confirmation)}${
+        holiday.overridden ? " · corrigé RH" : ""
+      }`,
+      employeeId: "",
+      employeeName: null,
+      sourceRequestId: holiday.sourceKey,
+      actionableHoliday: true,
+    });
+  }
+
+  for (const woh of input.workOnHoliday ?? []) {
+    if (woh.holidayDate < start || woh.holidayDate > end) continue;
+    if (woh.status === "refusee" && !includeRejected) continue;
+    let tone: CalendarEventTone = "work_holiday_pending";
+    if (woh.status === "approuvee") tone = "work_holiday_approved";
+    if (
+      woh.status === "travail_effectue_a_confirmer" ||
+      woh.status === "confirmee_credit_appliquee"
+    ) {
+      tone = "work_holiday_done";
+    }
+    if (woh.status === "refusee") tone = "rejected";
+    events.push({
+      id: `woh:${woh.id}`,
+      date: woh.holidayDate,
+      kind: "work_on_holiday",
+      tone,
+      status: woh.status,
+      title: `Travail férié — ${workOnHolidayStatusLabel(woh.status)}`,
+      subtitle: woh.holidayName,
+      employeeId: woh.employeeId,
+      employeeName: nameOf(woh.employeeId, employeesById),
+      sourceRequestId: woh.id,
+    });
+  }
 
   for (const leave of input.leaves) {
     if (

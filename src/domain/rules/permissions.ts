@@ -36,6 +36,11 @@ export type Permission =
   | "document_request.view_own"
   | "document_request.view_all"
   | "document_request.process"
+  | "work_on_holiday.submit"
+  | "work_on_holiday.view_own"
+  | "work_on_holiday.view_all"
+  | "work_on_holiday.approve"
+  | "holiday.manage"
   | "dashboard.hr"
   | "dashboard.management";
 
@@ -68,6 +73,11 @@ const CHEF: Permission[] = [
   "document_request.view_own",
   "document_request.view_all",
   "document_request.process",
+  "work_on_holiday.submit",
+  "work_on_holiday.view_own",
+  "work_on_holiday.view_all",
+  "work_on_holiday.approve",
+  "holiday.manage",
   "dashboard.hr",
   "dashboard.management",
 ];
@@ -95,8 +105,12 @@ const HR: Permission[] = [
   "document_request.view_own",
   "document_request.view_all",
   "document_request.process",
+  "work_on_holiday.submit",
+  "work_on_holiday.view_own",
+  "work_on_holiday.view_all",
+  "holiday.manage",
   "dashboard.hr",
-  // pas de *.approve / recruitment.decide
+  // pas de *.approve / recruitment.decide / work_on_holiday.approve
 ];
 
 const EMPLOYEE: Permission[] = [
@@ -109,6 +123,8 @@ const EMPLOYEE: Permission[] = [
   "recruitment.view_assigned",
   "document_request.submit",
   "document_request.view_own",
+  "work_on_holiday.submit",
+  "work_on_holiday.view_own",
 ];
 
 const ROLE_PERMISSIONS: Record<DemoRole, ReadonlySet<Permission>> = {
@@ -212,4 +228,16 @@ export function canProcessDocumentRequests(role: DemoRole): boolean {
 
 export function canViewAllDocumentRequests(role: DemoRole): boolean {
   return hasPermission(role, "document_request.view_all");
+}
+
+export function canApproveWorkOnHoliday(role: DemoRole): boolean {
+  return hasPermission(role, "work_on_holiday.approve");
+}
+
+export function canViewAllWorkOnHoliday(role: DemoRole): boolean {
+  return hasPermission(role, "work_on_holiday.view_all");
+}
+
+export function canManageHolidays(role: DemoRole): boolean {
+  return hasPermission(role, "holiday.manage");
 }

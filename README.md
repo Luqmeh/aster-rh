@@ -11,6 +11,7 @@ Prototype de plateforme RH en français pour **PKF Arsilon**, destiné à rempla
 - Auth.js (next-auth v5) — credentials temporaires + Microsoft Entra ID (config)
 - Tailwind CSS + composants style shadcn/ui + Lucide
 - Zod · Prisma · PostgreSQL (Supabase) · Supabase Storage (CV + documents privés)
+- Calendrier fériés marocains + récupération travail férié (règle produit ASTER)
 
 ## Hiérarchie des rôles (définitive)
 

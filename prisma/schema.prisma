@@ -45,10 +45,30 @@ enum RequestStatus {
 enum LeaveType {
   conges_payes
   rtt
+  recuperation
   sans_solde
   maladie
   exceptionnel
   parental
+}
+
+enum WorkOnHolidayStatus {
+  en_attente
+  approuvee
+  refusee
+  travail_effectue_a_confirmer
+  confirmee_credit_appliquee
+}
+
+enum HolidayKind {
+  national
+  religious
+  company
+}
+
+enum HolidayConfirmation {
+  confirmed
+  provisional
 }
 
 enum TeleworkType {
@@ -176,6 +196,8 @@ model Employee {
   avatarInitials      String
   teleworkEligible    Boolean            @default(true)
   teleworkDaysPerWeek Int                @default(2)
+  /// Heures / jour pour conversion récupération férié → jours (hypothèse démo).
+  standardDailyHours  Float              @default(7)
   leaveBalances       LeaveBalance[]
   leaveRequests       LeaveRequest[]
   teleworkRequests    TeleworkRequest[]
@@ -188,6 +210,12 @@ model Employee {
   interviewsAssigned  RecruitmentCandidate[] @relation("RecruitmentInterviewer")
   documentRequests    DocumentRequest[]      @relation("DocumentRequestEmployee")
   documentRequestsProcessed DocumentRequest[] @relation("DocumentRequestProcessor")
+  workOnHolidayRequests WorkOnHolidayRequest[] @relation("WorkOnHolidayEmployee")
+  workOnHolidayDecisions WorkOnHolidayRequest[] @relation("WorkOnHolidayDecider")
+  workOnHolidayConfirmations WorkOnHolidayRequest[] @relation("WorkOnHolidayConfirmer")
+  holidayOverridesCreated HolidayOverride[] @relation("HolidayOverrideCreator")
+  recoveryCredits     RecoveryCreditLedger[] @relation("RecoveryCreditEmployee")
+  recoveryCreditsActed RecoveryCreditLedger[] @relation("RecoveryCreditActor")
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -259,6 +287,9 @@ model LeaveBalance {
   rttAcquis           Float
   rttPris             Float
   rttRestants         Float
+  recoveryDaysAcquis  Float    @default(0)
+  recoveryDaysPris    Float    @default(0)
+  recoveryDaysRestants Float   @default(0)
 
   @@unique([employeeId, year])
   @@index([employeeId])
@@ -379,4 +410,78 @@ model DocumentRequestEvent {
 
   @@index([requestId])
   @@index([createdAt])
+}
+
+/// Corrections RH / jours entreprise — le jeu curated reste versionné dans le dépôt.
+model HolidayOverride {
+  id                  String              @id @default(cuid())
+  sourceKey           String
+  date                DateTime
+  nameFr              String
+  kind                HolidayKind
+  confirmation        HolidayConfirmation @default(confirmed)
+  isActive            Boolean             @default(true)
+  year                Int
+  createdByEmployeeId String?
+  createdBy           Employee?           @relation("HolidayOverrideCreator", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([sourceKey, year])
+  @@index([date])
+  @@index([year])
+}
+
+model WorkOnHolidayRequest {
+  id                     String              @id @default(cuid())
+  employeeId             String
+  employee               Employee            @relation("WorkOnHolidayEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  holidayDate            DateTime
+  holidaySourceKey       String
+  holidayName            String
+  plannedHours           Float
+  plannedStart           String?
+  plannedEnd             String?
+  reason                 String
+  status                 WorkOnHolidayStatus @default(en_attente)
+  decidedByEmployeeId    String?
+  decidedBy              Employee?           @relation("WorkOnHolidayDecider", fields: [decidedByEmployeeId], references: [id], onDelete: SetNull)
+  decisionComment        String?
+  decidedAt              DateTime?
+  actualHours            Float?
+  actualDeclaredAt       DateTime?
+  confirmedHours         Float?
+  confirmedByEmployeeId  String?
+  confirmedBy            Employee?           @relation("WorkOnHolidayConfirmer", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
+  confirmedAt            DateTime?
+  creditLedgerId         String?             @unique
+  creditLedger           RecoveryCreditLedger? @relation(fields: [creditLedgerId], references: [id], onDelete: SetNull)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([employeeId])
+  @@index([holidayDate])
+  @@index([status])
+  @@index([employeeId, holidayDate])
+}
+
+/// Ledger auditable des crédits de récupération (1 h confirmée = 1 h crédit).
+model RecoveryCreditLedger {
+  id               String   @id @default(cuid())
+  employeeId       String
+  employee         Employee @relation("RecoveryCreditEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  year             Int
+  sourceKind       String
+  sourceRequestId  String   @unique
+  hoursConfirmed   Float
+  daysCredited     Float
+  dailyHoursUsed   Float
+  actorEmployeeId  String
+  actor            Employee @relation("RecoveryCreditActor", fields: [actorEmployeeId], references: [id], onDelete: Restrict)
+  workOnHoliday    WorkOnHolidayRequest?
+  createdAt        DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([year])
+  @@index([sourceRequestId])
 }
