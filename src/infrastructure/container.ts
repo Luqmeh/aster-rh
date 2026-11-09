@@ -16,6 +16,8 @@ import type { DocumentStoragePort } from "@/infrastructure/storage/types";
 
 /**
  * Composition root — branche les adaptateurs (auth Auth.js, HR mémoire ou Prisma).
+ * Le stockage est résolu à la demande : une config Storage manquante ne doit pas
+ * faire échouer le rendu de tout le layout (React #441), seulement les opérations CV.
  */
 export interface AppContainer {
   auth: AuthPort;
@@ -30,11 +32,19 @@ export function getContainer(): AppContainer {
   const persistence = resolvePersistenceMode();
   const hr =
     persistence === "prisma" ? prismaHrRepository : demoHrRepository;
+
+  let storage: DocumentStoragePort | undefined;
+
   return {
     auth: sessionAuth,
     hr,
     email: mockEmail,
-    storage: createDocumentStorage(),
+    get storage() {
+      if (!storage) {
+        storage = createDocumentStorage();
+      }
+      return storage;
+    },
     payroll: mockPayroll,
     persistence,
   };

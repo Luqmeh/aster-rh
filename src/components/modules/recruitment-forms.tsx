@@ -37,20 +37,20 @@ export function RecruitmentCreateForm({
         const form = new FormData(event.currentTarget);
         setError(null);
         startTransition(async () => {
-          try {
-            const result = await createRecruitmentDraftAction({
-              fullName: String(form.get("fullName") ?? ""),
-              email: String(form.get("email") ?? ""),
-              phone: String(form.get("phone") ?? "") || null,
-              positionTitle: String(form.get("positionTitle") ?? ""),
-              departmentId: String(form.get("departmentId") ?? "") || null,
-              hrNotes: String(form.get("hrNotes") ?? "") || null,
-            });
-            router.push(`/entretiens/${result.id}`);
-            router.refresh();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Création impossible.");
+          const result = await createRecruitmentDraftAction({
+            fullName: String(form.get("fullName") ?? ""),
+            email: String(form.get("email") ?? ""),
+            phone: String(form.get("phone") ?? "") || null,
+            positionTitle: String(form.get("positionTitle") ?? ""),
+            departmentId: String(form.get("departmentId") ?? "") || null,
+            hrNotes: String(form.get("hrNotes") ?? "") || null,
+          });
+          if (!result.ok) {
+            setError(result.message);
+            return;
           }
+          router.push(`/entretiens/${result.id}`);
+          router.refresh();
         });
       }}
     >
@@ -85,20 +85,20 @@ export function RecruitmentEditForm({
           setError(null);
           setSuccess(null);
           startTransition(async () => {
-            try {
-              await updateRecruitmentDraftAction(candidate.id, {
-                fullName: String(form.get("fullName") ?? ""),
-                email: String(form.get("email") ?? ""),
-                phone: String(form.get("phone") ?? "") || null,
-                positionTitle: String(form.get("positionTitle") ?? ""),
-                departmentId: String(form.get("departmentId") ?? "") || null,
-                hrNotes: String(form.get("hrNotes") ?? "") || null,
-              });
-              setSuccess("Brouillon enregistré.");
-              router.refresh();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+            const result = await updateRecruitmentDraftAction(candidate.id, {
+              fullName: String(form.get("fullName") ?? ""),
+              email: String(form.get("email") ?? ""),
+              phone: String(form.get("phone") ?? "") || null,
+              positionTitle: String(form.get("positionTitle") ?? ""),
+              departmentId: String(form.get("departmentId") ?? "") || null,
+              hrNotes: String(form.get("hrNotes") ?? "") || null,
+            });
+            if (!result.ok) {
+              setError(result.message);
+              return;
             }
+            setSuccess("Brouillon enregistré.");
+            router.refresh();
           });
         }}
       >
@@ -114,13 +114,15 @@ export function RecruitmentEditForm({
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
-                try {
-                  await submitRecruitmentAction(candidate.id);
-                  setSuccess("Dossier soumis au Chef de projet.");
-                  router.refresh();
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Soumission impossible.");
+                setError(null);
+                setSuccess(null);
+                const result = await submitRecruitmentAction(candidate.id);
+                if (!result.ok) {
+                  setError(result.message);
+                  return;
                 }
+                setSuccess("Dossier soumis au Chef de projet.");
+                router.refresh();
               })
             }
           >
@@ -135,30 +137,22 @@ export function RecruitmentEditForm({
           event.preventDefault();
           const form = event.currentTarget;
           const fileInput = form.elements.namedItem("cv") as HTMLInputElement;
-          const file = fileInput.files?.[0];
-          if (!file) {
+          if (!fileInput.files?.[0]) {
             setError("Sélectionnez un fichier CV.");
             return;
           }
           setError(null);
+          setSuccess(null);
+          const payload = new FormData(form);
+          payload.set("candidateId", candidate.id);
           startTransition(async () => {
-            try {
-              const buffer = new Uint8Array(await file.arrayBuffer());
-              let binary = "";
-              for (let i = 0; i < buffer.length; i += 1) {
-                binary += String.fromCharCode(buffer[i]!);
-              }
-              const base64 = btoa(binary);
-              await uploadRecruitmentCvAction(candidate.id, {
-                fileName: file.name,
-                contentType: file.type || "application/octet-stream",
-                base64,
-              });
-              setSuccess("CV téléversé.");
-              router.refresh();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Upload impossible.");
+            const result = await uploadRecruitmentCvAction(payload);
+            if (!result.ok) {
+              setError(result.message);
+              return;
             }
+            setSuccess("CV téléversé.");
+            router.refresh();
           });
         }}
       >
@@ -195,12 +189,12 @@ export function RecruitmentDecisionForm({ candidateId }: { candidateId: string }
         const comment = String(form.get("comment") ?? "");
         setError(null);
         startTransition(async () => {
-          try {
-            await decideRecruitmentAction(candidateId, decision, comment);
-            router.refresh();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Décision impossible.");
+          const result = await decideRecruitmentAction(candidateId, decision, comment);
+          if (!result.ok) {
+            setError(result.message);
+            return;
           }
+          router.refresh();
         });
       }}
     >
@@ -269,12 +263,12 @@ export function InterviewerAssignForm({
         onClick={() =>
           startTransition(async () => {
             setError(null);
-            try {
-              await applyInterviewerAssignmentAction(candidateId, selected);
-              router.refresh();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Assignation impossible.");
+            const result = await applyInterviewerAssignmentAction(candidateId, selected);
+            if (!result.ok) {
+              setError(result.message);
+              return;
             }
+            router.refresh();
           })
         }
       >
@@ -303,16 +297,16 @@ export function CvAccessButton({ candidateId, fileName }: { candidateId: string;
         onClick={() =>
           startTransition(async () => {
             setError(null);
-            try {
-              const result = await getRecruitmentCvUrlAction(candidateId);
-              if (result.url.startsWith("#")) {
-                setError("CV stocké en mode démo (URL privée mock).");
-                return;
-              }
-              window.open(result.url, "_blank", "noopener,noreferrer");
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Accès CV impossible.");
+            const result = await getRecruitmentCvUrlAction(candidateId);
+            if (!result.ok) {
+              setError(result.message);
+              return;
             }
+            if (result.url.startsWith("#")) {
+              setError("CV stocké en mode démo (URL privée mock).");
+              return;
+            }
+            window.open(result.url, "_blank", "noopener,noreferrer");
           })
         }
       >
