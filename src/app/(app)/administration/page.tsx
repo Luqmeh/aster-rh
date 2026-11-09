@@ -18,7 +18,7 @@ import { formatMonthYearFr } from "@/domain/rules/dates";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, fullName } from "@/lib/utils";
 import Link from "next/link";
-import { ClipboardList, FolderOpen, Users } from "lucide-react";
+import { BarChart3, ClipboardList, FolderOpen, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -63,12 +63,20 @@ export default async function AdministrationPage() {
             : "Vue transverse Ressources humaines — consultation des demandes sans autorité de validation."
         }
         actions={
-          <Button asChild size="sm" variant="secondary">
-            <Link href="/administration/documents">
-              <FolderOpen className="mr-1.5 h-4 w-4" />
-              Demandes de documents
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/administration/rapports">
+                <BarChart3 className="mr-1.5 h-4 w-4" />
+                Reporting RH
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/administration/documents">
+                <FolderOpen className="mr-1.5 h-4 w-4" />
+                Demandes de documents
+              </Link>
+            </Button>
+          </div>
         }
       />
 

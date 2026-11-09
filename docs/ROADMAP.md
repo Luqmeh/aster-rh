@@ -9,6 +9,7 @@
 - [x] Congés (soumission, solde, validation Chef de projet ; RH en lecture)
 - [x] Télétravail (soumission + validation)
 - [x] Administration RH overview
+- [x] Reporting RH + exports Excel (Phase 12)
 - [x] Modules planifiés signalés
 - [x] Documentation + tests règles métier
 - [ ] Affinage UX selon retours de répétition de démo

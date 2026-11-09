@@ -43,9 +43,11 @@ Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 
 ## Modules clés
 
-- Congés / télétravail / calendrier
+- Congés / télétravail / calendrier / travail férié & récupération
 - Annuaire, onboarding, cycle de vie (actif / inactif / parti)
 - Recrutement externe (`/entretiens`) avec CV privés et revue Chef de projet
+- Demandes de documents RH (`/documents`, `/administration/documents`)
+- Reporting RH & exports Excel (`/administration/rapports`) — RH + Chef de projet
 
 ## Scripts
 
@@ -62,6 +64,7 @@ Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [docs/AUTHORIZATION_MATRIX.md](./docs/AUTHORIZATION_MATRIX.md)
 - [docs/RECRUITMENT.md](./docs/RECRUITMENT.md)
+- [docs/REPORTING.md](./docs/REPORTING.md)
 - [docs/SSO_HANDOVER.md](./docs/SSO_HANDOVER.md)
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 - [docs/DEMO_GUIDE.md](./docs/DEMO_GUIDE.md)

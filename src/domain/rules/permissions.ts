@@ -41,6 +41,7 @@ export type Permission =
   | "work_on_holiday.view_all"
   | "work_on_holiday.approve"
   | "holiday.manage"
+  | "hr.reporting"
   | "dashboard.hr"
   | "dashboard.management";
 
@@ -78,6 +79,7 @@ const CHEF: Permission[] = [
   "work_on_holiday.view_all",
   "work_on_holiday.approve",
   "holiday.manage",
+  "hr.reporting",
   "dashboard.hr",
   "dashboard.management",
 ];
@@ -109,6 +111,7 @@ const HR: Permission[] = [
   "work_on_holiday.view_own",
   "work_on_holiday.view_all",
   "holiday.manage",
+  "hr.reporting",
   "dashboard.hr",
   // pas de *.approve / recruitment.decide / work_on_holiday.approve
 ];
@@ -240,4 +243,8 @@ export function canViewAllWorkOnHoliday(role: DemoRole): boolean {
 
 export function canManageHolidays(role: DemoRole): boolean {
   return hasPermission(role, "holiday.manage");
+}
+
+export function canAccessHrReporting(role: DemoRole): boolean {
+  return hasPermission(role, "hr.reporting");
 }

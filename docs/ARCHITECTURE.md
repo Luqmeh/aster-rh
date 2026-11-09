@@ -21,8 +21,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 ## Couches
 
 1. **Présentation** — pages App Router, composants React, server actions minces.
-2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, `document-request-service`, …).
-3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, demandes documentaires, validations) sans I/O.
+2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, `document-request-service`, `reporting-service`, …).
+3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, demandes documentaires, reporting, validations) sans I/O.
 4. **Infrastructure** — implémentations des ports.
 
 ## Ports principaux
@@ -38,6 +38,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 Namespaces Storage : `recruitment/{candidateId}/…` (CV) et `employee-documents/{employeeId}/{requestId}/…` (demandes documentaires) — ownership serveur, URL signées courtes.
 
 Jours fériés : dataset versionné `src/data/morocco-holidays.ts` + overrides RH (`HolidayOverride`). Travail férié : `WorkOnHolidayRequest` + ledger `RecoveryCreditLedger` (1 h confirmée = 1 h, conversion jours via `standardDailyHours`).
+
+Reporting RH : `reporting-service` + builders Excel (`exceljs`) sous `src/infrastructure/reporting/` — mêmes filtres pour KPI dashboard et exports `.xlsx`. Permission `hr.reporting` (RH + Chef). Fuseau `Africa/Casablanca`. Pas de paie / pointage / timesheet.
 
 Composition : `src/infrastructure/container.ts`.
 

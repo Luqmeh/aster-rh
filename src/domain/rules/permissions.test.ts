@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAccessHrReporting,
   canApproveRequests,
   canBrowseDirectory,
   canManageEmployees,
@@ -15,6 +16,7 @@ describe("permissions hierarchy", () => {
     expect(canManageEmployees("chef_de_projet")).toBe(true);
     expect(canViewAllRequests("chef_de_projet")).toBe(true);
     expect(hasPermission("chef_de_projet", "hr.administration")).toBe(true);
+    expect(canAccessHrReporting("chef_de_projet")).toBe(true);
   });
 
   it("donne à la RH la gestion sans validation", () => {
@@ -23,6 +25,7 @@ describe("permissions hierarchy", () => {
     expect(canManageEmployees("admin_rh")).toBe(true);
     expect(canViewAllRequests("admin_rh")).toBe(true);
     expect(hasPermission("admin_rh", "request.leave.approve")).toBe(false);
+    expect(canAccessHrReporting("admin_rh")).toBe(true);
   });
 
   it("limite le collaborateur au libre-service", () => {
@@ -31,6 +34,7 @@ describe("permissions hierarchy", () => {
     expect(canManageEmployees("collaborateur")).toBe(false);
     expect(canViewAllRequests("collaborateur")).toBe(false);
     expect(hasPermission("collaborateur", "request.leave.submit")).toBe(true);
+    expect(canAccessHrReporting("collaborateur")).toBe(false);
   });
 
   it("expose les libellés français officiels", () => {

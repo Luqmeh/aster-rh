@@ -1,77 +1,60 @@
 # ASTER — Progress report
 
-**Date :** 2026-11-09  
-**Focus :** Jours fériés marocains + travail férié + récupération (ledger)  
-**Statut :** Implémenté et poussé sur `main` — **parcours Production non vérifié**
+Generated: 2026-11-09 (Phase 12 — HR Reporting & Excel Exports)  
+Branch: `main`  
+Deployment status: **not claimed** — code pushed after local checks; live Vercel dashboard/exports not verified in this report.
 
-## Fonctionnalités
+## Implemented features (this phase)
 
-### Calendrier fériés
-- Dataset versionné `src/data/morocco-holidays.ts` (sources maroc.ma / MMSP) : nationaux fixes + religieux 2025–2027.
-- Religieux 2026 **confirmés** ; 2027 **provisoires** (vue du croissant).
-- Overrides RH (`HolidayOverride`) pour corriger / ajouter un jour entreprise (dédoublonnage `sourceKey+year`).
-- Affichage calendrier avec tons distincts (confirmé / provisoire) — **aucune** création auto de congé ou crédit.
+- Route `/administration/rapports` — dashboard Reporting RH (FR, design enterprise light).
+- Filtres période (Ce mois / Mois précédent / Ce trimestre / Cette année / Personnalisé) + département, collaborateur, statut cycle de vie, statut demande.
+- KPI DB-backed : effectif actif, embauches, départs, inactifs, demandes congés, jours d’absences **approuvées**, demandes en attente, télétravail, documents en attente, recrutements ouverts, récupération créditée (ledger).
+- Graphiques (barres) : effectif par département, absences / télétravail par mois, statuts congés / recrutement / documents — états vides explicites.
+- Centre d’exports Excel `.xlsx` (exceljs) : Congés, Planning absences, Soldes CP/RTT/récupération séparés, Télétravail, Annuaire, Recrutement, Documents, Travail férié, Lifecycle, Historique consolidé.
+- Auth serveur `hr.reporting` pour RH + Chef ; Collaborateur refusé (UI + actions).
+- Fuseau Africa/Casablanca ; plafond période 732 jours ; notification d’audit légère par export.
+- Exclusion systématique CV / URLs / notes RH / secrets des exports.
 
-### Travail un jour férié
-- Demande collaborateur depuis une entrée férié (heures planifiées, créneaux, justification).
-- Uniquement sur un férié réel ; une seule demande active / collaborateur / date.
-- Statuts : En attente → Approuvée / Refusée → Travail effectué — à confirmer → Confirmée — récupération créditée.
-- Approbation **avant** le jour férié ; déclaration des heures **après** ; confirmation Chef uniquement.
+## Files changed (principal)
 
-### Crédit récupération (règle produit ASTER)
-- **1 h confirmée = 1 h créditée** (conversion jours via `Employee.standardDailyHours`, défaut 7).
-- Ledger auditable `RecoveryCreditLedger` — pas d’écrasement silencieux du solde RTT annuel.
-- Champs `recoveryDays*` sur `LeaveBalance` ; type d’absence `recuperation` pour consommer via le flux congés existant.
-- **Non** présenté comme politique guide PKF ; indépendant BEEYE/AGIRIS.
+- `src/domain/rules/reporting.ts` (+ tests)
+- `src/domain/rules/permissions.ts` (`hr.reporting`)
+- `src/application/services/reporting-service.ts` (+ tests)
+- `src/infrastructure/reporting/excel-workbook.ts`
+- `src/infrastructure/reporting/excel-exports.ts`
+- `src/app/actions/reporting.ts`
+- `src/app/(app)/administration/rapports/page.tsx`
+- `src/components/modules/reporting-*.tsx`
+- `src/lib/navigation.ts`, `src/app/(app)/administration/page.tsx`
+- Docs : `README.md`, `ARCHITECTURE.md`, `AUTHORIZATION_MATRIX.md`, `ROADMAP.md`, `REPORTING.md`, `PROGRESS.md`
+- Dépendance : `exceljs`
 
-### Droits
-- Chef : approuver / confirmer / créditer (global).
-- RH : lecture file + overrides fériés — **pas** d’approbation.
-- Collaborateur : soi uniquement.
-
-## Fichiers principaux
-
-| Zone | Fichiers |
-|------|----------|
-| Data | `morocco-holidays.ts` |
-| Domaine | `morocco-holidays.ts`, `work-on-holiday.ts`, permissions, leave, calendar |
-| App | `work-on-holiday-service.ts`, `calendar-service.ts` |
-| Prisma | migration `20261109030000_work_on_holiday_recovery` |
-| UI | calendrier + forms, administration (file lecture + override) |
-| Docs | HR_REQUIREMENTS, AUTHORIZATION_MATRIX, ARCHITECTURE, README, PROGRESS |
-
-## Dépendances
-
-Aucune nouvelle dépendance npm.
-
-## Tests
+## Focused test results
 
 ```
-npx vitest run src/application/services/work-on-holiday-service.test.ts \
-  src/domain/rules/morocco-holidays.test.ts
-→ 8 passed
+vitest run reporting.test.ts reporting-service.test.ts permissions.test.ts
+Test Files  3 passed
+Tests       18 passed
 ```
 
-(+ calendar-events / leave fixtures alignés)
+Couverture : presets/Casablanca, auth RH/Chef/Collaborateur, refus ≠ absences, filtre département, soldes RTT vs récupération, headers Excel, champs sensibles exclus, cohérence planning/KPI.
 
 ## Typecheck / lint / build
 
-| Check | Résultat |
-|-------|----------|
-| `npm run typecheck` | OK |
-| `npm run lint` | OK |
-| `npm run build` | OK (session précédente + typecheck/lint frais) |
+| Check | Result |
+|-------|--------|
+| `npm run typecheck` | pass |
+| `npm run lint` | pass (0 warnings after cleanup) |
+| `ASTER_BUILD_WITHOUT_DB=1 npm run build` | pass — route `/administration/rapports` présente |
 
-## Issues restantes
+## Known / remaining issues
 
-- Vérifier migrate Production (`WorkOnHoliday*`, `HolidayOverride`, `RecoveryCreditLedger`, enum `recuperation`).
-- UI calendrier : heures planifiées affichées en dur (7) sur certaines actions — le service utilise la valeur réelle en base.
-- Pas de feed API externe : maintenance manuelle du dataset + overrides RH.
-- **E2E Production non exécuté.**
+- Pas de table d’audit générique : exports journalisés via notification acteur.
+- Dates de décision congés/télétravail dérivées de `updatedAt` (pas de champ dédié en schéma).
+- Attribution mensuelle des jours d’absence : mois de `startDate` (pas de répartition jour par jour multi-mois).
+- Déploiement Production / smoke live non exécuté dans ce cycle.
+- Modules non couverts volontairement : paie, pointage, timesheet, frais, formation.
 
-## Prochaine étape exacte
+## Exact next recommended step
 
-1. Attendre le déploiement Vercel + migrate.
-2. Ouvrir `/calendrier` → vérifier fériés (ex. 18/11 confirmé).
-3. Collaborateur : demander travail sur un férié **futur** → Chef approuve → après la date, déclarer heures → Chef confirme → solde `recuperation` crédité.
-4. RH : contrôler la file lecture seule et un override de date.
+Sur Vercel Production : ouvrir `/administration/rapports` avec un compte RH et un compte Chef, vérifier KPI + un export Excel ; confirmer qu’un Collaborateur est redirigé. Ensuite enchaîner sur l’affinage UX démo (ROADMAP Phase 0) ou CI automatisée (Phase 1).

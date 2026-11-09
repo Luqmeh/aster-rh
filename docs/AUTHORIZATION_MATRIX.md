@@ -27,6 +27,7 @@ Hiérarchie définitive (permanente) :
 | Voir toutes les demandes travail férié | Non | Oui (lecture) | Oui |
 | Corriger / ajouter jours fériés | Non | Oui | Oui |
 | Administration RH | Non | Oui | Oui |
+| Reporting RH + exports Excel | Non | Oui | Oui |
 
 ## Règles d’or
 
