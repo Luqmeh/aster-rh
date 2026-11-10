@@ -29,6 +29,10 @@ const eligible: Employee = {
   avatarInitials: "AB",
   teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
 };
 
 describe("validateMonthlyTeleworkPlan", () => {

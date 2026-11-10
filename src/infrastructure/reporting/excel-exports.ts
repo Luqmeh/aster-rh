@@ -161,12 +161,11 @@ async function exportSoldes(
       container.hr.listLeaveRequests({ employeeId: emp.id }),
       container.hr.listRecoveryCredits(emp.id),
     ]);
-    const { computeAccountBalance } = await import(
+    const { computeAccountBalance, computeCpPooledBalance } = await import(
       "@/domain/rules/leave-ledger-balance"
     );
-    const cp = computeAccountBalance({
+    const cp = computeCpPooledBalance({
       employeeId: emp.id,
-      account: "conges_payes",
       year,
       entries,
       leaveRequests: requests,

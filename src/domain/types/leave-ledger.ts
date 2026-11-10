@@ -1,4 +1,9 @@
-export type LeaveLedgerAccount = "conges_payes" | "rtt" | "recuperation";
+export type LeaveLedgerAccount =
+  | "conges_payes"
+  | "conges_payes_acquis"
+  | "conges_payes_en_acquisition"
+  | "rtt"
+  | "recuperation";
 
 export type LeaveLedgerUnit = "days" | "hours";
 

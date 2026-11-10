@@ -33,6 +33,10 @@ function emp(partial: Partial<Employee>): Employee {
     teleworkEligible: true,
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
     ...partial,
   };
 }

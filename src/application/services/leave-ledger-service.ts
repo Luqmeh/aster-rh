@@ -1,8 +1,15 @@
-import { formatScaled, toScaled } from "@/domain/rules/leave-decimal";
+import {
+  formatScaled,
+  fromScaled,
+  toScaled,
+  zeroScaled,
+} from "@/domain/rules/leave-decimal";
 import {
   assertPositiveQuantity,
   buildOpeningEntriesFromBalance,
   computeAccountBalance,
+  computeCpPooledBalance,
+  CP_CONSUMPTION_ORDER,
   leaveTypeToLedgerAccount,
   OPENING_SOURCE_KIND,
   TRACKED_LEDGER_ACCOUNTS,
@@ -34,13 +41,27 @@ function snapshotToLeaveBalanceFields(
   const byAccount = Object.fromEntries(
     snapshots.map((s) => [s.account, s]),
   ) as Record<LeaveLedgerAccount, AccountBalanceSnapshot | undefined>;
-  const cp = byAccount.conges_payes;
+  const cpLegacy = byAccount.conges_payes;
+  const cpAcquis = byAccount.conges_payes_acquis;
+  const cpEnAcq = byAccount.conges_payes_en_acquisition;
+  const cpCredited =
+    (cpLegacy?.totalCredited ?? 0) +
+    (cpAcquis?.totalCredited ?? 0) +
+    (cpEnAcq?.totalCredited ?? 0);
+  const cpConsumed =
+    (cpLegacy?.totalConsumed ?? 0) +
+    (cpAcquis?.totalConsumed ?? 0) +
+    (cpEnAcq?.totalConsumed ?? 0);
+  const cpRestants =
+    (cpLegacy?.ledgerBalance ?? 0) +
+    (cpAcquis?.ledgerBalance ?? 0) +
+    (cpEnAcq?.ledgerBalance ?? 0);
   const rtt = byAccount.rtt;
   const rec = byAccount.recuperation;
   return {
-    congesPayesAcquis: cp?.totalCredited ?? 0,
-    congesPayesPris: cp?.totalConsumed ?? 0,
-    congesPayesRestants: cp?.ledgerBalance ?? 0,
+    congesPayesAcquis: cpCredited,
+    congesPayesPris: cpConsumed,
+    congesPayesRestants: cpRestants,
     rttAcquis: rtt?.totalCredited ?? 0,
     rttPris: rtt?.totalConsumed ?? 0,
     rttRestants: rtt?.ledgerBalance ?? 0,
@@ -224,6 +245,22 @@ export function createLeaveLedgerService(deps: { hr: HrRepository }) {
     ): Promise<AccountBalanceSnapshot | null> {
       const account = leaveTypeToLedgerAccount(leaveType);
       if (!account) return null;
+      if (leaveType === "conges_payes") {
+        requireSession(session);
+        await assertCanViewBalance(session, employeeId);
+        await this.ensureBackfill(year);
+        const [entries, requests] = await Promise.all([
+          deps.hr.listLeaveLedgerEntries({ employeeId, year }),
+          deps.hr.listLeaveRequests({ employeeId }),
+        ]);
+        return computeCpPooledBalance({
+          employeeId,
+          year,
+          entries,
+          leaveRequests: requests,
+          currentRequest: currentRequest ?? null,
+        });
+      }
       return this.getAccountBalance(session, {
         employeeId,
         account,
@@ -234,7 +271,7 @@ export function createLeaveLedgerService(deps: { hr: HrRepository }) {
 
     /**
      * Consommation à l'approbation — idempotente par leave_request id.
-     * Phase 1 : migration volontaire du cycle (auparavant aucun débit).
+     * CP : débit réparti acquis → legacy → en acquisition (Phase 2).
      */
     async recordApprovedLeaveConsumption(input: {
       request: LeaveRequest;
@@ -244,38 +281,117 @@ export function createLeaveLedgerService(deps: { hr: HrRepository }) {
       if (!account) return null;
 
       const year = Number(input.request.startDate.slice(0, 4)) || DEFAULT_YEAR;
-      const qty = -Math.abs(input.request.daysCount);
       const transactionType =
         account === "recuperation"
           ? ("recovery_consumption" as const)
           : ("leave_consumption" as const);
 
-      const { entry, created } = await deps.hr.appendLeaveLedgerEntry({
-        employeeId: input.request.employeeId,
-        account,
-        transactionType,
-        quantity: qty,
-        unit: "days",
-        year,
-        effectiveDate: input.request.startDate,
-        sourceKind: "leave_request",
-        sourceId: input.request.id,
-        reason: `Consommation suite approbation de la demande ${input.request.id}.`,
-        actorEmployeeId: input.actorEmployeeId,
-        metadataJson: {
-          leaveType: input.request.type,
-          daysCount: input.request.daysCount,
-          endDate: input.request.endDate,
-        },
-      });
+      if (input.request.type !== "conges_payes") {
+        const qty = -Math.abs(input.request.daysCount);
+        const { entry, created } = await deps.hr.appendLeaveLedgerEntry({
+          employeeId: input.request.employeeId,
+          account,
+          transactionType,
+          quantity: qty,
+          unit: "days",
+          year,
+          effectiveDate: input.request.startDate,
+          sourceKind: "leave_request",
+          sourceId: input.request.id,
+          reason: `Consommation suite approbation de la demande ${input.request.id}.`,
+          actorEmployeeId: input.actorEmployeeId,
+          metadataJson: {
+            leaveType: input.request.type,
+            daysCount: input.request.daysCount,
+            endDate: input.request.endDate,
+          },
+        });
+        if (created) {
+          await this.materializeLeaveBalanceProjection(
+            input.request.employeeId,
+            year,
+          );
+        }
+        return entry;
+      }
 
-      if (created) {
+      // CP pool — répartition multi-comptes (sourceId distinct par compte).
+      const entries = await deps.hr.listLeaveLedgerEntries({
+        employeeId: input.request.employeeId,
+        year,
+      });
+      let remaining = toScaled(Math.abs(input.request.daysCount));
+      let lastEntry: LeaveLedgerEntry | null = null;
+      let anyCreated = false;
+
+      for (const bucket of CP_CONSUMPTION_ORDER) {
+        if (remaining <= zeroScaled()) break;
+        const bal = computeAccountBalance({
+          employeeId: input.request.employeeId,
+          account: bucket,
+          year,
+          entries,
+          leaveRequests: [],
+        });
+        const available = toScaled(Math.max(0, bal.ledgerBalance));
+        if (available <= zeroScaled()) continue;
+        const take = available < remaining ? available : remaining;
+        const { entry, created } = await deps.hr.appendLeaveLedgerEntry({
+          employeeId: input.request.employeeId,
+          account: bucket,
+          transactionType: "leave_consumption",
+          quantity: -fromScaled(take),
+          unit: "days",
+          year,
+          effectiveDate: input.request.startDate,
+          sourceKind: "leave_request",
+          sourceId: `${input.request.id}:${bucket}`,
+          reason: `Consommation CP (${bucket}) — demande ${input.request.id}.`,
+          actorEmployeeId: input.actorEmployeeId,
+          metadataJson: {
+            leaveType: input.request.type,
+            daysCount: input.request.daysCount,
+            endDate: input.request.endDate,
+            bucket,
+            parentRequestId: input.request.id,
+          },
+        });
+        lastEntry = entry;
+        if (created) anyCreated = true;
+        remaining = remaining - take;
+      }
+
+      // Reliquat (solde insuffisant déjà bloqué en amont) → legacy pour traçabilité.
+      if (remaining > zeroScaled()) {
+        const { entry, created } = await deps.hr.appendLeaveLedgerEntry({
+          employeeId: input.request.employeeId,
+          account: "conges_payes",
+          transactionType: "leave_consumption",
+          quantity: -fromScaled(remaining),
+          unit: "days",
+          year,
+          effectiveDate: input.request.startDate,
+          sourceKind: "leave_request",
+          sourceId: `${input.request.id}:conges_payes:overflow`,
+          reason: `Consommation CP (reliquat) — demande ${input.request.id}.`,
+          actorEmployeeId: input.actorEmployeeId,
+          metadataJson: {
+            leaveType: input.request.type,
+            parentRequestId: input.request.id,
+            overflow: true,
+          },
+        });
+        lastEntry = entry;
+        if (created) anyCreated = true;
+      }
+
+      if (anyCreated) {
         await this.materializeLeaveBalanceProjection(
           input.request.employeeId,
           year,
         );
       }
-      return entry;
+      return lastEntry;
     },
 
     async recordRecoveryCredit(input: {

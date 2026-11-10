@@ -1,4 +1,4 @@
-# ASTER — Grand livre des congés (Phase 1)
+# ASTER — Grand livre des congés (Phase 1 + 2)
 
 ## Objectif
 
@@ -6,76 +6,79 @@ Remplacer l’arithmétique fragile des soldes (`LeaveBalance.*Restants` mis à 
 
 `LeaveBalance` reste une **projection cache** dérivée du ledger (compatibilité UI / exports).
 
+Phase 2 ajoute les **politiques d’acquisition**, le **moteur d’accrual (preview → post)** et les **écritures carryover / expiry** — sans second système de soldes.
+
 ## Comptes suivis
 
-| Compte | Unité ledger | Notes |
-|--------|--------------|-------|
-| `conges_payes` | days | Séparé des RTT |
+| Compte | Unité | Notes |
+|--------|-------|-------|
+| `conges_payes` | days | Legacy Phase 1 (ouvertures historiques) |
+| `conges_payes_acquis` | days | CP acquis (période close + reports) — guide p.38–48 |
+| `conges_payes_en_acquisition` | days | CP juin N → mai N+1 |
 | `rtt` | days | Séparé des CP |
-| `recuperation` | days | Heures WOH conservées dans `RecoveryCreditLedger` ; conversion jours créditée ici |
+| `recuperation` | days | Crédits WOH |
 
-Les catégories sans solde (maladie LeaveRequest, exceptionnel, parental, sans solde, WorkAbsence) **ne sont pas** des comptes ledger → « Solde non suivi ».
+**Solde CP UI / contrôle** = somme du pool (`conges_payes` + `acquis` + `en_acquisition`).
+
+Les catégories sans solde (maladie LeaveRequest, exceptionnel, parental, sans solde, WorkAbsence / congés spéciaux événementiels) **ne sont pas** des comptes ledger accumulés.
 
 ## Types d’écriture
 
 | Type | Sens typique |
 |------|----------------|
 | `opening_balance` | Snapshot migration (acquis +, pris −) |
-| `accrual` | Crédit d’acquisition (phases futures) |
+| `accrual` | Crédit d’acquisition (Phase 2 — posting contrôlé) |
 | `leave_consumption` | Débit à l’approbation CP/RTT |
 | `recovery_credit` | Crédit après confirmation WOH |
 | `recovery_consumption` | Débit à l’approbation d’une demande `recuperation` |
-| `carryover` / `expiry` | Réservés phases futures |
+| `carryover` | Report CP approuvé (crédit cible) |
+| `expiry` | Perte RTT 1er juillet / débit sortant report CP |
 | `hr_adjustment` | Ajustement RH/Chef (motif obligatoire) |
-| `reversal` | Contrepassation d’une écriture existante |
+| `reversal` | Contrepassation |
 
 ## Immutabilité & idempotence
 
 - Pas d’UPDATE/DELETE métier des écritures.
 - Contrainte unique `(sourceKind, sourceId, transactionType)`.
-- `appendLeaveLedgerEntry` renvoie l’existant si déjà présent.
+- Accruals : `sourceKind=entitlement_accrual`, `sourceId=idempotencyKey`.
+- Carryover : `entitlement_carryover_in` / `_out`.
+- Expiry RTT : `entitlement_expiry`.
 - Corrections = nouvelles écritures (`reversal` / `hr_adjustment`).
+
+## Politiques (Phase 2)
+
+Source : **Guide RH PKF Arsilon nov. 2026, p.38–48** (spéciaux p.45–47).
+
+- Versions seed : `src/domain/rules/entitlement-policies.ts`
+- Calcul preview : `src/domain/rules/entitlement-accrual.ts`
+- Service : `src/application/services/entitlement-service.ts`
+- UI RH : `/administration/droits-conges`
+- Doc détaillée : `docs/ENTITLEMENT_ENGINE.md`
+
+Une nouvelle version de politique **ne réécrit pas** les écritures déjà postées.
 
 ## Définitions de solde (autoritatives)
 
-Pour un compte / année :
+Inchangées Phase 1 pour un compte / année ; pour CP, utiliser le **pool** via `computeCpPooledBalance`.
 
-1. **totalCredited** — somme des crédits (ouvertures positives, accruals, recovery_credit, …).
-2. **totalConsumed** — somme des |débits| de consommation (+ ouvertures « pris »).
-3. **totalExpired** — |expiry|.
-4. **totalAdjustments** — somme signée des `hr_adjustment`.
-5. **ledgerBalance** — Σ toutes écritures.
-6. **otherPendingReservations** — Σ `daysCount` des LeaveRequest pending **même compte**, hors demande courante (pas une écriture).
-7. **availableAfterReservations** — `ledgerBalance − otherPendingReservations`.
-8. **projectedAfterCurrentRequest** — `availableAfterReservations − currentRequestDays`.
+Pending ≠ consommation. Consommation réelle à l’**approbation**.
 
-Les demandes **pending ne consomment pas** le ledger. La consommation réelle est postée **à l’approbation** (Phase 1 — migration volontaire ; auparavant aucun débit).
+Consommation CP : débit réparti `acquis` → `legacy` → `en_acquisition` (sourceId `requestId:account`).
 
 ## Migration / backfill
 
-1. Migration additive Prisma `20261110020000_leave_ledger` (table + enums + indexes).
-2. Pour chaque `LeaveBalance` existant : écritures `opening_balance` acquis (+) et pris (−) si non nuls.
-3. **Aucun** historique de demandes individuelles inventé.
-4. Idempotent via `sourceKind=leave_balance_opening` + `sourceId={employeeId}:{year}:{account}:{acquis|pris}`.
-5. Date d’effet documentée : `2026-01-01` (année démo).
-
-## Cycle de vie demandé
-
-| Événement | Effet ledger |
-|-----------|--------------|
-| Submit | Contrôle `availableAfterReservations` ; **pas** d’écriture |
-| Approve | `leave_consumption` / `recovery_consumption` (idempotent) |
-| Refuse / cancel | Aucune écriture ; réservation pending disparaît |
-| WOH confirm+credit | `recovery_credit` (+ `RecoveryCreditLedger` heures) |
-| HR adjust | `hr_adjustment` |
+1. Phase 1 : `20261110020000_leave_ledger`
+2. Phase 2 : `20261110030000_entitlement_engine` (comptes CP split, calendriers, policies, batches, carryover) — **additive**
+3. Ouvertures LeaveBalance **intactes** ; pas d’accruals historiques inventés
+4. Migrate Production uniquement via pipeline Vercel (`docs/DEPLOYMENT.md`)
 
 ## RBAC
 
-- Collaborateur : solde / historique **soi uniquement**.
-- RH / Chef : lecture globale ; ajustements RH/Chef.
-- RH : **toujours** sans approbation manager-controlled.
-- Médical : inchangé (pas dans le ledger).
+- Collaborateur : solde / historique **soi uniquement**
+- RH / Chef : administration des droits (`/administration/droits-conges`)
+- RH : **toujours** sans approbation manager-controlled des demandes de congés
+- Médical / justificatifs spéciaux : RH uniquement
 
-## Hors scope Phase 1
+## Hors scope
 
-Accruals mensuels auto, politiques configurables, ancienneté, jobs d’expiry/carryover, UI complète d’administration des droits, solde de tout compte départ.
+Paie, solde de tout compte automatique, sync Kammi, scheduler d’accrual silencieux, formules statutaires temps partiel non validées, conformité légale « complète ».

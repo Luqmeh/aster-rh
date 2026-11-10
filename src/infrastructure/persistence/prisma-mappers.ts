@@ -75,6 +75,10 @@ type PrismaEmployee = {
   teleworkEligible: boolean;
   teleworkDaysPerWeek: number;
   standardDailyHours: number;
+  isPartTime?: boolean;
+  weeklyContractHours?: number | null;
+  workingTimePercent?: number | null;
+  officeCalendarId?: string | null;
 };
 
 type PrismaLeaveBalance = {
@@ -178,6 +182,10 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     teleworkEligible: row.teleworkEligible,
     teleworkDaysPerWeek: row.teleworkDaysPerWeek,
     standardDailyHours: row.standardDailyHours ?? 7,
+    isPartTime: row.isPartTime ?? false,
+    weeklyContractHours: row.weeklyContractHours ?? null,
+    workingTimePercent: row.workingTimePercent ?? null,
+    officeCalendarId: row.officeCalendarId ?? null,
   };
 }
 

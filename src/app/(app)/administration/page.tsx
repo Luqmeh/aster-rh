@@ -82,6 +82,12 @@ export default async function AdministrationPage() {
                 Demandes de documents
               </Link>
             </Button>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/administration/droits-conges">
+                <ClipboardList className="mr-1.5 h-4 w-4" />
+                Droits à congés
+              </Link>
+            </Button>
           </div>
         }
       />

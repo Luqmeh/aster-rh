@@ -11,12 +11,14 @@ Toute valeur chiffrée non confirmée est marquée **HYPOTHÈSE DE DÉMONSTRATIO
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
-| Distinction des régimes de temps de travail | **À documenter** | Préservée dans le modèle (`Employee.category`) |
+| Distinction des régimes de temps de travail | **Guide p.38–48** | `Employee.category` |
 | Forfait jours (cadres) | **À documenter** | Module Temps de travail planifié |
 | Suivi horaire (non-cadres) | **À documenter** | Module Temps de travail planifié |
-| Droits RTT selon catégorie | **HYPOTHÈSE DÉMO** | Cadre : 10 RTT/an ; non-cadre : 8 RTT/an — *à remplacer par le guide* |
+| RTT non-cadres | **Guide p.38–48** | 11 j / période juil.–juin (journée solidarité déduite) |
+| RTT cadres | **Guide p.38–48** | 7–11 j selon fériés ouvrés — calendrier de bureau validé obligatoire ; sinon `requires_hr_validation` |
+| Alternants | **Guide p.38–48** | CP oui ; RTT non |
 
-Code : `src/domain/rules/leave.ts` → `defaultAnnualEntitlement`.
+Code : `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts`.
 
 ---
 
@@ -24,19 +26,22 @@ Code : `src/domain/rules/leave.ts` → `defaultAnnualEntitlement`.
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
-| Droit annuel CP | **HYPOTHÈSE DÉMO** | 25 jours — *confirmer page guide* |
+| Droit annuel CP | **Guide p.38–48** | 5 semaines ; acquisition **2,08 j/mois** ; période **1er juin → 31 mai** |
+| CP acquis vs en acquisition | **Guide p.38–48** | Comptes ledger distincts ; ouverture Phase 1 reste sur `conges_payes` legacy |
+| Arrondi fin de période | **Guide (exemple)** | 10,4 → 11 illustratif — **configurable, non généralisé par défaut** |
+| Temps partiel | **Guide p.38–48** | Pas de × % d'activité ; jours travaillés selon planning ; sinon validation RH |
+| Report CP | **Guide p.38–48** | Max **5 j**, non cumulable ; exceptions partenaire + plan au 31/12 + RRH — jamais auto |
 | Calcul des jours (ouvrés lun–ven) | **HYPOTHÈSE DÉMO** | Simplifié ; hors jours fériés & conventions locales |
 | Demi-journées | **Implémenté (démo)** | Flags `halfDayStart` / `halfDayEnd` |
 | Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Chef de projet (RH en lecture seule) |
-| Contexte collaborateur à la validation | **Implémenté (démo)** | Panneau soldes / historique à côté de chaque demande (`leave-approval-context`) — sans inventer de barème hors modèle |
+| Contexte collaborateur à la validation | **Implémenté (démo)** | Panneau soldes / historique (`leave-approval-context`) |
 | Types d’absence (CP/RTT) | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental (LeaveRequest) |
-| Arrêts / absences spéciales | **Guide + workflow ASTER** | Module `WorkAbsence` — voir §7 |
+| Arrêts / absences spéciales | **Guide p.45–47 + workflow** | Événementiels — pas de solde ledger cumulatif — voir §7 |
 
-Références guide à compléter :
+Références guide :
 
-- Page ___ : acquisition / prise des CP  
-- Page ___ : RTT  
-- Page ___ : absences exceptionnelles / parentales  
+- **Pages 38–48** : acquisition / prise CP & RTT, reports, expiry  
+- **Pages 45–47** : congés pour événements familiaux / spéciaux
 
 ---
 

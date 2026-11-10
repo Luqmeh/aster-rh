@@ -24,6 +24,10 @@ const employee: Employee = {
   avatarInitials: "LD",
   teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
 };
 
 describe("telework weekly cap", () => {

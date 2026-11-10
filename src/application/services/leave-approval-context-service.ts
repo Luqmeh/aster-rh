@@ -68,7 +68,7 @@ export type SpecialLeaveContext = {
   projectedUsedAfterApproval: number;
   requiresHrReview: boolean;
   message: string | null;
-  source: "guide_p46" | "hypothese_demo" | null;
+  source: "guide_p46" | "guide_p45_47" | "hypothese_demo" | null;
 };
 
 export type LeaveRequestApprovalContext = {

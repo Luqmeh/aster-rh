@@ -36,12 +36,20 @@ export type EmployeeCreateInput = Omit<
   | "isActive"
   | "teleworkDaysPerWeek"
   | "standardDailyHours"
+  | "isPartTime"
+  | "weeklyContractHours"
+  | "workingTimePercent"
+  | "officeCalendarId"
 > & {
   demoIdentityId?: string | null;
   avatarInitials?: string;
   teleworkDaysPerWeek?: number;
   standardDailyHours?: number;
   teleworkEligible?: boolean;
+  isPartTime?: boolean;
+  weeklyContractHours?: number | null;
+  workingTimePercent?: number | null;
+  officeCalendarId?: string | null;
 };
 
 /**
@@ -79,6 +87,10 @@ export interface HrRepository {
         | "teleworkEligible"
         | "teleworkDaysPerWeek"
         | "standardDailyHours"
+        | "isPartTime"
+        | "weeklyContractHours"
+        | "workingTimePercent"
+        | "officeCalendarId"
         | "avatarInitials"
       >
     >,

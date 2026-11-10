@@ -109,6 +109,14 @@ export interface Employee {
    * HYPOTHÈSE DÉMO (défaut 7) — ne pas présenter comme règle guide.
    */
   standardDailyHours: number;
+  /** Temps partiel — sans barème validé → calcul CP « requires_hr_validation ». */
+  isPartTime: boolean;
+  /** Heures hebdomadaires contractuelles (null = non renseigné). */
+  weeklyContractHours: number | null;
+  /** % d'activité — ne pas multiplier silencieusement les CP. */
+  workingTimePercent: number | null;
+  /** Calendrier de bureau pour RTT cadres. */
+  officeCalendarId: string | null;
 }
 
 export interface LeaveBalance {

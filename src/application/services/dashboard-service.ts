@@ -19,9 +19,18 @@ export function createDashboardService(deps: { hr: HrRepository }) {
       const balance = {
         employeeId: session.employee.id,
         year: 2026,
-        congesPayesAcquis: snaps.conges_payes.totalCredited,
-        congesPayesPris: snaps.conges_payes.totalConsumed,
-        congesPayesRestants: snaps.conges_payes.ledgerBalance,
+        congesPayesAcquis:
+          snaps.conges_payes.totalCredited +
+          (snaps.conges_payes_acquis?.totalCredited ?? 0) +
+          (snaps.conges_payes_en_acquisition?.totalCredited ?? 0),
+        congesPayesPris:
+          snaps.conges_payes.totalConsumed +
+          (snaps.conges_payes_acquis?.totalConsumed ?? 0) +
+          (snaps.conges_payes_en_acquisition?.totalConsumed ?? 0),
+        congesPayesRestants:
+          snaps.conges_payes.ledgerBalance +
+          (snaps.conges_payes_acquis?.ledgerBalance ?? 0) +
+          (snaps.conges_payes_en_acquisition?.ledgerBalance ?? 0),
         rttAcquis: snaps.rtt.totalCredited,
         rttPris: snaps.rtt.totalConsumed,
         rttRestants: snaps.rtt.ledgerBalance,

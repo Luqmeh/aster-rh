@@ -122,6 +122,10 @@ export async function seedAsterDemoData(
         teleworkEligible: emp.teleworkEligible,
         teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
         standardDailyHours: emp.standardDailyHours ?? 7,
+        isPartTime: emp.isPartTime ?? false,
+        weeklyContractHours: emp.weeklyContractHours ?? null,
+        workingTimePercent: emp.workingTimePercent ?? null,
+        officeCalendarId: emp.officeCalendarId ?? null,
       },
       update: preserveExisting
         ? {}
@@ -147,6 +151,10 @@ export async function seedAsterDemoData(
             teleworkEligible: emp.teleworkEligible,
             teleworkDaysPerWeek: emp.teleworkDaysPerWeek,
             standardDailyHours: emp.standardDailyHours ?? 7,
+            isPartTime: emp.isPartTime ?? false,
+            weeklyContractHours: emp.weeklyContractHours ?? null,
+            workingTimePercent: emp.workingTimePercent ?? null,
+            officeCalendarId: emp.officeCalendarId ?? null,
           },
     });
   }

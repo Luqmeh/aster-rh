@@ -97,6 +97,10 @@ export const prismaHrRepository: HrRepository = {
           teleworkEligible: input.teleworkEligible ?? true,
           teleworkDaysPerWeek: input.teleworkDaysPerWeek ?? 2,
           standardDailyHours: input.standardDailyHours ?? 7,
+          isPartTime: input.isPartTime ?? false,
+          weeklyContractHours: input.weeklyContractHours ?? null,
+          workingTimePercent: input.workingTimePercent ?? null,
+          officeCalendarId: input.officeCalendarId ?? null,
         },
       });
       return mapEmployee(row);

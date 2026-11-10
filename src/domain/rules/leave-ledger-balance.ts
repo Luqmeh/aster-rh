@@ -23,9 +23,22 @@ import type { LeaveRequest, LeaveType } from "@/domain/types/hr";
 
 export const TRACKED_LEDGER_ACCOUNTS: LeaveLedgerAccount[] = [
   "conges_payes",
+  "conges_payes_acquis",
+  "conges_payes_en_acquisition",
   "rtt",
   "recuperation",
 ];
+
+/** Comptes CP agrégés pour contrôle de solde / UI (Phase 1 legacy + Phase 2 split). */
+export const CP_POOL_ACCOUNTS: LeaveLedgerAccount[] = [
+  "conges_payes",
+  "conges_payes_acquis",
+  "conges_payes_en_acquisition",
+];
+
+export function isCpLedgerAccount(account: LeaveLedgerAccount): boolean {
+  return CP_POOL_ACCOUNTS.includes(account);
+}
 
 export function leaveTypeToLedgerAccount(
   type: LeaveType,
@@ -36,6 +49,16 @@ export function leaveTypeToLedgerAccount(
   }
   return null;
 }
+
+/**
+ * Ordre de débit CP à l'approbation : acquis → legacy → en acquisition.
+ * (Les employés peuvent consommer acquis et en cours — guide p.38–48.)
+ */
+export const CP_CONSUMPTION_ORDER: LeaveLedgerAccount[] = [
+  "conges_payes_acquis",
+  "conges_payes",
+  "conges_payes_en_acquisition",
+];
 
 export function isCreditType(type: LeaveLedgerTransactionType): boolean {
   return (
@@ -110,9 +133,21 @@ export function computeAccountBalance(input: {
     }
   }
 
+  const matchesLeaveAccount = (leaveType: LeaveType): boolean => {
+    const mapped = leaveTypeToLedgerAccount(leaveType);
+    if (!mapped) return false;
+    if (mapped === account) return true;
+    // Réservations CP portent sur le pool (tous comptes CP).
+    if (mapped === "conges_payes" && isCpLedgerAccount(account)) return true;
+    return false;
+  };
+
   const otherPendingReservations = sumLeaveDays(leaveRequests, (r) => {
     if (r.employeeId !== employeeId) return false;
-    if (leaveTypeToLedgerAccount(r.type) !== account) return false;
+    if (!matchesLeaveAccount(r.type)) return false;
+    // Éviter de compter N fois la même réservation CP sur chaque compte du pool :
+    // on ne rattache les réservations CP qu'au compte legacy `conges_payes`.
+    if (r.type === "conges_payes" && account !== "conges_payes") return false;
     if (!requestOverlapsYear(r, year)) return false;
     if (!isLeavePendingStatus(r.status)) return false;
     if (currentRequest && r.id === currentRequest.id) return false;
@@ -122,7 +157,8 @@ export function computeAccountBalance(input: {
   const currentRequestDays =
     currentRequest &&
     currentRequest.employeeId === employeeId &&
-    leaveTypeToLedgerAccount(currentRequest.type) === account
+    matchesLeaveAccount(currentRequest.type) &&
+    (currentRequest.type !== "conges_payes" || account === "conges_payes")
       ? currentRequest.daysCount
       : 0;
 
@@ -152,6 +188,52 @@ export function computeAccountBalance(input: {
 
 function compareLess(a: ScaledQty, b: ScaledQty): boolean {
   return a < b;
+}
+
+/**
+ * Solde CP autoritatif = somme des comptes du pool (legacy + acquis + en acquisition).
+ * Les réservations pending CP sont portées une seule fois (sur `conges_payes`).
+ */
+export function computeCpPooledBalance(input: {
+  employeeId: string;
+  year: number;
+  entries: LeaveLedgerEntry[];
+  leaveRequests: LeaveRequest[];
+  currentRequest?: LeaveRequest | null;
+}): AccountBalanceSnapshot {
+  const parts = CP_POOL_ACCOUNTS.map((account) =>
+    computeAccountBalance({
+      ...input,
+      account,
+      currentRequest: input.currentRequest ?? null,
+    }),
+  );
+  const legacy = parts.find((p) => p.account === "conges_payes")!;
+  const ledgerBalance = parts.reduce((s, p) => s + p.ledgerBalance, 0);
+  const totalCredited = parts.reduce((s, p) => s + p.totalCredited, 0);
+  const totalConsumed = parts.reduce((s, p) => s + p.totalConsumed, 0);
+  const totalExpired = parts.reduce((s, p) => s + p.totalExpired, 0);
+  const totalAdjustments = parts.reduce((s, p) => s + p.totalAdjustments, 0);
+  const otherPending = legacy.otherPendingReservations;
+  const currentDays = legacy.currentRequestDays;
+  const available = ledgerBalance - otherPending;
+  const projected = available - currentDays;
+  return {
+    employeeId: input.employeeId,
+    account: "conges_payes",
+    year: input.year,
+    unit: "days",
+    totalCredited,
+    totalConsumed,
+    totalExpired,
+    totalAdjustments,
+    ledgerBalance,
+    otherPendingReservations: otherPending,
+    availableAfterReservations: available,
+    currentRequestDays: currentDays,
+    projectedAfterCurrentRequest: projected,
+    insufficientForCurrentRequest: currentDays > 0 && projected < 0,
+  };
 }
 
 export function assertPositiveQuantity(quantity: number | string): void {

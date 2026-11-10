@@ -3,11 +3,11 @@ import { isWeekend, parseDateOnly, toDateOnly } from "@/domain/rules/dates";
 import { SPECIAL_LEAVE_CATEGORIES } from "@/domain/rules/work-absence";
 
 /**
- * Catalogue configurable des congés spéciaux (guide RH p.46).
+ * Catalogue configurable des congés spéciaux (guide RH p.45–47).
  *
  * Les plafonds chiffrés non confirmés page à page sont marqués
  * `source: "hypothese_demo"` — en cas de doute le workflow **signale RH**
- * plutôt que de refuser silencieusement (cf. consignes Phase 13).
+ * plutôt que de refuser silencieusement. Pas de solde ledger cumulatif.
  */
 export type SpecialLeaveEntitlement = {
   category: WorkAbsenceCategory;
@@ -19,7 +19,13 @@ export type SpecialLeaveEntitlement = {
   eligibility: string;
   supportingDocumentHint: string;
   eligibleContractTypes?: ContractType[] | null;
-  source: "guide_p46" | "hypothese_demo";
+  /** Proches éligibles (guide) — null = non détaillé / revue RH. */
+  eligibleRelationships: string[] | null;
+  mustBeTakenAroundEvent: boolean;
+  calendarYearLimit: boolean;
+  accumulatingBalance: false;
+  documentsHrOnly: true;
+  source: "guide_p46" | "guide_p45_47" | "hypothese_demo";
 };
 
 export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
@@ -31,6 +37,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Collaborateur concerné par un mariage ou PACS (guide p.46 — modalités exactes à confirmer).",
     supportingDocumentHint: "Acte de mariage / PACS ou convocation officielle.",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "hypothese_demo",
   },
   {
@@ -41,6 +52,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Naissance ou adoption d'un enfant (guide p.46 — hors congé paternité légal).",
     supportingDocumentHint: "Acte de naissance / adoption.",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "hypothese_demo",
   },
   {
@@ -49,8 +65,20 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     maxDays: 5,
     hardBlockWhenExceeded: false,
     eligibility:
-      "Décès d'un proche au sens du guide p.46 (périmètre famille à confirmer selon cas).",
+      "Décès d'un proche au sens du guide p.45–47 (périmètre famille selon cas).",
     supportingDocumentHint: "Acte de décès / certificat.",
+    eligibleRelationships: [
+      "conjoint",
+      "enfant",
+      "parent",
+      "beau-parent",
+      "frère_soeur",
+      "autre_proche_a_confirmer_rh",
+    ],
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "hypothese_demo",
   },
   {
@@ -60,6 +88,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     hardBlockWhenExceeded: false,
     eligibility: "Changement de résidence principale (guide p.46).",
     supportingDocumentHint: "Justificatif de domicile / bail.",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "hypothese_demo",
   },
   {
@@ -70,6 +103,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Hospitalisation d'un enfant — durée selon guide p.46 (cas signalé RH si non standard).",
     supportingDocumentHint: "Bulletin d'hospitalisation / attestation.",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "guide_p46",
   },
   {
@@ -80,6 +118,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Annonce d'un handicap ou affection de longue durée concernant un enfant ou le conjoint (guide p.46).",
     supportingDocumentHint: "Justificatif administratif (sans diagnostic détaillé).",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "guide_p46",
   },
   {
@@ -90,6 +133,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Collaborateur en situation de handicap — rendez-vous médicaux liés (guide p.46).",
     supportingDocumentHint: "Convocation / attestation de rendez-vous.",
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "guide_p46",
   },
   {
@@ -101,6 +149,11 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
       "Alternants éligibles préparant un examen (guide p.46) — contrat alternance / stage selon cas.",
     supportingDocumentHint: "Convocation d'examen / attestation organisme.",
     eligibleContractTypes: ["alternance"],
+    eligibleRelationships: null,
+    mustBeTakenAroundEvent: true,
+    calendarYearLimit: false,
+    accumulatingBalance: false,
+    documentsHrOnly: true,
     source: "guide_p46",
   },
 ];

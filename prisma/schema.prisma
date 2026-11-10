@@ -52,11 +52,45 @@ enum LeaveType {
   parental
 }
 
-/// Comptes suivis par le grand livre des congés (Phase 1).
+/// Comptes suivis par le grand livre des congés (Phase 1 + 2).
 enum LeaveLedgerAccount {
+  /// Legacy / agrégat Phase 1 — ouvertures historiques CP.
   conges_payes
+  /// CP acquis (période N-1 close + reports) — guide p.38–48.
+  conges_payes_acquis
+  /// CP en cours d'acquisition (juin N → mai N+1).
+  conges_payes_en_acquisition
   rtt
   recuperation
+}
+
+enum EntitlementPolicyKind {
+  conges_payes
+  rtt
+  recuperation_usage
+  special_leave
+  carryover_cp
+  expiry_rtt
+}
+
+enum EntitlementValidationStatus {
+  guide_documented
+  requires_hr_decision
+  hr_configured
+  draft
+}
+
+enum AccrualBatchStatus {
+  preview
+  posted
+  cancelled
+}
+
+enum CarryoverRequestStatus {
+  brouillon
+  en_attente_validation
+  approuvee
+  refusee
 }
 
 enum LeaveLedgerUnit {
@@ -278,10 +312,21 @@ model Employee {
   teleworkDaysPerWeek Int                @default(2)
   /// Heures / jour pour conversion récupération férié → jours (hypothèse démo).
   standardDailyHours  Float              @default(7)
+  /// Temps partiel — si true sans barème validé → calcul « requires_hr_validation ».
+  isPartTime          Boolean            @default(false)
+  /// Heures hebdomadaires contractuelles (null = non renseigné).
+  weeklyContractHours Float?
+  /// Pourcentage d'activité (null = non renseigné). Ne pas multiplier silencieusement les CP.
+  workingTimePercent  Float?
+  /// Calendrier de bureau pour RTT cadres (null → revue RH si cadre).
+  officeCalendarId    String?
+  officeCalendar      OfficeWorkCalendar? @relation(fields: [officeCalendarId], references: [id])
   leaveBalances       LeaveBalance[]
   leaveLedgerEntries  LeaveLedgerEntry[]
   leaveRequests       LeaveRequest[]
   teleworkRequests    TeleworkRequest[]
+  accrualLines        AccrualLine[]
+  carryoverRequests   CarryoverRequest[]
   notifications       NotificationItem[]
   documents           HrDocument[]
   userAccount         UserAccount?
@@ -682,4 +727,123 @@ model RecoveryCreditLedger {
   @@index([employeeId])
   @@index([year])
   @@index([sourceRequestId])
+}
+
+/// Calendrier de bureau pour calcul RTT cadres (7–11 j) — guide p.38–48.
+/// Absent ou non validé → calcul RTT cadre « requires_hr_validation ».
+model OfficeWorkCalendar {
+  id              String     @id @default(cuid())
+  code            String     @unique
+  label           String
+  siteKey         String?
+  /// Jours fériés tombant un jour ouvré (ISO dates) pour une période RTT.
+  workingHolidays Json       @default("[]")
+  validationStatus EntitlementValidationStatus @default(draft)
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  employees       Employee[]
+
+  @@index([siteKey])
+}
+
+/// Politique d'acquisition versionnée (métadonnées persistées ; règles guide aussi en code).
+model EntitlementPolicy {
+  id          String                 @id @default(cuid())
+  kind        EntitlementPolicyKind
+  code        String                 @unique
+  label       String
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  versions    EntitlementPolicyVersion[]
+}
+
+model EntitlementPolicyVersion {
+  id               String                      @id @default(cuid())
+  policyId         String
+  policy           EntitlementPolicy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  version          Int
+  effectiveFrom    DateTime                    @db.Date
+  effectiveTo      DateTime?                   @db.Date
+  validationStatus EntitlementValidationStatus @default(draft)
+  /// Paramètres JSON (taux, plafonds, arrondi, population, période d'acquisition…).
+  rulesJson        Json
+  sourceReference  String
+  notes            String?
+  createdByEmployeeId String?
+  createdAt        DateTime                    @default(now())
+  accrualLines     AccrualLine[]
+
+  @@unique([policyId, version])
+  @@index([effectiveFrom])
+  @@index([validationStatus])
+}
+
+/// Lot d'acquisition (preview puis posting contrôlé) — pas de scheduler silencieux.
+model AccrualBatch {
+  id              String            @id @default(cuid())
+  periodKey       String
+  label           String
+  status          AccrualBatchStatus @default(preview)
+  createdByEmployeeId String?
+  postedByEmployeeId  String?
+  createdAt       DateTime          @default(now())
+  postedAt        DateTime?
+  notes           String?
+  lines           AccrualLine[]
+
+  @@index([periodKey])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AccrualLine {
+  id                String            @id @default(cuid())
+  batchId           String
+  batch             AccrualBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  account           LeaveLedgerAccount
+  policyVersionId   String?
+  policyVersion     EntitlementPolicyVersion? @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
+  periodKey         String
+  /// Quantité crédit proposée / postée (jours).
+  quantity          Decimal           @db.Decimal(12, 4)
+  calculationStatus String
+  explanation       String
+  warningsJson      Json              @default("[]")
+  idempotencyKey    String            @unique
+  ledgerEntryId     String?
+  postedAt          DateTime?
+  createdAt         DateTime          @default(now())
+
+  @@index([batchId])
+  @@index([employeeId, periodKey])
+  @@index([calculationStatus])
+}
+
+/// Demande de report CP (plafond 5 j ; exceptions partenaire / RRH — guide p.38–48).
+model CarryoverRequest {
+  id                    String                 @id @default(cuid())
+  employeeId            String
+  employee              Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  sourcePeriodKey       String
+  targetPeriodKey       String
+  requestedDays         Decimal                @db.Decimal(12, 4)
+  status                CarryoverRequestStatus @default(brouillon)
+  exceptionReason       String?
+  leavePlanThrough      DateTime?              @db.Date
+  partnerApprovedById   String?
+  partnerApprovedAt     DateTime?
+  rrhForwardedAt        DateTime?
+  decidedByEmployeeId   String?
+  decidedAt             DateTime?
+  decisionNote          String?
+  ledgerCarryoverEntryId String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([sourcePeriodKey])
 }

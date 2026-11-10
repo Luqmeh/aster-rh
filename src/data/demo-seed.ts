@@ -49,6 +49,10 @@ export const employees: Employee[] = [
     avatarInitials: "CM",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-julien",
@@ -72,6 +76,10 @@ export const employees: Employee[] = [
     avatarInitials: "JB",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-lea",
@@ -95,6 +103,10 @@ export const employees: Employee[] = [
     avatarInitials: "LD",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-thomas",
@@ -118,6 +130,10 @@ export const employees: Employee[] = [
     avatarInitials: "TP",
     teleworkDaysPerWeek: 1,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-ines",
@@ -141,6 +157,10 @@ export const employees: Employee[] = [
     avatarInitials: "IL",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-hugo",
@@ -164,6 +184,10 @@ export const employees: Employee[] = [
     avatarInitials: "HG",
     teleworkDaysPerWeek: 1,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-sarah",
@@ -187,6 +211,10 @@ export const employees: Employee[] = [
     avatarInitials: "SN",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
   {
     id: "emp-marc",
@@ -210,6 +238,10 @@ export const employees: Employee[] = [
     avatarInitials: "MR",
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
+    isPartTime: false,
+    weeklyContractHours: 39,
+    workingTimePercent: 100,
+    officeCalendarId: null,
   },
 ];
 
