@@ -68,6 +68,11 @@ describe("recruitment workflow", () => {
     const visible = await service.listVisible(lea);
     expect(visible.some((c) => c.id === draft.id)).toBe(true);
 
+    const leaView = await service.get(lea, draft.id);
+    expect(leaView.candidate.hrNotes).toBeNull();
+    const hrView = await service.get(hr, draft.id);
+    expect(hrView.candidate.hrNotes).toContain("Premier entretien");
+
     const marc = testSessionFor("emp-marc", "collaborateur");
     await expect(service.get(marc, draft.id)).rejects.toThrow(AuthError);
   });

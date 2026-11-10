@@ -49,7 +49,7 @@ export const navigationGroups: NavGroup[] = [
     id: "temps",
     label: "Gestion du temps",
     items: [
-      { href: "/conges", label: "Congés et absences", icon: CalendarDays },
+      { href: "/conges", label: "Congés (CP / RTT)", icon: CalendarDays },
       {
         href: "/absences",
         label: "Arrêts & absences spéciales",
@@ -83,7 +83,7 @@ export const navigationGroups: NavGroup[] = [
       },
       {
         href: "/entretiens",
-        label: "Recrutement / entretiens",
+        label: "Recrutement",
         icon: ClipboardList,
       },
       {
@@ -157,9 +157,10 @@ export function navigationForRole(role: DemoRole): NavItem[] {
 
 export function findNavItem(pathname: string, role: DemoRole): NavItem | null {
   const items = navigationForRole(role);
-  return (
-    items.find(
-      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
-    ) ?? null
+  const matches = items.filter(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
+  if (matches.length === 0) return null;
+  // Préférer le href le plus spécifique (évite /administration pour /administration/rapports).
+  return matches.sort((a, b) => b.href.length - a.href.length)[0] ?? null;
 }

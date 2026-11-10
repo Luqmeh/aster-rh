@@ -217,7 +217,7 @@ export default async function TableauDeBordPage() {
         <QuickAction
           href="/documents"
           label="Mes documents"
-          description="Contrats et bulletins"
+          description="Demandes et pièces RH publiées"
           icon={FolderOpen}
         />
         <QuickAction

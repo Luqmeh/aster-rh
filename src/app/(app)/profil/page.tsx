@@ -127,15 +127,19 @@ export default async function ProfilPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Documents liés</CardTitle>
+          <CardTitle>Exemples démo (non téléchargeables)</CardTitle>
           <Button asChild size="sm" variant="ghost">
-            <Link href="/documents">Tout voir</Link>
+            <Link href="/documents">Demandes documentaires</Link>
           </Button>
         </CardHeader>
         <CardContent className="space-y-2">
+          <p className="text-[12px] text-[var(--aster-muted)]">
+            Métadonnées de démonstration uniquement. Les bulletins de paie et
+            téléchargements réels passent par PeopleDoc / demandes publiées.
+          </p>
           {docs.length === 0 ? (
             <p className="text-sm text-[var(--aster-muted)]">
-              Aucun document associé.
+              Aucun exemple associé.
             </p>
           ) : (
             docs.map((doc) => (

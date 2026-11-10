@@ -37,7 +37,7 @@ export function Sidebar({ role }: { role: DemoRole }) {
                 ASTER
               </span>
               <span className="mt-0.5 block text-[11px] text-white/55">
-                Human Resources, connected.
+                Ressources humaines, connectées.
               </span>
             </span>
           )}

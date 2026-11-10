@@ -115,6 +115,10 @@ export interface HrRepository {
   addNotification(
     input: Omit<NotificationItem, "id">,
   ): Promise<NotificationItem>;
+  markNotificationsRead(
+    recipientId: string,
+    ids?: string[],
+  ): Promise<number>;
   listDocuments(employeeId?: string): Promise<HrDocument[]>;
 
   countAccountsByRole(role: DemoRole): Promise<number>;

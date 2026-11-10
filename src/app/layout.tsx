@@ -9,7 +9,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ASTER — Human Resources, connected.",
+  title: "ASTER — Ressources humaines, connectées.",
   description:
     "Plateforme RH de démonstration ASTER pour PKF Arsilon — prototype non productif.",
 };

@@ -218,6 +218,18 @@ export const demoHrRepository: HrRepository = {
     return item;
   },
 
+  async markNotificationsRead(recipientId, ids) {
+    const store = getDemoStore();
+    let count = 0;
+    for (const n of store.notifications) {
+      if (n.recipientId !== recipientId || n.read) continue;
+      if (ids && ids.length > 0 && !ids.includes(n.id)) continue;
+      n.read = true;
+      count += 1;
+    }
+    return count;
+  },
+
   async listDocuments(employeeId) {
     return getDemoStore().documents.filter(
       (d) => d.isCompanyWide || (employeeId && d.employeeId === employeeId),

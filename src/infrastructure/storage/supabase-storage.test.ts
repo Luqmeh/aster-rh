@@ -122,6 +122,16 @@ describe("supabase storage factory", () => {
     ).toThrow(/aster-private-docs/);
   });
 
+  it("refuse le mock sur Vercel sans confirmation explicite", () => {
+    expect(() =>
+      assertProductionStorageReady({
+        VERCEL: "1",
+        NODE_ENV: "production",
+        ASTER_ALLOW_MOCK_STORAGE: "1",
+      }),
+    ).toThrow(/ASTER_ALLOW_MOCK_STORAGE_CONFIRM/);
+  });
+
   it("autorise le mock pendant le build offline", () => {
     expect(() =>
       assertProductionStorageReady({

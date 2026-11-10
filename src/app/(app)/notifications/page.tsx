@@ -1,5 +1,6 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
+import { MarkNotificationsRead } from "@/components/modules/mark-notifications-read";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,12 +17,15 @@ export default async function NotificationsPage() {
 
   return (
     <div className="aster-fade-up space-y-6">
+      <MarkNotificationsRead unread={unread} />
       <PageHeader
         title="Notifications"
         description="Centre d’alertes RH de démonstration (e-mail mocké)."
         actions={
           unread > 0 ? (
-            <Badge variant="accent">{unread} non lue{unread > 1 ? "s" : ""}</Badge>
+            <Badge variant="accent">
+              {unread} non lue{unread > 1 ? "s" : ""} (marquage en cours…)
+            </Badge>
           ) : null
         }
       />

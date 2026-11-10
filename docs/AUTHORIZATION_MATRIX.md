@@ -38,6 +38,7 @@ Hiérarchie définitive (permanente) :
 1. Jamais trust du rôle / employeeId client.
 2. RH ne décide jamais sur congés, télétravail ou recrutement.
 3. Départ / inactif → `UserAccount.isActive=false` + refus d’auth.
+3bis. `getSession()` relit **toujours** `UserAccount.role` + `isActive` (JWT non autoritatif pour les droits).
 4. Pas d’auto-provisioning privilégié.
 5. CV / documents : stockage privé `aster-private-docs` + URL signée courte uniquement ; namespaces séparés `recruitment/…` et `employee-documents/…`.
 6. Publication documentaire explicite (« Mettre à disposition ») — l’upload seul ne rend pas le fichier visible au collaborateur.

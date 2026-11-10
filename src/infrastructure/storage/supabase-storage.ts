@@ -97,7 +97,18 @@ export function formatStorageDiagnostics(config: StorageConfig): string {
  */
 export function assertProductionStorageReady(env: EnvLike = process.env): void {
   if (!isHostedRuntime(env) || isOfflineBuild(env)) return;
-  if (env.ASTER_ALLOW_MOCK_STORAGE === "1") return;
+  if (env.ASTER_ALLOW_MOCK_STORAGE === "1") {
+    // Sur Vercel, exiger une confirmation explicite pour éviter un mock silencieux.
+    if (
+      env.VERCEL === "1" &&
+      env.ASTER_ALLOW_MOCK_STORAGE_CONFIRM !== "1"
+    ) {
+      throw new Error(
+        "ASTER_ALLOW_MOCK_STORAGE=1 est refusé sur Vercel sans ASTER_ALLOW_MOCK_STORAGE_CONFIRM=1 (stockage mock interdit en hébergement).",
+      );
+    }
+    return;
+  }
   if (!isSupabaseStorageConfigured(env)) {
     throw new Error(
       "Stockage Supabase requis en production : définissez SUPABASE_URL (ou NEXT_PUBLIC_SUPABASE_URL) et SUPABASE_SERVICE_ROLE_KEY (bucket privé aster-private-docs). Le fallback mock est interdit.",

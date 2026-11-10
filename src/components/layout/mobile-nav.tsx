@@ -12,8 +12,10 @@ export function MobileNav({ role }: { role: DemoRole }) {
     [
       "/tableau-de-bord",
       "/conges",
+      "/absences",
       "/teletravail",
       "/calendrier",
+      "/documents",
       "/annuaire",
       "/notifications",
     ].includes(item.href),
@@ -43,7 +45,7 @@ export function MobileNav({ role }: { role: DemoRole }) {
         href="/parametres"
         className="shrink-0 rounded-md bg-[var(--aster-surface-2)] px-2.5 py-1.5 text-xs font-medium text-[var(--aster-ink)]"
       >
-        Plus…
+        Menu
       </Link>
     </nav>
   );

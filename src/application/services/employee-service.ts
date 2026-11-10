@@ -37,7 +37,6 @@ export type HrEmployeePatch = Partial<
     | "contractType"
     | "category"
     | "hireDate"
-    | "isActive"
     | "phoneInternal"
     | "teleworkEligible"
     | "teleworkDaysPerWeek"
@@ -143,8 +142,44 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
           403,
         );
       }
+      if ("isActive" in (patch as object) || "employmentStatus" in (patch as object)) {
+        throw new AuthError(
+          "Le cycle de vie (actif / inactif / parti) se gère via l'action dédiée, pas la fiche.",
+          403,
+        );
+      }
 
-      return deps.hr.updateEmployee(employeeId, patch);
+      const {
+        firstName,
+        lastName,
+        email,
+        jobTitle,
+        departmentId,
+        managerId,
+        site,
+        contractType,
+        category,
+        hireDate,
+        phoneInternal,
+        teleworkEligible,
+        teleworkDaysPerWeek,
+      } = patch;
+
+      return deps.hr.updateEmployee(employeeId, {
+        firstName,
+        lastName,
+        email,
+        jobTitle,
+        departmentId,
+        managerId,
+        site,
+        contractType,
+        category,
+        hireDate,
+        phoneInternal,
+        teleworkEligible,
+        teleworkDaysPerWeek,
+      });
     },
 
     canView(session: AuthSession, target: Employee) {

@@ -1,43 +1,58 @@
 # ASTER — Progress report
 
-Generated: 2026-11-09 (Phase 13 — Arrêts de travail & Absences spéciales)  
+Generated: 2026-11-10 (Complete project refinement & production-readiness pass)  
 Branch: `main`  
-Deployment status: **not claimed** — local checks passed; live Vercel employee→HR absence workflow not verified here.
+HEAD before this commit: `1d21647`  
+Deployment status: **not claimed as production-ready** — local checks passed; live Vercel smoke not re-verified in this cycle.
 
-## Context
+## Audit summary
 
-A long-running subagent stalled after a temporary tool outage. Existing Phase 13 work on disk was preserved. Remaining gaps (reporting chart/export UI, tests, docs, PROGRESS, commit) were finished directly.
+Full audit documented in `docs/AUDIT_REFINEMENT.md`. Highest risks were JWT role freeze after demotion, open redirect on login callback, HR `isActive` bypass of lifecycle, interviewer visibility of `hrNotes`, sticky unread notifications, and misleading documents/recruitment copy.
 
-## Implemented features
+## Implemented changes
 
-- Module `WorkAbsence` distinct des CP/RTT : déclaration collaborateur (`/absences`), traitement RH (`/administration/absences`).
-- Catégories arrêt + congés spéciaux (guide p.46) ; barème configurable avec revue RH si plafond ambigu.
-- Workflow statuts : Déclaré → En attente de justificatif → … → Enregistré / Terminé / Refusé.
-- Justificatifs privés `employee-absence-documents/…` ; Chef sans accès médical ; RH avec notes internes.
-- Prolongation liée + flag écart ; rechute liée + flag < 3 mois ; rappels 24 h / 48 h / cutoff paie j.20 ; visite reprise p.62.
-- Calendrier privacy-aware ; reporting KPI/chart + export Excel `arrets_absences` sans certificats/notes.
-- Migration Prisma `20261109040000_work_absences`.
+### Security / authorization
+- `getSession()` always reloads `UserAccount.role` + `isActive` (JWT no longer authoritative for privileges).
+- Login `callbackUrl` sanitized against open redirects (`sanitizeCallbackUrl`).
+- HR employee patch no longer accepts `isActive` / lifecycle shortcuts.
+- Recruitment `hrNotes` redacted for assigned interviewers.
+- Vercel mock storage requires `ASTER_ALLOW_MOCK_STORAGE_CONFIRM=1`.
+
+### Functional / UX
+- Notifications: mark-as-read on `/notifications` open.
+- Nav: « Recrutement », « Congés (CP / RTT) », longest-match topbar titles.
+- Profil / dashboard documents copy clarified (PeopleDoc / demandes).
+- FR tagline; admin-only auth tech card on paramètres; mobile « Menu ».
+- App `(app)/loading.tsx` + `error.tsx`.
+
+### Documentation
+- `AUDIT_REFINEMENT.md`, AUTHORIZATION_MATRIX, DEPLOYMENT, ROADMAP, `.env.example`, fresh PROGRESS.
 
 ## Files changed (principal)
 
-- `prisma/schema.prisma` + migration
-- `src/domain/rules/work-absence.ts`, `special-leave-entitlements.ts`, permissions
-- `src/application/services/work-absence-service.ts`, calendar + reporting wiring
-- `src/infrastructure/persistence/*`, `reporting/excel-exports.ts`
-- UI `/absences`, `/administration/absences`, composants modules
-- Docs : `ABSENCES.md`, HR_REQUIREMENTS, AUTHORIZATION, ARCHITECTURE, DEPLOYMENT, README, REPORTING, ROADMAP, PROGRESS
+- `src/infrastructure/auth/session-auth.ts`
+- `src/lib/safe-callback-url.ts` (+ tests)
+- `src/app/actions/auth.ts`, `notifications.ts`
+- `src/application/services/employee-service.ts`, `recruitment-service.ts`
+- Persistence: `markNotificationsRead` (demo + prisma)
+- UI: notifications, profil, dashboard, nav, sidebar, layout, parametres, mobile-nav, conges, entretiens detail, loading/error
+- Storage: `supabase-storage.ts` (+ tests)
+- Docs + `.env.example`
 
 ## Dependencies
 
-Aucune nouvelle dépendance npm (réutilise `exceljs` / storage existants).
+None added or removed.
 
-## Focused test results
+## Tests executed
 
 ```
-vitest run work-absence*.test.ts permissions.test.ts reporting-service.test.ts
-Test Files  4 passed
-Tests       24 passed
+vitest run permissions, recruitment, employee, work-absence, reporting,
+  safe-callback-url, navigation, supabase-storage
+Test Files  8 passed
+Tests       39 passed (+ storage confirm case)
 ```
+
+Also previously green suites for absences/reporting not re-broken.
 
 ## Typecheck / lint / build
 
@@ -45,16 +60,38 @@ Tests       24 passed
 |-------|--------|
 | `npm run typecheck` | pass |
 | `npm run lint` | pass |
-| `ASTER_BUILD_WITHOUT_DB=1 npm run build` | pass — routes `/absences`, `/administration/absences` présentes |
+| `ASTER_BUILD_WITHOUT_DB=1 npm run build` | pass |
 
-## Known / remaining issues
+## Database migrations
 
-- Plafonds chiffrés congés spéciaux p.46 : hypothèses / revue RH — à aligner page à page quand le guide est saisi.
-- Chef : vue opérationnelle sans `work_absence.manage` ni documents médicaux (conforme matrice).
-- Pas d’ajustement automatique soldes RTT / titres-restaurant (volontaire).
-- Smoke live Production non exécuté.
-- `docs/git ssh.txt` reste non suivi (ne pas committer).
+No new migration in this refinement batch. Existing `20261109040000_work_absences` remains the latest pending Production apply if not yet deployed.
+
+## Security findings addressed
+
+- P1 JWT role freeze
+- P2 open redirect
+- P2 HR isActive bypass
+- P2 hrNotes interviewer leak
+- P2/P3 mock storage on Vercel
+
+## Known issues / remaining limitations
+
+- Special-leave numeric caps still hypothese / HR review (guide p.46).
+- Planned modules remain non-operational (temps, frais, rémunération, formation, mobilité) — correctly marked.
+- Login rate limit still process-local.
+- Temporary password still returned to browser on onboard (demo).
+- Entra SSO not production-activated.
+- No automatic payroll / RTT adjustments.
+- Live Production E2E (absence medical isolation, role demotion mid-session) not verified in this cycle.
+- `docs/git ssh.txt` untracked — do not commit.
+
+## Manual verification still required
+
+1. Vercel Production deploy after push; confirm migrate for work absences if pending.
+2. Demote a Chef account → confirm elevated actions fail on next request (same browser session).
+3. Collaborateur interviewer cannot see Notes RH; Chef cannot download absence certificates.
+4. Open `/notifications` → badge clears after refresh.
 
 ## Exact next recommended step
 
-Déployer / attendre Vercel Production, migrer, puis tester le parcours Collaborateur → upload justificatif → traitement RH → calendrier/reporting ; confirmer qu’un Chef ne peut pas ouvrir un certificat.
+After Vercel deploy: smoke the three demo accounts on `aster-rh.vercel.app` for session demotion, notifications mark-read, and absence medical isolation; then decide whether to tackle Entra SSO or guide p.46 entitlement transcription.

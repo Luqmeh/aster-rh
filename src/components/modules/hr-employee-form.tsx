@@ -51,7 +51,6 @@ export function HrEmployeeForm({
               hireDate: String(form.get("hireDate") ?? ""),
               phoneInternal:
                 String(form.get("phoneInternal") ?? "").trim() || null,
-              isActive: form.get("isActive") === "true",
               teleworkEligible: form.get("teleworkEligible") === "true",
             });
             setSuccess("Fiche collaborateur enregistrée.");
@@ -136,17 +135,11 @@ export function HrEmployeeForm({
             <option value="non_cadre">Non-cadre</option>
           </select>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="isActive">Statut d&apos;emploi</Label>
-          <select
-            id="isActive"
-            name="isActive"
-            className={selectClassName}
-            defaultValue={employee.isActive ? "true" : "false"}
-          >
-            <option value="true">Actif</option>
-            <option value="false">Inactif</option>
-          </select>
+        <div className="space-y-1.5 sm:col-span-2">
+          <p className="text-[12px] text-[var(--aster-muted)]">
+            Cycle de vie (actif / inactif / parti) : utiliser le panneau
+            dédié sur la fiche — ne pas basculer ici.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="teleworkEligible">Éligibilité télétravail</Label>

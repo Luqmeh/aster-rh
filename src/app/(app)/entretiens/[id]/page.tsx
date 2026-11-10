@@ -88,10 +88,11 @@ export default async function RecrutementDetailPage({
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <Field label="Poste" value={candidate.positionTitle} />
-            <Field
-              label="Notes RH"
-              value={candidate.hrNotes || "—"}
-            />
+            {candidate.hrNotes ? (
+              <Field label="Notes RH" value={candidate.hrNotes} />
+            ) : canManageRecruitment(session.role) ? (
+              <Field label="Notes RH" value="—" />
+            ) : null}
             <Field
               label="Décision"
               value={

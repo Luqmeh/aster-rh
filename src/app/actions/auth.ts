@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/auth";
 import { resolveAuthFeatureFlags } from "@/infrastructure/auth/types";
+import { sanitizeCallbackUrl } from "@/lib/safe-callback-url";
 
 export type LoginState = {
   error?: string;
@@ -23,7 +24,9 @@ export async function loginAction(
 
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const callbackUrl = String(formData.get("callbackUrl") ?? "/tableau-de-bord");
+  const callbackUrl = sanitizeCallbackUrl(
+    String(formData.get("callbackUrl") ?? ""),
+  );
 
   if (!email || !password) {
     return { error: "E-mail et mot de passe requis." };
@@ -33,7 +36,7 @@ export async function loginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: callbackUrl.startsWith("/") ? callbackUrl : "/tableau-de-bord",
+      redirectTo: callbackUrl,
     });
   } catch (error) {
     if (error instanceof AuthError) {

@@ -60,8 +60,9 @@ export default async function ParametresPage({
                 : "Identifiants temporaires"}
             </p>
             <p>
-              Credentials : {flags.credentialsEnabled ? "activés" : "désactivés"} ·
-              Entra : {flags.entraEnabled ? "activé" : "non configuré"}
+              Identifiants :{" "}
+              {flags.credentialsEnabled ? "activés" : "désactivés"} · Entra :{" "}
+              {flags.entraEnabled ? "activé" : "non configuré"}
             </p>
           </CardContent>
         </Card>
@@ -87,28 +88,26 @@ export default async function ParametresPage({
         ) : null}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Authentification</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-[var(--aster-muted)]">
-          <p>
-            Identifiants temporaires (prototype) — désactivables via{" "}
-            <code>ASTER_CREDENTIALS_AUTH=0</code>.
-          </p>
-          <p>
-            Microsoft Entra ID — voir <code>docs/SSO_HANDOVER.md</code>. Activer
-            avec <code>ASTER_ENTRA_AUTH=1</code> et les variables{" "}
-            <code>AUTH_MICROSOFT_ENTRA_ID_*</code>.
-          </p>
-          <p>
-            Persistance —{" "}
-            {container.persistence === "prisma"
-              ? "Prisma / PostgreSQL actif."
-              : "magasin mémoire local."}
-          </p>
-        </CardContent>
-      </Card>
+      {session.role === "admin_rh" || session.role === "chef_de_projet" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Authentification (administration)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-[var(--aster-muted)]">
+            <p>
+              Identifiants temporaires du prototype — désactivables en
+              configuration serveur.
+            </p>
+            <p>
+              Microsoft Entra ID : configuration documentée pour la reprise
+              (SSO). Persistance :{" "}
+              {container.persistence === "prisma"
+                ? "PostgreSQL."
+                : "mémoire locale."}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

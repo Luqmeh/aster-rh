@@ -32,8 +32,8 @@ export default async function CongesPage() {
   return (
     <div className="aster-fade-up space-y-6">
       <PageHeader
-        title="Congés et absences"
-        description="Soumission et validation des demandes — soldes et règles de démonstration (docs/HR_REQUIREMENTS.md)."
+        title="Congés (CP / RTT)"
+        description="Soumission et validation des congés payés, RTT et absences courtes — distinct des arrêts de travail."
       />
 
       <div className="grid gap-3 sm:grid-cols-3">

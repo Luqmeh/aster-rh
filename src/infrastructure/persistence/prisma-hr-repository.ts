@@ -303,6 +303,20 @@ export const prismaHrRepository: HrRepository = {
     }
   },
 
+  async markNotificationsRead(recipientId, ids) {
+    const where: {
+      recipientId: string;
+      read: boolean;
+      id?: { in: string[] };
+    } = { recipientId, read: false };
+    if (ids && ids.length > 0) where.id = { in: ids };
+    const result = await getPrismaClient().notificationItem.updateMany({
+      where,
+      data: { read: true },
+    });
+    return result.count;
+  },
+
   async listNotifications(recipientId) {
     const rows = await getPrismaClient().notificationItem.findMany({
       where: { recipientId },

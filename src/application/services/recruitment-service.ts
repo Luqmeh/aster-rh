@@ -111,7 +111,15 @@ export function createRecruitmentService(deps: {
       if (!candidate) throw new AuthError("Dossier introuvable.", 404);
       await requireCandidateAccess(session, candidate);
       const events = await deps.hr.listRecruitmentEvents(id);
-      return { candidate, events };
+      // Notes RH internes : réservées aux rôles recrutement RH/Chef — pas aux intervieweurs.
+      const canSeeHrNotes =
+        canViewAllRecruitment(session.role) || canManageRecruitment(session.role);
+      return {
+        candidate: canSeeHrNotes
+          ? candidate
+          : { ...candidate, hrNotes: null },
+        events,
+      };
     },
 
     async createDraft(session: AuthSession, input: RecruitmentDraftInput) {

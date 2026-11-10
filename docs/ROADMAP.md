@@ -3,7 +3,7 @@
 ## Phase 0 — Prototype conseil (objectif 13 nov. 2026) ✅ en cours
 
 - [x] Socle Next.js + design system navy
-- [x] Mode démo + switch de rôles
+- [x] Mode démo + comptes Auth.js (pas de switch de rôle client)
 - [x] Dashboards par rôle
 - [x] Profil + annuaire
 - [x] Congés (soumission, solde, validation Chef de projet ; RH en lecture)
