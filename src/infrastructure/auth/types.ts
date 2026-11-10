@@ -12,6 +12,11 @@ export interface AuthSession {
   employee: Employee;
   role: DemoRole;
   authProvider: AuthProviderKind;
+  /**
+   * true tant qu'un mot de passe temporaire n'a pas été changé.
+   * Relu depuis UserAccount (pas seulement le JWT).
+   */
+  mustChangePassword: boolean;
   /** true uniquement si ASTER_MODE=demo (reset démo UI) — pas une preuve d'auth. */
   isDemoMode: boolean;
 }

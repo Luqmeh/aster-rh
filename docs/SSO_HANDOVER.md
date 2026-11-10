@@ -61,6 +61,15 @@ Post-logout : Auth.js redirige vers `/connexion` (page `signIn`).
 5. Confirmer que `/connexion` n’affiche plus le formulaire mot de passe.
 6. Révoquer / rotation des mots de passe seed si encore présents.
 
+## Mot de passe temporaire & premier login
+
+- Lors du provisioning credentials (onboarding RH), ASTER génère un mot de passe temporaire, le **hashe** (`bcrypt`) et pose `UserAccount.mustChangePassword = true`.
+- Le plaintext n’est renvoyé **qu’une fois** à la RH (modale persistante + e-mail mock) ; il n’est jamais stocké en clair (DB, logs, URL, storage navigateur).
+- Après authentification, middleware + layout + `requireSession` bloquent l’accès métier tant que le flag est vrai ; seule `/changer-mot-de-passe` (et Auth.js / déconnexion) est autorisée.
+- Après changement réussi : hash mis à jour, flag remis à `false`, JWT rafraîchi (`unstable_update`), redirection tableau de bord.
+- Comptes seed (`ASTER_SEED_PASSWORD`) et comptes Entra : `mustChangePassword = false`.
+- Si le mot de passe temporaire est perdu : action RH « Régénérer un mot de passe temporaire » (reprovisioning) — pas de récupération du hash.
+
 ## Sécurité
 
 - Ne jamais committer tenant ID / secrets.

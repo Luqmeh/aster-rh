@@ -4,11 +4,14 @@ import { useState, useTransition } from "react";
 import {
   changeAccountRoleAction,
   changeEmploymentStatusAction,
+  reprovisionTemporaryPasswordAction,
 } from "@/app/actions/employee-lifecycle";
+import { OnboardingCredentialsModal } from "@/components/modules/onboarding-credentials-modal";
 import type { DemoRole, EmploymentStatus } from "@/domain/types/hr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { OnboardingCredentials } from "@/lib/onboarding-credentials";
 
 const selectClassName =
   "flex h-9 w-full rounded-[8px] border border-[var(--aster-border-strong)] bg-white px-3 py-2 text-sm text-[var(--aster-ink)]";
@@ -20,6 +23,8 @@ export function LifecycleRoleControls({
   canManageLifecycle,
   canAssignPrivilegedRoles,
   canEditRole,
+  canReprovisionPassword,
+  accountEmail,
 }: {
   employeeId: string;
   employmentStatus: EmploymentStatus;
@@ -27,11 +32,16 @@ export function LifecycleRoleControls({
   canManageLifecycle: boolean;
   canAssignPrivilegedRoles: boolean;
   canEditRole: boolean;
+  canReprovisionPassword: boolean;
+  accountEmail: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<EmploymentStatus | null>(
+    null,
+  );
+  const [credentials, setCredentials] = useState<OnboardingCredentials | null>(
     null,
   );
 
@@ -169,6 +179,49 @@ export function LifecycleRoleControls({
         </form>
       ) : null}
 
+      {canReprovisionPassword && accountEmail ? (
+        <div className="space-y-2 rounded-[10px] border border-[var(--aster-border)] bg-[var(--aster-surface-2)] p-3">
+          <p className="text-sm font-medium text-[var(--aster-ink)]">
+            Mot de passe temporaire
+          </p>
+          <p className="text-xs text-[var(--aster-muted)]">
+            Le mot de passe n&apos;est jamais stocké en clair. Si les
+            identifiants ont été perdus, générez un nouveau mot de passe
+            temporaire (affiché une seule fois).
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              setSuccess(null);
+              startTransition(async () => {
+                try {
+                  const result =
+                    await reprovisionTemporaryPasswordAction(employeeId);
+                  setCredentials({
+                    email: result.email,
+                    temporaryPassword: result.temporaryPassword,
+                    employeeId: result.employeeId,
+                  });
+                  setSuccess("Nouveau mot de passe temporaire généré.");
+                } catch (err) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Reprovisionnement impossible.",
+                  );
+                }
+              });
+            }}
+          >
+            {pending ? "Génération…" : "Régénérer un mot de passe temporaire"}
+          </Button>
+        </div>
+      ) : null}
+
       {error ? (
         <p role="alert" className="text-xs text-[var(--aster-danger)]">
           {error}
@@ -179,6 +232,12 @@ export function LifecycleRoleControls({
           {success}
         </p>
       ) : null}
+
+      <OnboardingCredentialsModal
+        open={Boolean(credentials)}
+        credentials={credentials}
+        onClose={() => setCredentials(null)}
+      />
     </div>
   );
 }

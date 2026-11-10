@@ -186,6 +186,8 @@ model UserAccount {
   employeeId      String       @unique
   employee        Employee     @relation(fields: [employeeId], references: [id])
   isActive        Boolean      @default(true)
+  /// true après provisioning avec mot de passe temporaire — accès limité jusqu'au changement.
+  mustChangePassword Boolean   @default(false)
   lastLoginAt     DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

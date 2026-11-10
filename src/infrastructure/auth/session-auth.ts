@@ -58,6 +58,7 @@ export const sessionAuth: AuthPort = {
       employee,
       role,
       authProvider: provider,
+      mustChangePassword: account.mustChangePassword,
       isDemoMode: isDemoModeEnabled(),
     };
   },

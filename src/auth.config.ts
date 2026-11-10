@@ -20,12 +20,20 @@ export const authConfig = {
   useSecureCookies:
     process.env.VERCEL === "1" || process.env.NODE_ENV === "production",
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.userId = user.id;
         token.role = user.role;
         token.employeeId = user.employeeId;
         token.authProvider = user.authProvider;
+        token.mustChangePassword = Boolean(user.mustChangePassword);
+      }
+      if (trigger === "update" && session) {
+        const next = (session as { user?: { mustChangePassword?: boolean } })
+          .user?.mustChangePassword;
+        if (typeof next === "boolean") {
+          token.mustChangePassword = next;
+        }
       }
       return token;
     },
@@ -39,6 +47,7 @@ export const authConfig = {
         session.user.authProvider = token.authProvider
           ? String(token.authProvider)
           : undefined;
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },

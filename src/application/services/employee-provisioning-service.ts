@@ -140,6 +140,7 @@ export function createEmployeeProvisioningService(deps: {
           role,
           employeeId: employee.id,
           isActive: true,
+          mustChangePassword: true,
         });
         accountId = account.id;
         await deps.hr.addRoleChangeAudit({
@@ -151,11 +152,60 @@ export function createEmployeeProvisioningService(deps: {
         await deps.email.send({
           to: email,
           subject: "[ASTER] Compte collaborateur provisionné",
-          body: `Bonjour ${employee.firstName},\n\nVotre compte ASTER a été créé.\nIdentifiant : ${email}\nMot de passe temporaire : ${temporaryPassword}\n\nChangez-le après la première connexion.`,
+          body: `Bonjour ${employee.firstName},\n\nVotre compte ASTER a été créé.\nIdentifiant : ${email}\nMot de passe temporaire : ${temporaryPassword}\n\nÀ la première connexion, vous devrez obligatoirement changer ce mot de passe temporaire.`,
         });
       }
 
       return { employee, accountId, temporaryPassword };
+    },
+
+    /**
+     * Régénère un mot de passe temporaire (affichage unique côté UI RH).
+     * Impossible de récupérer l'ancien plaintext — uniquement hashé.
+     */
+    async reprovisionTemporaryPassword(
+      session: AuthSession,
+      employeeId: string,
+    ) {
+      requireSession(session);
+      if (!canProvisionEmployees(session.role)) {
+        throw new AuthError("Reprovisioning réservé aux rôles autorisés.", 403);
+      }
+
+      const employee = await deps.hr.getEmployee(employeeId);
+      if (!employee) throw new AuthError("Collaborateur introuvable.", 404);
+
+      const account = await findAccountByEmployeeId(employeeId);
+      if (!account) {
+        throw new Error("Aucun compte applicatif lié à ce collaborateur.");
+      }
+      if (account.authProvider !== "credentials") {
+        throw new Error(
+          "Ce compte n'utilise pas d'identifiants locaux ; le SSO Entra s'applique.",
+        );
+      }
+      if (!account.isActive || !employee.isActive) {
+        throw new Error("Compte ou fiche inactive — réactivez avant reprovisionnement.");
+      }
+
+      const temporaryPassword = generateTemporaryPassword();
+      const passwordHash = await hashPassword(temporaryPassword);
+      await updateUserAccount(account.id, {
+        passwordHash,
+        mustChangePassword: true,
+      });
+
+      await deps.email.send({
+        to: account.email,
+        subject: "[ASTER] Mot de passe temporaire renouvelé",
+        body: `Bonjour ${employee.firstName},\n\nUn nouveau mot de passe temporaire a été généré pour votre compte ASTER.\nIdentifiant : ${account.email}\nMot de passe temporaire : ${temporaryPassword}\n\nVous devrez le changer à la prochaine connexion.`,
+      });
+
+      return {
+        employeeId: employee.id,
+        email: account.email,
+        temporaryPassword,
+      };
     },
 
     async changeLifecycle(

@@ -52,6 +52,7 @@ Composition : `src/infrastructure/container.ts`.
 - Hiérarchie définitive : Chef de projet > Ressources humaines > Collaborateur (voir `docs/AUTHORIZATION_MATRIX.md`).
 - SSO Entra : prêt à configurer (`docs/SSO_HANDOVER.md`) — désactiver credentials avec `ASTER_CREDENTIALS_AUTH=0`.
 - Données RH seed : `src/data/demo-seed.ts` + comptes `UserAccount` (mot de passe via `ASTER_SEED_PASSWORD`).
+- Onboarding credentials : mot de passe temporaire affiché une fois (modale RH) ; `mustChangePassword` force `/changer-mot-de-passe` jusqu’au changement (middleware + layout + `requireSession`).
 
 ## Persistance (Phase 6)
 

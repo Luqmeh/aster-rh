@@ -7,6 +7,7 @@ declare module "next-auth" {
       role?: string;
       employeeId?: string;
       authProvider?: string;
+      mustChangePassword?: boolean;
     };
   }
 
@@ -14,6 +15,7 @@ declare module "next-auth" {
     role?: string;
     employeeId?: string;
     authProvider?: string;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     role?: string;
     employeeId?: string;
     authProvider?: string;
+    mustChangePassword?: boolean;
   }
 }

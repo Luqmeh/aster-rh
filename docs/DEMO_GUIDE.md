@@ -31,7 +31,8 @@ Public cible : conseil d’administration PKF Arsilon — **13 novembre 2026**.
 2. **Administration RH** : effectifs, départements, file en lecture.
 3. Montrer qu’aucune action d’approbation n’est proposée, et qu’un appel serveur direct est refusé.
 4. **Annuaire** : éditer une fiche collaborateur.
-5. Montrer un module **planifié** (ex. Formations).
+5. (Optionnel) Créer un collaborateur : la modale affiche e-mail + mot de passe temporaire **jusqu’à fermeture explicite** ; à la première connexion, changement obligatoire.
+6. Montrer un module **planifié** (ex. Formations).
 
 ### 4. Clôture (1 min)
 

@@ -15,6 +15,7 @@ export function testSessionFor(
     employee,
     role,
     authProvider: "credentials",
+    mustChangePassword: false,
     isDemoMode: true,
   };
 }

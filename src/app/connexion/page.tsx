@@ -10,6 +10,9 @@ export default async function ConnexionPage({
 }) {
   const session = await auth();
   if (session?.user) {
+    if (session.user.mustChangePassword) {
+      redirect("/changer-mot-de-passe");
+    }
     redirect("/tableau-de-bord");
   }
 

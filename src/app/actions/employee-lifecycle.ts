@@ -52,3 +52,20 @@ export async function changeAccountRoleAction(
   revalidatePeople(employeeId);
   return { ok: true as const };
 }
+
+export async function reprovisionTemporaryPasswordAction(employeeId: string) {
+  const container = getContainer();
+  const session = requireSession(await container.auth.getSession());
+  const service = createEmployeeProvisioningService(container);
+  const result = await service.reprovisionTemporaryPassword(
+    session,
+    employeeId,
+  );
+  revalidatePeople(employeeId);
+  return {
+    ok: true as const,
+    employeeId: result.employeeId,
+    email: result.email,
+    temporaryPassword: result.temporaryPassword,
+  };
+}

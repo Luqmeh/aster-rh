@@ -14,6 +14,7 @@ export type StoredUserAccount = {
   role: DemoRole;
   employeeId: string;
   isActive: boolean;
+  mustChangePassword: boolean;
 };
 
 /** Compte seed en mémoire lorsque la persistance Prisma n'est pas disponible (tests / build). */
@@ -40,6 +41,30 @@ async function shouldUsePrisma(): Promise<boolean> {
   }
 }
 
+function mapAccount(row: {
+  id: string;
+  email: string;
+  passwordHash: string | null;
+  authProvider: AuthProviderKind;
+  externalSubject: string | null;
+  role: DemoRole;
+  employeeId: string;
+  isActive: boolean;
+  mustChangePassword?: boolean;
+}): StoredUserAccount {
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.passwordHash,
+    authProvider: row.authProvider,
+    externalSubject: row.externalSubject,
+    role: row.role,
+    employeeId: row.employeeId,
+    isActive: row.isActive,
+    mustChangePassword: Boolean(row.mustChangePassword),
+  };
+}
+
 function fromMemoryByEmail(email: string): StoredUserAccount | null {
   const normalized = email.trim().toLowerCase();
   const fromMap = memoryAccounts.get(normalized);
@@ -59,16 +84,7 @@ export async function findAccountByEmail(
       where: { email: normalized },
     });
     if (!row) return null;
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
   return fromMemoryByEmail(normalized);
 }
@@ -81,16 +97,7 @@ export async function findAccountByEmployeeId(
       where: { employeeId },
     });
     if (!row) return null;
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
   const fromStore =
     getDemoStore().accounts.find((a) => a.employeeId === employeeId) ?? null;
@@ -109,16 +116,7 @@ export async function findAccountByExternalSubject(
       where: { authProvider: "entra_id", externalSubject: subject },
     });
     if (!row) return null;
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
   for (const account of [
     ...memoryAccounts.values(),
@@ -142,16 +140,7 @@ export async function findAccountById(
       where: { id },
     });
     if (!row) return null;
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
   for (const account of [
     ...memoryAccounts.values(),
@@ -170,6 +159,7 @@ export async function createUserAccount(input: {
   role: DemoRole;
   employeeId: string;
   isActive?: boolean;
+  mustChangePassword?: boolean;
 }): Promise<StoredUserAccount> {
   const email = input.email.trim().toLowerCase();
   const account: StoredUserAccount = {
@@ -181,6 +171,7 @@ export async function createUserAccount(input: {
     role: input.role,
     employeeId: input.employeeId,
     isActive: input.isActive ?? true,
+    mustChangePassword: input.mustChangePassword ?? false,
   };
 
   if (await shouldUsePrisma()) {
@@ -193,18 +184,10 @@ export async function createUserAccount(input: {
         role: account.role,
         employeeId: account.employeeId,
         isActive: account.isActive,
+        mustChangePassword: account.mustChangePassword,
       },
     });
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
 
   if (fromMemoryByEmail(email) || (await findAccountByEmployeeId(account.employeeId))) {
@@ -216,23 +199,19 @@ export async function createUserAccount(input: {
 
 export async function updateUserAccount(
   id: string,
-  patch: Partial<Pick<StoredUserAccount, "role" | "isActive" | "passwordHash" | "email">>,
+  patch: Partial<
+    Pick<
+      StoredUserAccount,
+      "role" | "isActive" | "passwordHash" | "email" | "mustChangePassword"
+    >
+  >,
 ): Promise<StoredUserAccount> {
   if (await shouldUsePrisma()) {
     const row = await getPrismaClient().userAccount.update({
       where: { id },
       data: patch,
     });
-    return {
-      id: row.id,
-      email: row.email,
-      passwordHash: row.passwordHash,
-      authProvider: row.authProvider,
-      externalSubject: row.externalSubject,
-      role: row.role,
-      employeeId: row.employeeId,
-      isActive: row.isActive,
-    };
+    return mapAccount(row);
   }
 
   const existing = await findAccountById(id);

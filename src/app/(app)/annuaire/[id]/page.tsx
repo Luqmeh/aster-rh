@@ -59,6 +59,11 @@ export default async function EmployeeProfilePage({
     (canAssignAll ||
       (hasPermission(session.role, "account.role.assign_collaborateur") &&
         account?.role === "collaborateur"));
+  const canReprovisionPassword =
+    canManage &&
+    Boolean(account) &&
+    account?.authProvider === "credentials" &&
+    Boolean(account?.isActive);
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -166,6 +171,8 @@ export default async function EmployeeProfilePage({
               canManageLifecycle={canLifecycle}
               canAssignPrivilegedRoles={canAssignAll}
               canEditRole={canEditRole}
+              canReprovisionPassword={canReprovisionPassword}
+              accountEmail={account?.email ?? null}
             />
           </CardContent>
         </Card>

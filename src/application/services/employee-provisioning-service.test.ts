@@ -47,6 +47,7 @@ describe("employee provisioning & lifecycle", () => {
     const account = await findAccountByEmail("nora.petit@demo.aster-rh.local");
     expect(account?.role).toBe("collaborateur");
     expect(account?.employeeId).toBe("emp-new-1");
+    expect(account?.mustChangePassword).toBe(true);
   });
 
   it("refuse à la RH de provisionner un Chef de projet", async () => {

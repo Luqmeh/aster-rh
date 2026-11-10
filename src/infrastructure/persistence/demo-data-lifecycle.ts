@@ -355,6 +355,7 @@ export async function seedAsterDemoData(
         role: account.role,
         employeeId: account.employeeId,
         isActive: true,
+        mustChangePassword: false,
       },
       update: {
         email: account.email,
@@ -363,6 +364,7 @@ export async function seedAsterDemoData(
         role: account.role,
         employeeId: account.employeeId,
         isActive: true,
+        mustChangePassword: false,
       },
     });
   }

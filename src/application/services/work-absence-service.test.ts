@@ -21,6 +21,7 @@ function sessionFor(
     employee,
     role,
     authProvider: "credentials",
+    mustChangePassword: false,
     isDemoMode: true,
   };
 }

@@ -19,12 +19,26 @@ export class AuthError extends Error {
   }
 }
 
-export function requireSession(session: AuthSession | null): AuthSession {
+export type RequireSessionOptions = {
+  /** Autorise les actions minimales pendant le premier changement de mot de passe. */
+  allowMustChangePassword?: boolean;
+};
+
+export function requireSession(
+  session: AuthSession | null,
+  options?: RequireSessionOptions,
+): AuthSession {
   if (!session) {
     throw new AuthError("Authentification requise.", 401);
   }
   if (!session.employee.isActive) {
     throw new AuthError("Compte collaborateur inactif.", 403);
+  }
+  if (session.mustChangePassword && !options?.allowMustChangePassword) {
+    throw new AuthError(
+      "Vous devez changer votre mot de passe temporaire avant d'accéder à l'application.",
+      403,
+    );
   }
   return session;
 }

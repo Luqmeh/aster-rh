@@ -59,6 +59,7 @@ if (flags.credentialsEnabled) {
           role: account.role,
           employeeId: account.employeeId,
           authProvider: "credentials" as const,
+          mustChangePassword: account.mustChangePassword,
         };
       },
     }),
@@ -80,7 +81,7 @@ if (flags.entraEnabled) {
   );
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   providers,
   callbacks: {
@@ -100,6 +101,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         user.role = byEmail.role;
         user.employeeId = byEmail.employeeId;
         user.authProvider = "entra_id";
+        // Comptes Entra : pas de mot de passe temporaire local.
+        user.mustChangePassword = false;
         await touchLastLogin(byEmail.id);
         return true;
       }
