@@ -21,8 +21,8 @@ prisma/                   # Schéma PostgreSQL cible (Supabase)
 ## Couches
 
 1. **Présentation** — pages App Router, composants React, server actions minces.
-2. **Application** — services (`leave-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, `document-request-service`, `reporting-service`, …).
-3. **Domaine** — types + règles (congés, télétravail, cycle de vie, recrutement, demandes documentaires, reporting, validations) sans I/O.
+2. **Application** — services (`leave-service`, `leave-approval-context-service`, `telework-service`, `employee-provisioning-service`, `recruitment-service`, `document-request-service`, `reporting-service`, …).
+3. **Domaine** — types + règles (congés, contexte d’approbation, télétravail, cycle de vie, recrutement, demandes documentaires, reporting, validations) sans I/O.
 4. **Infrastructure** — implémentations des ports.
 
 ## Ports principaux

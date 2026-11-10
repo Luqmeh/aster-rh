@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { createLeaveApprovalContextService } from "@/application/services/leave-approval-context-service";
 import { createWorkAbsenceService } from "@/application/services/work-absence-service";
 import {
   canManageWorkAbsences,
@@ -13,6 +14,7 @@ import {
   workAbsenceStatusLabel,
 } from "@/domain/rules/work-absence";
 import { AbsenceDocDownloadButton } from "@/components/modules/absence-doc-download-button";
+import { EmployeeLeaveContextPanel } from "@/components/modules/employee-leave-context-panel";
 import { WorkAbsenceHrForm } from "@/components/modules/work-absence-hr-form";
 import { WorkAbsenceUpload } from "@/components/modules/work-absence-upload";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +56,11 @@ export default async function AdminAbsenceDetailPage({
   const canManage = canManageWorkAbsences(session.role);
   const canDocs = canViewWorkAbsenceMedicalDocs(session.role);
   const notes = administrativeNotesForCategory(absence.category);
+  const contextService = createLeaveApprovalContextService(container);
+  const employeeContext = await contextService.getWorkAbsenceContext(
+    session,
+    absence.id,
+  );
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -109,6 +116,15 @@ export default async function AdminAbsenceDetailPage({
           }
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Contexte collaborateur</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmployeeLeaveContextPanel context={employeeContext} />
+        </CardContent>
+      </Card>
 
       {notes.length > 0 ? (
         <Card>

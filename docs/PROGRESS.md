@@ -1,54 +1,44 @@
 # ASTER — Progress Report
 
 **Date:** 10 novembre 2026  
-**Focus:** Identifiants d’onboarding persistants + changement de mot de passe obligatoire au premier login  
-**Commit local :** `223b126`  
-**Push status:** **failed** — clé `~/.ssh/id_ed25519` présente mais non chargée (passphrase / `ssh-add` interactif requis). Exécuter `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519 && git push origin main`.  
-**Deploy:** non vérifié (pas de déploiement lancé dans cette session).
+**Focus:** Panneau contexte collaborateur pour la file d’approbation congés / absences  
+**Commit local :** `81baae9`  
+**Push status:** failed — `Permission denied (publickey)` (ssh-agent sans identité). Exécuter `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519 && git push origin main`.  
+**Deploy:** non vérifié.
 
 ## Implemented features
 
-1. **Modale d’identifiants persistante (RH)**  
-   Après création d’un compte credentials, e-mail + mot de passe temporaire restent visibles jusqu’à fermeture explicite ; boutons Copier (e-mail / mdp / les deux) ; avertissement « une seule fois » ; pas d’affichage si échec ; anti double-soumission ; nettoyage du state à la fermeture.
+1. **Panneau contexte collaborateur** à côté de chaque demande de congé en file (`/conges`, `/administration`) et sur le détail d’absence (`/administration/absences/[id]`).
+2. **Soldes adaptés au type** :
+   - CP / RTT / récupération : acquis, consommé (`*Pris`), disponible (`*Restants`), durée demandée, projection après approbation, autres pending clairement séparés (sans double-compte — le modèle ASTER ne réserve pas au dépôt).
+   - Types hors solde (maladie LeaveRequest, exceptionnel, parental, sans solde, arrêts WorkAbsence) : **« Solde non suivi »**.
+   - Congés spéciaux : barème existant uniquement (`maxDays` ou non chiffré), jours déjà utilisés année, total projeté.
+   - Récupération : crédits ledger + solde recovery.
+3. **Historique** : dernier congé/absence pris (approuvé / clôturé uniquement) + historique expandable ; pending/refusé exclus.
+4. **Confidentialité** : pas de certificats ni commentaires médicaux dans le panneau ; Chef sans docs médicaux ; RH sans pouvoir d’approbation.
+5. **Perf** : chargement batch des contextes leave (anti N+1 sur la file).
 
-2. **`UserAccount.mustChangePassword`**  
-   Flag persistant (Prisma + mémoire). `true` à la création avec mot de passe temporaire ; `false` pour les comptes seed / Entra.
-
-3. **Premier login forcé**  
-   Middleware (JWT) + layout (DB via `getSession`) + `requireSession` bloquent l’accès métier. Seuls `/changer-mot-de-passe`, Auth.js et déconnexion restent accessibles. Page dédiée + validation serveur + hash bcrypt + clear atomique du flag + `unstable_update` JWT → redirection tableau de bord.
-
-4. **Reprovisioning sécurisé**  
-   Si le plaintext a été perdu : action RH « Régénérer un mot de passe temporaire » (nouvel hash + flag `true` + modale one-shot). Aucune récupération de hash.
-
-5. **Doublons**  
-   Les gardes existantes (id / e-mail / compte) empêchent une seconde création. Aucun compte « orphelin » dans le seed ; impossible de retrouver un plaintext déjà hashé.
-
-## Files changed (principaux)
+## Files changed
 
 | Zone | Fichiers |
 |------|----------|
-| Schéma | `prisma/schema.prisma`, `prisma/migrations/20261110010000_must_change_password/` |
-| Auth | `account-store.ts`, `authorization.ts`, `session-auth.ts`, `auth.ts`, `auth.config.ts`, `middleware.ts`, `types`, `password-change-gate.ts` |
-| Services | `employee-provisioning-service.ts`, `password-change-service.ts`, `password-policy.ts` |
-| UI / actions | `employee-onboard-form.tsx`, `onboarding-credentials-modal.tsx`, `lifecycle-role-controls.tsx`, `changer-mot-de-passe/`, `password-change.ts`, layout app |
-| Docs | `SSO_HANDOVER.md`, `ARCHITECTURE.md`, `DEMO_GUIDE.md`, ce `PROGRESS.md` (frais) |
+| Domaine | `leave-approval-context.ts` (+ tests) |
+| Service | `leave-approval-context-service.ts` (+ tests) |
+| UI | `employee-leave-context-panel.tsx`, `pending-leave-request-card.tsx` |
+| Pages | `conges/page.tsx`, `administration/page.tsx`, `administration/absences/[id]/page.tsx` |
+| Docs | `ARCHITECTURE.md`, `AUTHORIZATION_MATRIX.md`, `HR_REQUIREMENTS.md`, ce `PROGRESS.md` (frais) |
 
-**Non inclus :** `docs/git ssh.txt` (local / secrets SSH).
+**Non inclus :** `docs/git ssh.txt`.
 
 ## Dependencies
 
-Aucune nouvelle dépendance npm. Utilise `@radix-ui/react-dialog` et `bcryptjs` déjà présents.
+Aucune nouvelle dépendance npm.
 
 ## Test results
 
-Focused Vitest (23 tests) — **PASS** :
-- `password-policy.test.ts`
-- `onboarding-credentials.test.ts`
-- `password-change-gate.test.ts`
-- `password-change-service.test.ts`
-- `employee-provisioning-service.test.ts`
-
-Suite complète non rejouée (hors périmètre une fois les points d’intégration ciblés verts).
+Focused Vitest — **13/13 PASS** :
+- `leave-approval-context.test.ts` (7)
+- `leave-approval-context-service.test.ts` (6)
 
 ## Quality checks
 
@@ -56,15 +46,15 @@ Suite complète non rejouée (hors périmètre une fois les points d’intégrat
 |-------|--------|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm run build` (`ASTER_BUILD_WITHOUT_DB=1`) | PASS — route `/changer-mot-de-passe` générée |
+| `npm run build` (`ASTER_BUILD_WITHOUT_DB=1`) | PASS |
 
-## Known issues
+## Known limitations
 
-- Push GitHub bloqué sans clé SSH agent (`Permission denied (publickey)`).
-- Migration `mustChangePassword` à appliquer sur les environnements Prisma (`migrate deploy` / build Vercel Production).
-- Warning Next.js 16 : convention `middleware` dépréciée au profit de `proxy` (préexistant / non traité ici).
-- `unstable_update` Auth.js nécessite un cast de typage pour le champ custom `mustChangePassword`.
+- Les soldes `*Restants` / `*Pris` ne sont pas débités automatiquement à l’approbation (comportement historique du prototype) — le panneau expose le modèle tel quel + réservations pending informatives.
+- Télétravail : pas de panneau soldes (pas de solde congés) ; hors scope « leave/absence ».
+- Travail férié (WOH) : crédits visibles surtout via demandes `recuperation` ; panneau dédié calendrier WOH non ajouté.
+- Push GitHub bloqué sans clé SSH chargée.
 
 ## Next recommended implementation step
 
-Brancher et valider la migration Prisma sur l’environnement hébergé (Vercel Production + `build:vercel`), puis scénario manuel : onboarding RH → copie identifiants → login collaborateur → blocage → changement mdp → accès tableau de bord ; enfin activer le push SSH et redeploy.
+Sur la démo Chef : valider une file mixte CP/RTT/récupération/exceptionnel + un arrêt maladie (absence de docs médicaux) ; ensuite, si produit souhaité, débiter atomiquement `*Pris`/`*Restants` à l’approbation pour aligner solde et historique.

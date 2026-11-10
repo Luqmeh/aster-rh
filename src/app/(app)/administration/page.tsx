@@ -1,7 +1,7 @@
+import { createLeaveApprovalContextService } from "@/application/services/leave-approval-context-service";
 import { createLeaveService } from "@/application/services/leave-service";
 import { createTeleworkService } from "@/application/services/telework-service";
 import { createWorkOnHolidayService } from "@/application/services/work-on-holiday-service";
-import { leaveTypeLabel } from "@/domain/rules/leave";
 import { teleworkTypeLabel } from "@/domain/rules/telework";
 import { workOnHolidayStatusLabel } from "@/domain/rules/work-on-holiday";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/domain/rules/permissions";
 import { ApprovalButtons } from "@/components/modules/approval-buttons";
 import { HolidayOverrideForm } from "@/components/modules/holiday-override-form";
+import { PendingLeaveRequestCard } from "@/components/modules/pending-leave-request-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -32,6 +33,7 @@ export default async function AdministrationPage() {
 
   const canDecide = canApproveRequests(session.role);
   const leaveService = createLeaveService(container);
+  const contextService = createLeaveApprovalContextService(container);
   const teleworkService = createTeleworkService(container);
   const wohService = createWorkOnHolidayService(container);
   const [employees, departments, pendingLeaves, pendingTw, wohRequests] =
@@ -42,6 +44,10 @@ export default async function AdministrationPage() {
       teleworkService.listTeamPending(session),
       wohService.listVisible(session),
     ]);
+  const pendingLeaveContexts = await contextService.getLeaveRequestContexts(
+    session,
+    pendingLeaves,
+  );
   const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
   const pendingTotal = pendingLeaves.length + pendingTw.length;
   const wohUpcoming = wohRequests.filter((r) => r.status === "en_attente");
@@ -110,34 +116,14 @@ export default async function AdministrationPage() {
                 description="Aucune demande de congé en attente."
               />
             ) : (
-              pendingLeaves.map((item) => {
-                const emp = byId[item.employeeId];
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-[10px] border border-[var(--aster-border)] p-3"
-                  >
-                    <div className="mb-2 flex justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-[var(--aster-ink)]">
-                          {emp
-                            ? fullName(emp.firstName, emp.lastName)
-                            : item.employeeId}
-                        </p>
-                        <p className="text-xs text-[var(--aster-muted)]">
-                          {leaveTypeLabel(item.type)} ·{" "}
-                          {formatDateFr(item.startDate)} →{" "}
-                          {formatDateFr(item.endDate)}
-                        </p>
-                      </div>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    {canDecide ? (
-                      <ApprovalButtons kind="leave" requestId={item.id} />
-                    ) : null}
-                  </div>
-                );
-              })
+              pendingLeaves.map((item) => (
+                <PendingLeaveRequestCard
+                  key={item.id}
+                  request={item}
+                  context={pendingLeaveContexts[item.id]}
+                  canDecide={canDecide}
+                />
+              ))
             )}
           </CardContent>
         </Card>

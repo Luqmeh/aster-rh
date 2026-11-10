@@ -1,33 +1,36 @@
 import { CalendarDays } from "lucide-react";
+import { createLeaveApprovalContextService } from "@/application/services/leave-approval-context-service";
 import { createLeaveService } from "@/application/services/leave-service";
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import {
   canApproveRequests,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
-import { ApprovalButtons } from "@/components/modules/approval-buttons";
 import { LeaveForm } from "@/components/modules/leave-form";
+import { PendingLeaveRequestCard } from "@/components/modules/pending-leave-request-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getContainer } from "@/infrastructure/container";
-import { formatDateFr, fullName } from "@/lib/utils";
+import { formatDateFr } from "@/lib/utils";
 
 export default async function CongesPage() {
   const container = getContainer();
   const session = await container.auth.getSession();
   if (!session) throw new Error("Session absente");
   const service = createLeaveService(container);
+  const contextService = createLeaveApprovalContextService(container);
   const canViewQueue = canViewAllRequests(session.role);
   const canDecide = canApproveRequests(session.role);
-  const [mine, pending, balance, employees] = await Promise.all([
+  const [mine, pending, balance] = await Promise.all([
     service.listForCurrentUser(session),
     service.listTeamPending(session),
     service.getBalance(session),
-    container.hr.listEmployees(),
   ]);
-  const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
+  const pendingContexts = canViewQueue
+    ? await contextService.getLeaveRequestContexts(session, pending)
+    : {};
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -100,34 +103,14 @@ export default async function CongesPage() {
                   description="Les demandes à traiter apparaîtront ici."
                 />
               ) : (
-                pending.map((item) => {
-                  const emp = byId[item.employeeId];
-                  return (
-                    <div
-                      key={item.id}
-                      className="rounded-lg border border-[var(--aster-border)] p-3"
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {emp
-                              ? fullName(emp.firstName, emp.lastName)
-                              : item.employeeId}
-                          </p>
-                          <p className="text-xs text-[var(--aster-muted)]">
-                            {leaveTypeLabel(item.type)} ·{" "}
-                            {formatDateFr(item.startDate)} →{" "}
-                            {formatDateFr(item.endDate)} · {item.daysCount} j
-                          </p>
-                        </div>
-                        <StatusBadge status={item.status} />
-                      </div>
-                      {canDecide ? (
-                        <ApprovalButtons kind="leave" requestId={item.id} />
-                      ) : null}
-                    </div>
-                  );
-                })
+                pending.map((item) => (
+                  <PendingLeaveRequestCard
+                    key={item.id}
+                    request={item}
+                    context={pendingContexts[item.id]}
+                    canDecide={canDecide}
+                  />
+                ))
               )}
             </CardContent>
           </Card>

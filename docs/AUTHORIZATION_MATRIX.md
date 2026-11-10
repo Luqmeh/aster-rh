@@ -43,3 +43,4 @@ Hiérarchie définitive (permanente) :
 5. CV / documents : stockage privé `aster-private-docs` + URL signée courte uniquement ; namespaces séparés `recruitment/…` et `employee-documents/…`.
 6. Publication documentaire explicite (« Mettre à disposition ») — l’upload seul ne rend pas le fichier visible au collaborateur.
 7. Justificatifs d’arrêt : namespace `employee-absence-documents/…` — accès médical RH uniquement ; Chef en vue opérationnelle sans fichiers.
+8. Panneau contexte collaborateur (file congés / détail absences) : visible Chef + RH ; **sans** certificats ni notes médicales ; la RH n’obtient pas pour autant le droit d’approuver.

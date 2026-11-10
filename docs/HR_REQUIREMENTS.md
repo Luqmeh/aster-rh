@@ -28,6 +28,7 @@ Code : `src/domain/rules/leave.ts` → `defaultAnnualEntitlement`.
 | Calcul des jours (ouvrés lun–ven) | **HYPOTHÈSE DÉMO** | Simplifié ; hors jours fériés & conventions locales |
 | Demi-journées | **Implémenté (démo)** | Flags `halfDayStart` / `halfDayEnd` |
 | Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Chef de projet (RH en lecture seule) |
+| Contexte collaborateur à la validation | **Implémenté (démo)** | Panneau soldes / historique à côté de chaque demande (`leave-approval-context`) — sans inventer de barème hors modèle |
 | Types d’absence (CP/RTT) | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental (LeaveRequest) |
 | Arrêts / absences spéciales | **Guide + workflow ASTER** | Module `WorkAbsence` — voir §7 |
 
