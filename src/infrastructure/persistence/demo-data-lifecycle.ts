@@ -192,12 +192,27 @@ export async function seedAsterDemoData(
             rttAcquis: balance.rttAcquis,
             rttPris: balance.rttPris,
             rttRestants: balance.rttRestants,
-        recoveryDaysAcquis: balance.recoveryDaysAcquis ?? 0,
-        recoveryDaysPris: balance.recoveryDaysPris ?? 0,
-        recoveryDaysRestants: balance.recoveryDaysRestants ?? 0,
+            recoveryDaysAcquis: balance.recoveryDaysAcquis ?? 0,
+            recoveryDaysPris: balance.recoveryDaysPris ?? 0,
+            recoveryDaysRestants: balance.recoveryDaysRestants ?? 0,
           },
     });
   }
+
+  // Grand livre : ouverture idempotente depuis les soldes existants (pas d'historique inventé).
+  if (options.resetMutable) {
+    await prisma.leaveLedgerEntry.deleteMany();
+  }
+  const { createLeaveLedgerService } = await import(
+    "@/application/services/leave-ledger-service"
+  );
+  const { prismaHrRepository } = await import(
+    "@/infrastructure/persistence/prisma-hr-repository"
+  );
+  await createLeaveLedgerService({ hr: prismaHrRepository }).backfillOpeningBalancesFromSnapshots({
+    year: 2026,
+    effectiveDate: "2026-01-01",
+  });
 
   if (options.resetMutable) {
     await prisma.notificationItem.deleteMany();

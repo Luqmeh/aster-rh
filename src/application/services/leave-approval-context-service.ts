@@ -1,5 +1,6 @@
+import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import {
-  buildLeaveBalanceContext,
+  buildLeaveBalanceContextFromLedger,
   buildLeaveHistoryEntries,
   selectLastCompletedWorkAbsence,
   selectLastTakenLeave,
@@ -128,6 +129,8 @@ function assertViewerCanSeePeopleContext(session: AuthSession): void {
 }
 
 export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
+  const ledger = createLeaveLedgerService({ hr: deps.hr });
+
   return {
     /**
      * Construit le contexte pour une file de congés (batch, anti N+1).
@@ -140,6 +143,8 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
       requireSession(session);
       assertViewerCanSeePeopleContext(session);
       if (requests.length === 0) return {};
+
+      await ledger.ensureBackfill(year);
 
       const [employees, departments, allLeaves] = await Promise.all([
         deps.hr.listEmployees({ includeInactive: true }),
@@ -156,13 +161,6 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
       }
 
       const employeeIds = [...new Set(requests.map((r) => r.employeeId))];
-      const balances = await Promise.all(
-        employeeIds.map(async (id) => {
-          const balance = await deps.hr.getLeaveBalance(id, year);
-          return [id, balance] as const;
-        }),
-      );
-      const balanceById = new Map(balances);
 
       const recoveryNeeded = employeeIds.filter((id) =>
         requests.some(
@@ -187,9 +185,15 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
         if (!employee) continue;
         const department = deptById.get(employee.departmentId) ?? null;
         const employeeLeaves = leavesByEmployee.get(request.employeeId) ?? [];
-        const balance = balanceById.get(request.employeeId) ?? null;
-        const balanceCtx = buildLeaveBalanceContext({
-          balance,
+        const snapshot = await ledger.getBalanceForLeaveType(
+          session,
+          request.employeeId,
+          request.type,
+          year,
+          request,
+        );
+        const balanceCtx = buildLeaveBalanceContextFromLedger({
+          snapshot,
           leaveType: request.type,
           employeeRequests: employeeLeaves,
           currentRequest: request,
@@ -209,9 +213,9 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
               (s, e) => s + e.daysCredited,
               0,
             ),
-            balanceAcquis: balance?.recoveryDaysAcquis ?? null,
-            balancePris: balance?.recoveryDaysPris ?? null,
-            balanceRestants: balance?.recoveryDaysRestants ?? null,
+            balanceAcquis: snapshot?.totalCredited ?? null,
+            balancePris: snapshot?.totalConsumed ?? null,
+            balanceRestants: snapshot?.ledgerBalance ?? null,
             entriesCount: yearEntries.length,
           };
         }

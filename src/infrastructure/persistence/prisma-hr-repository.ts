@@ -6,6 +6,7 @@ import {
   mapDocument,
   mapEmployee,
   mapLeaveBalance,
+  mapLeaveLedgerEntry,
   mapLeaveRequest,
   mapNotification,
   mapOrganizationUnit,
@@ -143,6 +144,95 @@ export const prismaHrRepository: HrRepository = {
       where: { employeeId_year: { employeeId, year } },
     });
     return row ? mapLeaveBalance(row) : null;
+  },
+
+  async listLeaveBalances(year) {
+    const rows = await getPrismaClient().leaveBalance.findMany({
+      where: year != null ? { year } : undefined,
+      orderBy: [{ employeeId: "asc" }, { year: "asc" }],
+    });
+    return rows.map(mapLeaveBalance);
+  },
+
+  async listLeaveLedgerEntries(filter) {
+    const rows = await getPrismaClient().leaveLedgerEntry.findMany({
+      where: {
+        employeeId: filter?.employeeId,
+        account: filter?.account,
+        year: filter?.year,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map(mapLeaveLedgerEntry);
+  },
+
+  async getLeaveLedgerEntryBySource(input) {
+    const row = await getPrismaClient().leaveLedgerEntry.findUnique({
+      where: {
+        sourceKind_sourceId_transactionType: {
+          sourceKind: input.sourceKind,
+          sourceId: input.sourceId,
+          transactionType: input.transactionType,
+        },
+      },
+    });
+    return row ? mapLeaveLedgerEntry(row) : null;
+  },
+
+  async appendLeaveLedgerEntry(input) {
+    const prisma = getPrismaClient();
+    const existing = await prisma.leaveLedgerEntry.findUnique({
+      where: {
+        sourceKind_sourceId_transactionType: {
+          sourceKind: input.sourceKind,
+          sourceId: input.sourceId,
+          transactionType: input.transactionType,
+        },
+      },
+    });
+    if (existing) {
+      return { entry: mapLeaveLedgerEntry(existing), created: false };
+    }
+    try {
+      const row = await prisma.leaveLedgerEntry.create({
+        data: {
+          id: input.id,
+          employeeId: input.employeeId,
+          account: input.account,
+          transactionType: input.transactionType,
+          quantity: input.quantity,
+          unit: input.unit ?? "days",
+          year: input.year,
+          effectiveDate: new Date(`${input.effectiveDate}T00:00:00.000Z`),
+          sourceKind: input.sourceKind,
+          sourceId: input.sourceId,
+          reason: input.reason,
+          actorEmployeeId: input.actorEmployeeId ?? null,
+          reversesEntryId: input.reversesEntryId ?? null,
+          metadataJson: input.metadataJson
+            ? (JSON.parse(
+                JSON.stringify(input.metadataJson),
+              ) as import("@prisma/client/runtime/library").InputJsonValue)
+            : undefined,
+        },
+      });
+      return { entry: mapLeaveLedgerEntry(row), created: true };
+    } catch (error) {
+      // Course concurrente : unique violation → relire
+      const again = await prisma.leaveLedgerEntry.findUnique({
+        where: {
+          sourceKind_sourceId_transactionType: {
+            sourceKind: input.sourceKind,
+            sourceId: input.sourceId,
+            transactionType: input.transactionType,
+          },
+        },
+      });
+      if (again) {
+        return { entry: mapLeaveLedgerEntry(again), created: false };
+      }
+      throw error;
+    }
   },
 
   async listLeaveRequests(filter) {

@@ -24,6 +24,10 @@ import type {
   WorkOnHolidayRequest,
   WorkOnHolidayStatus,
 } from "@/domain/types/hr";
+import type {
+  LeaveLedgerEntry,
+  LeaveLedgerEntryCreateInput,
+} from "@/domain/types/leave-ledger";
 
 export type EmployeeCreateInput = Omit<
   Employee,
@@ -86,6 +90,26 @@ export interface HrRepository {
   ): Promise<LeaveBalance>;
   listTeamMembers(managerId: string): Promise<Employee[]>;
   getLeaveBalance(employeeId: string, year: number): Promise<LeaveBalance | null>;
+  listLeaveBalances(year?: number): Promise<LeaveBalance[]>;
+
+  listLeaveLedgerEntries(filter?: {
+    employeeId?: string;
+    account?: LeaveLedgerEntry["account"];
+    year?: number;
+  }): Promise<LeaveLedgerEntry[]>;
+  getLeaveLedgerEntryBySource(input: {
+    sourceKind: string;
+    sourceId: string;
+    transactionType: LeaveLedgerEntry["transactionType"];
+  }): Promise<LeaveLedgerEntry | null>;
+  /**
+   * Append-only. Idempotent si (sourceKind, sourceId, transactionType) existe déjà
+   * — retourne l'écriture existante sans la modifier.
+   */
+  appendLeaveLedgerEntry(
+    input: LeaveLedgerEntryCreateInput,
+  ): Promise<{ entry: LeaveLedgerEntry; created: boolean }>;
+
   listLeaveRequests(filter?: {
     employeeId?: string;
     managerId?: string;

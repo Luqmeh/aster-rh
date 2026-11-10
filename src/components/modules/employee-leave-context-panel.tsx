@@ -84,8 +84,13 @@ function LeaveBalanceBlock({
             value={formatDays(balance.consumedRecorded)}
           />
           <Metric
-            label="Disponible maintenant"
+            label="Solde ledger"
             value={formatDays(balance.availableNow)}
+            emphasize
+          />
+          <Metric
+            label="Après autres réservations"
+            value={formatDays(balance.availableAfterReservations)}
             emphasize
           />
           <Metric
@@ -101,7 +106,7 @@ function LeaveBalanceBlock({
           <Metric
             label="Autres demandes en attente"
             value={formatDays(balance.otherPendingReservedDays)}
-            hint="Non déduites du disponible (pas de réservation au dépôt)"
+            hint="Réservations logiques — hors écritures ledger"
           />
         </div>
       )}

@@ -27,12 +27,14 @@ import type {
   WorkAbsenceEvent,
   WorkOnHolidayRequest,
 } from "@/domain/types/hr";
+import type { LeaveLedgerEntry } from "@/domain/types/leave-ledger";
 import type { StoredUserAccount } from "@/infrastructure/auth/account-store";
 
 export interface DemoStore {
   departments: OrganizationUnit[];
   employees: Employee[];
   leaveBalances: LeaveBalance[];
+  leaveLedgerEntries: LeaveLedgerEntry[];
   leaveRequests: LeaveRequest[];
   teleworkRequests: TeleworkRequest[];
   notifications: NotificationItem[];
@@ -60,6 +62,7 @@ function cloneStore(): DemoStore {
     departments: structuredClone(departments),
     employees: structuredClone(employees),
     leaveBalances: structuredClone(leaveBalances),
+    leaveLedgerEntries: [],
     leaveRequests: structuredClone(leaveRequests),
     teleworkRequests: structuredClone(teleworkRequests),
     notifications: structuredClone(notifications),

@@ -23,6 +23,7 @@ import type {
   WorkOnHolidayRequest,
   WorkOnHolidayStatus,
 } from "@/domain/types/hr";
+import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import {
   AuthError,
   requireSession,
@@ -345,7 +346,7 @@ export function createWorkOnHolidayService(deps: {
       const daysCredited = hoursToRecoveryDays(confirmedHours, daily);
       const year = Number(existing.holidayDate.slice(0, 4));
 
-      const ledger = await deps.hr.createRecoveryCredit({
+      const recoveryLedger = await deps.hr.createRecoveryCredit({
         employeeId: existing.employeeId,
         year,
         sourceKind: "work_on_holiday",
@@ -356,24 +357,15 @@ export function createWorkOnHolidayService(deps: {
         actorEmployeeId: session.employee.id,
       });
 
-      const balance =
-        (await deps.hr.getLeaveBalance(existing.employeeId, year)) ?? {
-          employeeId: existing.employeeId,
-          year,
-          congesPayesAcquis: 0,
-          congesPayesPris: 0,
-          congesPayesRestants: 0,
-          rttAcquis: 0,
-          rttPris: 0,
-          rttRestants: 0,
-          recoveryDaysAcquis: 0,
-          recoveryDaysPris: 0,
-          recoveryDaysRestants: 0,
-        };
-
-      await deps.hr.updateLeaveBalance(existing.employeeId, year, {
-        recoveryDaysAcquis: balance.recoveryDaysAcquis + daysCredited,
-        recoveryDaysRestants: balance.recoveryDaysRestants + daysCredited,
+      const leaveLedger = createLeaveLedgerService({ hr: deps.hr });
+      await leaveLedger.recordRecoveryCredit({
+        employeeId: existing.employeeId,
+        year,
+        daysCredited,
+        hoursConfirmed: confirmedHours,
+        sourceRequestId: existing.id,
+        actorEmployeeId: session.employee.id,
+        effectiveDate: existing.holidayDate,
       });
 
       const updated = await deps.hr.updateWorkOnHolidayRequest(id, {
@@ -381,7 +373,7 @@ export function createWorkOnHolidayService(deps: {
         confirmedHours,
         confirmedByEmployeeId: session.employee.id,
         confirmedAt: new Date().toISOString(),
-        creditLedgerId: ledger.id,
+        creditLedgerId: recoveryLedger.id,
       });
 
       await deps.hr.addNotification({

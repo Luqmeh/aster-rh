@@ -149,25 +149,57 @@ async function exportSoldes(
   filters: ReportFilters,
 ) {
   const year = Number(filters.endDate.slice(0, 4));
+  const { createLeaveLedgerService } = await import(
+    "@/application/services/leave-ledger-service"
+  );
+  const ledger = createLeaveLedgerService({ hr: container.hr });
+  await ledger.ensureBackfill(year);
   const rows = [];
   for (const emp of ctx.employees) {
-    const balance = await container.hr.getLeaveBalance(emp.id, year);
-    const credits = await container.hr.listRecoveryCredits(emp.id);
+    const [entries, requests, credits] = await Promise.all([
+      container.hr.listLeaveLedgerEntries({ employeeId: emp.id, year }),
+      container.hr.listLeaveRequests({ employeeId: emp.id }),
+      container.hr.listRecoveryCredits(emp.id),
+    ]);
+    const { computeAccountBalance } = await import(
+      "@/domain/rules/leave-ledger-balance"
+    );
+    const cp = computeAccountBalance({
+      employeeId: emp.id,
+      account: "conges_payes",
+      year,
+      entries,
+      leaveRequests: requests,
+    });
+    const rtt = computeAccountBalance({
+      employeeId: emp.id,
+      account: "rtt",
+      year,
+      entries,
+      leaveRequests: requests,
+    });
+    const recovery = computeAccountBalance({
+      employeeId: emp.id,
+      account: "recuperation",
+      year,
+      entries,
+      leaveRequests: requests,
+    });
     const recoveryHours = credits.reduce((s, c) => s + c.hoursConfirmed, 0);
     rows.push({
       employee: fullName(emp.firstName, emp.lastName),
       department: ctx.departmentOf(emp.id),
       status: ctx.labels.employment(emp.employmentStatus),
       year,
-      cpAcquis: formatNumberFr(balance?.congesPayesAcquis ?? 0, 1),
-      cpPris: formatNumberFr(balance?.congesPayesPris ?? 0, 1),
-      cpRestant: formatNumberFr(balance?.congesPayesRestants ?? 0, 1),
-      rttAcquis: formatNumberFr(balance?.rttAcquis ?? 0, 1),
-      rttPris: formatNumberFr(balance?.rttPris ?? 0, 1),
-      rttRestant: formatNumberFr(balance?.rttRestants ?? 0, 1),
-      recoveryAcquis: formatNumberFr(balance?.recoveryDaysAcquis ?? 0, 2),
-      recoveryPris: formatNumberFr(balance?.recoveryDaysPris ?? 0, 2),
-      recoveryRestant: formatNumberFr(balance?.recoveryDaysRestants ?? 0, 2),
+      cpAcquis: formatNumberFr(cp.totalCredited, 1),
+      cpPris: formatNumberFr(cp.totalConsumed, 1),
+      cpRestant: formatNumberFr(cp.ledgerBalance, 1),
+      rttAcquis: formatNumberFr(rtt.totalCredited, 1),
+      rttPris: formatNumberFr(rtt.totalConsumed, 1),
+      rttRestant: formatNumberFr(rtt.ledgerBalance, 1),
+      recoveryAcquis: formatNumberFr(recovery.totalCredited, 2),
+      recoveryPris: formatNumberFr(recovery.totalConsumed, 2),
+      recoveryRestant: formatNumberFr(recovery.ledgerBalance, 2),
       recoveryHoursLedger: formatNumberFr(recoveryHours, 2),
     });
   }

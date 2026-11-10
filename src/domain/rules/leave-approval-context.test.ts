@@ -103,9 +103,10 @@ describe("leave-approval-context balances", () => {
     expect(ctx.entitlement).toBe(25);
     expect(ctx.consumedRecorded).toBe(5);
     expect(ctx.availableNow).toBe(20);
-    expect(ctx.requestDays).toBe(3);
-    expect(ctx.projectedAvailableAfterApproval).toBe(17);
     expect(ctx.otherPendingReservedDays).toBe(2);
+    expect(ctx.availableAfterReservations).toBe(18);
+    expect(ctx.requestDays).toBe(3);
+    expect(ctx.projectedAvailableAfterApproval).toBe(15);
     expect(ctx.approvedDaysFromRequests).toBe(4);
     expect(ctx.insufficientForRequest).toBe(false);
     // Refusés / annulés exclus des réservations et consommations demandes
@@ -129,6 +130,7 @@ describe("leave-approval-context balances", () => {
       year: 2026,
     });
     expect(ctx.availableNow).toBe(8);
+    expect(ctx.availableAfterReservations).toBe(8);
     expect(ctx.projectedAvailableAfterApproval).toBe(-4);
     expect(ctx.insufficientForRequest).toBe(true);
   });

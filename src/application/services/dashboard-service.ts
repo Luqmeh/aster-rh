@@ -1,3 +1,4 @@
+import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import {
   canApproveRequests,
   canViewAllRequests,
@@ -7,9 +8,27 @@ import type { AuthSession } from "@/infrastructure/auth/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 
 export function createDashboardService(deps: { hr: HrRepository }) {
+  const ledger = createLeaveLedgerService({ hr: deps.hr });
   return {
     async getOverview(session: AuthSession) {
-      const balance = await deps.hr.getLeaveBalance(session.employee.id, 2026);
+      const snaps = await ledger.getEmployeeBalances(
+        session,
+        session.employee.id,
+        2026,
+      );
+      const balance = {
+        employeeId: session.employee.id,
+        year: 2026,
+        congesPayesAcquis: snaps.conges_payes.totalCredited,
+        congesPayesPris: snaps.conges_payes.totalConsumed,
+        congesPayesRestants: snaps.conges_payes.ledgerBalance,
+        rttAcquis: snaps.rtt.totalCredited,
+        rttPris: snaps.rtt.totalConsumed,
+        rttRestants: snaps.rtt.ledgerBalance,
+        recoveryDaysAcquis: snaps.recuperation.totalCredited,
+        recoveryDaysPris: snaps.recuperation.totalConsumed,
+        recoveryDaysRestants: snaps.recuperation.ledgerBalance,
+      };
       const myLeaves = await deps.hr.listLeaveRequests({
         employeeId: session.employee.id,
       });

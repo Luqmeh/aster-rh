@@ -11,6 +11,7 @@ import type {
   WorkAbsence,
   WorkAbsenceCategory,
 } from "@/domain/types/hr";
+import type { AccountBalanceSnapshot } from "@/domain/types/leave-ledger";
 
 /** Statuts qui réservent encore du solde (non terminaux, non refusés). */
 export const LEAVE_PENDING_STATUSES: RequestStatus[] = [
@@ -51,24 +52,23 @@ export type LeaveBalanceContext = {
   tracked: boolean;
   leaveType: LeaveType;
   leaveTypeLabel: string;
-  /** Droit / acquis enregistré (null si non suivi). */
+  /** Total crédité (grand livre). */
   entitlement: number | null;
-  /** Consommé enregistré dans LeaveBalance.*Pris. */
+  /** Total consommé (grand livre). */
   consumedRecorded: number | null;
-  /**
-   * Solde disponible actuel selon le modèle ASTER (`*Restants`).
-   * Les demandes en attente ne sont PAS déduites (pas de réservation au submit).
-   */
+  /** Solde ledger (écritures réelles uniquement). */
   availableNow: number | null;
-  /** Autres demandes pending même type (informationnelle, hors solde). */
+  /** Autres demandes pending même type (réservations, hors ledger). */
   otherPendingReservedDays: number;
-  /** Demandes approuvées même type sur l'année (lecture demandes, hors *Pris). */
+  /** Disponible après autres réservations (= ledger − autres pending). */
+  availableAfterReservations: number | null;
+  /** Demandes approuvées même type sur l'année (lecture demandes). */
   approvedDaysFromRequests: number;
   /** Durée de la demande en revue. */
   requestDays: number;
   /**
-   * Solde projeté si cette demande est approuvée et déduite du solde actuel.
-   * = availableNow - requestDays (sans retrancher les autres pending).
+   * Solde projeté si cette demande est approuvée :
+   * availableAfterReservations − requestDays.
    */
   projectedAvailableAfterApproval: number | null;
   insufficientForRequest: boolean;
@@ -103,9 +103,83 @@ function balanceFieldsForType(
   return null;
 }
 
+/** Construit le panneau depuis le snapshot autoritatif du grand livre. */
+export function buildLeaveBalanceContextFromLedger(input: {
+  snapshot: AccountBalanceSnapshot | null;
+  leaveType: LeaveType;
+  employeeRequests: LeaveRequest[];
+  currentRequest: LeaveRequest;
+  year: number;
+}): LeaveBalanceContext {
+  const { snapshot, leaveType, employeeRequests, currentRequest, year } = input;
+  const label = leaveTypeLabel(leaveType);
+  const requestDays = currentRequest.daysCount;
+  const approvedDaysFromRequests = sumLeaveDays(
+    employeeRequests,
+    (r) =>
+      r.employeeId === currentRequest.employeeId &&
+      r.type === leaveType &&
+      requestOverlapsYear(r, year) &&
+      r.id !== currentRequest.id &&
+      isLeaveTakenStatus(r.status),
+  );
+
+  if (!usesLeaveBalance(leaveType)) {
+    return {
+      tracked: false,
+      leaveType,
+      leaveTypeLabel: label,
+      entitlement: null,
+      consumedRecorded: null,
+      availableNow: null,
+      otherPendingReservedDays: 0,
+      availableAfterReservations: null,
+      approvedDaysFromRequests,
+      requestDays,
+      projectedAvailableAfterApproval: null,
+      insufficientForRequest: false,
+      untrackedLabel: "Solde non suivi",
+    };
+  }
+
+  if (!snapshot) {
+    return {
+      tracked: true,
+      leaveType,
+      leaveTypeLabel: label,
+      entitlement: null,
+      consumedRecorded: null,
+      availableNow: null,
+      otherPendingReservedDays: 0,
+      availableAfterReservations: null,
+      approvedDaysFromRequests,
+      requestDays,
+      projectedAvailableAfterApproval: null,
+      insufficientForRequest: false,
+      untrackedLabel: "Solde non renseigné pour cette année",
+    };
+  }
+
+  return {
+    tracked: true,
+    leaveType,
+    leaveTypeLabel: label,
+    entitlement: snapshot.totalCredited,
+    consumedRecorded: snapshot.totalConsumed,
+    availableNow: snapshot.ledgerBalance,
+    otherPendingReservedDays: snapshot.otherPendingReservations,
+    availableAfterReservations: snapshot.availableAfterReservations,
+    approvedDaysFromRequests,
+    requestDays: snapshot.currentRequestDays || requestDays,
+    projectedAvailableAfterApproval: snapshot.projectedAfterCurrentRequest,
+    insufficientForRequest: snapshot.insufficientForCurrentRequest,
+    untrackedLabel: null,
+  };
+}
+
 /**
- * Contexte solde pour une demande LeaveRequest.
- * Cohérent avec assertSufficientBalance : disponible = *Restants, sans double-compte pending.
+ * Contexte solde (compatibilité tests / snapshot LeaveBalance).
+ * Formules Phase 1 : disponible après réservations = ledger − autres pending.
  */
 export function buildLeaveBalanceContext(input: {
   balance: LeaveBalance | null;
@@ -148,6 +222,7 @@ export function buildLeaveBalanceContext(input: {
       consumedRecorded: null,
       availableNow: null,
       otherPendingReservedDays,
+      availableAfterReservations: null,
       approvedDaysFromRequests,
       requestDays,
       projectedAvailableAfterApproval: null,
@@ -166,6 +241,7 @@ export function buildLeaveBalanceContext(input: {
       consumedRecorded: null,
       availableNow: null,
       otherPendingReservedDays,
+      availableAfterReservations: null,
       approvedDaysFromRequests,
       requestDays,
       projectedAvailableAfterApproval: null,
@@ -174,8 +250,9 @@ export function buildLeaveBalanceContext(input: {
     };
   }
 
-  const availableNow = fields.remaining;
-  const projected = availableNow - requestDays;
+  const ledgerBalance = fields.remaining;
+  const availableAfter = ledgerBalance - otherPendingReservedDays;
+  const projected = availableAfter - requestDays;
 
   return {
     tracked: true,
@@ -183,12 +260,13 @@ export function buildLeaveBalanceContext(input: {
     leaveTypeLabel: label,
     entitlement: fields.entitlement,
     consumedRecorded: fields.consumed,
-    availableNow,
+    availableNow: ledgerBalance,
     otherPendingReservedDays,
+    availableAfterReservations: availableAfter,
     approvedDaysFromRequests,
     requestDays,
     projectedAvailableAfterApproval: projected,
-    insufficientForRequest: requestDays > availableNow,
+    insufficientForRequest: requestDays > availableAfter,
     untrackedLabel: null,
   };
 }

@@ -111,6 +111,70 @@ export const demoHrRepository: HrRepository = {
     );
   },
 
+  async listLeaveBalances(year) {
+    const rows = getDemoStore().leaveBalances;
+    return year ? rows.filter((b) => b.year === year) : [...rows];
+  },
+
+  async listLeaveLedgerEntries(filter) {
+    let rows = [...getDemoStore().leaveLedgerEntries];
+    if (filter?.employeeId) {
+      rows = rows.filter((e) => e.employeeId === filter.employeeId);
+    }
+    if (filter?.account) {
+      rows = rows.filter((e) => e.account === filter.account);
+    }
+    if (filter?.year != null) {
+      rows = rows.filter((e) => e.year === filter.year);
+    }
+    return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  },
+
+  async getLeaveLedgerEntryBySource(input) {
+    return (
+      getDemoStore().leaveLedgerEntries.find(
+        (e) =>
+          e.sourceKind === input.sourceKind &&
+          e.sourceId === input.sourceId &&
+          e.transactionType === input.transactionType,
+      ) ?? null
+    );
+  },
+
+  async appendLeaveLedgerEntry(input) {
+    const existing = await this.getLeaveLedgerEntryBySource({
+      sourceKind: input.sourceKind,
+      sourceId: input.sourceId,
+      transactionType: input.transactionType,
+    });
+    if (existing) {
+      return { entry: existing, created: false };
+    }
+    const quantity = Number(input.quantity);
+    if (!Number.isFinite(quantity)) {
+      throw new Error("Quantité ledger invalide.");
+    }
+    const entry = {
+      id: input.id ?? uid("lle"),
+      employeeId: input.employeeId,
+      account: input.account,
+      transactionType: input.transactionType,
+      quantity: quantity.toFixed(4),
+      unit: input.unit ?? "days",
+      year: input.year,
+      effectiveDate: input.effectiveDate,
+      createdAt: new Date().toISOString(),
+      sourceKind: input.sourceKind,
+      sourceId: input.sourceId,
+      reason: input.reason,
+      actorEmployeeId: input.actorEmployeeId ?? null,
+      reversesEntryId: input.reversesEntryId ?? null,
+      metadataJson: input.metadataJson ?? null,
+    };
+    getDemoStore().leaveLedgerEntries.push(entry);
+    return { entry, created: true };
+  },
+
   async listLeaveRequests(filter) {
     const store = getDemoStore();
     let items = [...store.leaveRequests];

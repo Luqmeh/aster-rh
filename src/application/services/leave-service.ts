@@ -1,8 +1,8 @@
 import {
-  assertSufficientBalance,
   canSubmitLeave,
   countBusinessDays,
   leaveRequestInputSchema,
+  usesLeaveBalance,
   type LeaveRequestInput,
 } from "@/domain/rules/leave";
 import {
@@ -16,6 +16,7 @@ import {
   canApproveRequests,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
+import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import type { AuthSession } from "@/infrastructure/auth/types";
 import type { EmailPort } from "@/infrastructure/email/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
@@ -24,6 +25,8 @@ export function createLeaveService(deps: {
   hr: HrRepository;
   email: EmailPort;
 }) {
+  const ledger = createLeaveLedgerService({ hr: deps.hr });
+
   return {
     async listForCurrentUser(session: AuthSession) {
       return deps.hr.listLeaveRequests({ employeeId: session.employee.id });
@@ -48,7 +51,24 @@ export function createLeaveService(deps: {
     },
 
     async getBalance(session: AuthSession, year = 2026) {
-      return deps.hr.getLeaveBalance(session.employee.id, year);
+      const snaps = await ledger.getEmployeeBalances(
+        session,
+        session.employee.id,
+        year,
+      );
+      return {
+        employeeId: session.employee.id,
+        year,
+        congesPayesAcquis: snaps.conges_payes.totalCredited,
+        congesPayesPris: snaps.conges_payes.totalConsumed,
+        congesPayesRestants: snaps.conges_payes.ledgerBalance,
+        rttAcquis: snaps.rtt.totalCredited,
+        rttPris: snaps.rtt.totalConsumed,
+        rttRestants: snaps.rtt.ledgerBalance,
+        recoveryDaysAcquis: snaps.recuperation.totalCredited,
+        recoveryDaysPris: snaps.recuperation.totalConsumed,
+        recoveryDaysRestants: snaps.recuperation.ledgerBalance,
+      };
     },
 
     async submit(session: AuthSession, raw: LeaveRequestInput) {
@@ -66,10 +86,18 @@ export function createLeaveService(deps: {
         throw new Error("La période sélectionnée ne contient aucun jour ouvré.");
       }
 
-      const balance = await deps.hr.getLeaveBalance(session.employee.id, 2026);
-      if (balance) {
-        const check = assertSufficientBalance(balance, input.type, daysCount);
-        if (!check.ok) throw new Error(check.message);
+      if (usesLeaveBalance(input.type)) {
+        const snap = await ledger.getBalanceForLeaveType(
+          session,
+          session.employee.id,
+          input.type,
+          2026,
+        );
+        if (snap && daysCount > snap.availableAfterReservations) {
+          throw new Error(
+            `Solde insuffisant : ${snap.availableAfterReservations} jour(s) disponible(s) après réservations, ${daysCount} demandé(s).`,
+          );
+        }
       }
 
       const request = await deps.hr.createLeaveRequest({
@@ -139,6 +167,15 @@ export function createLeaveService(deps: {
         status,
         managerComment: comment ?? null,
       });
+
+      if (status === "approuvee") {
+        // Phase 1 : débit ledger à l'approbation (idempotent). Les refus/annulations
+        // ne créent pas d'écriture — les réservations pending se libèrent seules.
+        await ledger.recordApprovedLeaveConsumption({
+          request: updated,
+          actorEmployeeId: session.employee.id,
+        });
+      }
 
       const copy = decisionNotificationCopy("leave", decision);
       await deps.hr.addNotification({

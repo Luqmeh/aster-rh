@@ -52,6 +52,30 @@ enum LeaveType {
   parental
 }
 
+/// Comptes suivis par le grand livre des congés (Phase 1).
+enum LeaveLedgerAccount {
+  conges_payes
+  rtt
+  recuperation
+}
+
+enum LeaveLedgerUnit {
+  days
+  hours
+}
+
+enum LeaveLedgerTransactionType {
+  opening_balance
+  accrual
+  leave_consumption
+  recovery_credit
+  recovery_consumption
+  carryover
+  expiry
+  hr_adjustment
+  reversal
+}
+
 enum WorkOnHolidayStatus {
   en_attente
   approuvee
@@ -255,6 +279,7 @@ model Employee {
   /// Heures / jour pour conversion récupération férié → jours (hypothèse démo).
   standardDailyHours  Float              @default(7)
   leaveBalances       LeaveBalance[]
+  leaveLedgerEntries  LeaveLedgerEntry[]
   leaveRequests       LeaveRequest[]
   teleworkRequests    TeleworkRequest[]
   notifications       NotificationItem[]
@@ -352,6 +377,37 @@ model LeaveBalance {
 
   @@unique([employeeId, year])
   @@index([employeeId])
+}
+
+/// Grand livre append-only des mouvements de congés (source de vérité Phase 1).
+/// Les corrections passent par des écritures de compensation / reversal — jamais d'UPDATE/DELETE métier.
+model LeaveLedgerEntry {
+  id              String                     @id @default(cuid())
+  employeeId      String
+  employee        Employee                   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  account         LeaveLedgerAccount
+  transactionType LeaveLedgerTransactionType
+  /// Quantité signée (crédit > 0, débit < 0), Decimal(12,4).
+  quantity        Decimal                    @db.Decimal(12, 4)
+  unit            LeaveLedgerUnit            @default(days)
+  year            Int
+  effectiveDate   DateTime                   @db.Date
+  createdAt       DateTime                   @default(now())
+  sourceKind      String
+  sourceId        String
+  reason          String
+  actorEmployeeId String?
+  reversesEntryId String?
+  reversesEntry   LeaveLedgerEntry?          @relation("LeaveLedgerReversal", fields: [reversesEntryId], references: [id])
+  reversedBy      LeaveLedgerEntry[]         @relation("LeaveLedgerReversal")
+  metadataJson    Json?
+
+  @@unique([sourceKind, sourceId, transactionType])
+  @@index([employeeId, account, year])
+  @@index([employeeId, year])
+  @@index([effectiveDate])
+  @@index([createdAt])
+  @@index([sourceKind, sourceId])
 }
 
 model LeaveRequest {

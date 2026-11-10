@@ -271,6 +271,45 @@ export function mapLeaveBalance(row: PrismaLeaveBalance): LeaveBalance {
   };
 }
 
+export function mapLeaveLedgerEntry(row: {
+  id: string;
+  employeeId: string;
+  account: import("@/domain/types/leave-ledger").LeaveLedgerAccount;
+  transactionType: import("@/domain/types/leave-ledger").LeaveLedgerTransactionType;
+  quantity: { toString(): string } | string | number;
+  unit: import("@/domain/types/leave-ledger").LeaveLedgerUnit;
+  year: number;
+  effectiveDate: Date;
+  createdAt: Date;
+  sourceKind: string;
+  sourceId: string;
+  reason: string;
+  actorEmployeeId: string | null;
+  reversesEntryId: string | null;
+  metadataJson: unknown;
+}): import("@/domain/types/leave-ledger").LeaveLedgerEntry {
+  return {
+    id: row.id,
+    employeeId: row.employeeId,
+    account: row.account,
+    transactionType: row.transactionType,
+    quantity: Number(row.quantity.toString()).toFixed(4),
+    unit: row.unit,
+    year: row.year,
+    effectiveDate: utcToDateOnly(row.effectiveDate),
+    createdAt: utcToIso(row.createdAt),
+    sourceKind: row.sourceKind,
+    sourceId: row.sourceId,
+    reason: row.reason,
+    actorEmployeeId: row.actorEmployeeId,
+    reversesEntryId: row.reversesEntryId,
+    metadataJson:
+      row.metadataJson && typeof row.metadataJson === "object"
+        ? (row.metadataJson as Record<string, unknown>)
+        : null,
+  };
+}
+
 export function mapLeaveRequest(row: PrismaLeaveRequest): LeaveRequest {
   return {
     id: row.id,
