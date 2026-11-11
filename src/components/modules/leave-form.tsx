@@ -18,8 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { LeaveType } from "@/domain/types/hr";
 
 const TYPES: { value: LeaveType; label: string }[] = [
-  { value: "conges_payes", label: "Congés payés" },
-  { value: "rtt", label: "RTT" },
+  { value: "conges_payes", label: "Congé annuel" },
+  { value: "rtt", label: "RTT (historique / avantage employeur)" },
   {
     value: "recuperation",
     label: "Récupération (jour férié travaillé)",

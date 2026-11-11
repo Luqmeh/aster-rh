@@ -1,57 +1,28 @@
 # ASTER — Rapport de progression (frais)
 
-**Date :** 10 novembre 2026  
-**Périmètre :** Phase 2 — politiques d’acquisition & moteur d’accrual (intégration ledger Phase 1)  
-**Auteur rapport :** agent Auto (Composer)
+**Date :** 11 novembre 2026  
+**Périmètre :** Refactoring Morocco-first (correction produit / domaine)  
+**Commit prévu :** voir hash git en bas après commit
 
-## Fonctionnalités livrées
+## Changements livrés
 
-- Politiques d’acquisition versionnées (seed guide) : CP, RTT cadre / non-cadre, report CP, expiry RTT.
-- Moteur d’accrual déterministe avec **preview** puis **posting contrôlé** vers le ledger append-only.
-- Comptes CP distincts : `conges_payes_acquis`, `conges_payes_en_acquisition` (+ legacy `conges_payes`).
-- Solde CP UI / contrôles / exports = **pool** des trois comptes.
-- Consommation CP à l’approbation répartie acquis → legacy → en acquisition.
-- Champs employment : temps partiel, heures hebdo, % activité, calendrier de bureau.
-- Reports CP (plafond 5 j) et expiry RTT (1er juillet) via écritures ledger auditées.
-- Congés spéciaux restés **événementiels** (pas de solde cumulatif).
-- UI RH `/administration/droits-conges` (éligibilité, preview, lots, reports, catalogue spéciaux).
-- RBAC inchangé : RH administre les droits sans approuver les demandes manager-controlled.
+- Audit France→Maroc (`docs/MOROCCO_AUDIT.md`) + gouvernance (`MOROCCO_HR_POLICY`, `MOROCCO_LOCALISATION`, `MOROCCO_MIGRATION`, `ASTER_SCOPE`, `ROLE_PERMISSIONS`).
+- Politiques FR Phase 2 **désactivées** (`jurisdiction=FR`, `isActive=false`) — historique ledger intact.
+- Politique MA `MA_ANNUAL_LEAVE_STATUTORY` (baseline 1,5 j/mois proposée) en `requires_hr_decision` — **aucun auto-post**.
+- `cadre`/`non_cadre` ne pilotent plus les droits ; ajout `non_applicable` + `policyGroup`.
+- Locale centralisée : `fr-MA`, `Africa/Casablanca`, MAD (`aster-locale.ts`).
+- Démo Maroc (personas / sites Casablanca–Rabat, départements présentation, RTT démo à 0).
+- Télétravail : plafonds traités comme politique produit paramétrable (pas guide FR).
+- UI : libellés congé annuel, navigation, droits-conges, formulaire RH.
+- Migration additive `20261111010000_morocco_first` (non exécutée en Production depuis ce poste).
 
-## Règles guide implémentées (références)
+## Fichiers clés
 
-| Règle | Source |
-|-------|--------|
-| CP 5 semaines, 2,08 j/mois, juin→mai | Guide RH nov. 2026 p.38–48 |
-| CP acquis ≠ en acquisition | p.38–48 |
-| CDI/CDD/alternants éligibles CP | p.38–48 |
-| Alternants exclus RTT | p.38–48 |
-| RTT non-cadre 11 j, période juil.→juin | p.38–48 |
-| RTT cadre 7–11 j via calendrier bureau | p.38–48 |
-| Demi-journée RTT ; pas de report ; expiry 1er juil. | p.38–48 |
-| Cibles usage 70 % / 30 % (pas des crédits) | p.38–48 |
-| Négatif RTT max 6 j (policy) | p.38–48 |
-| Report CP max 5 j non cumulable ; exceptions non auto | p.38–48 |
-| Spéciaux événementiels + justificatifs RH | p.45–47 |
-
-## Règles nécessitant validation RH
-
-- Temps partiel (pas de × % activité).
-- Mois partiel d’emploi (pas de prorata inventé).
-- RTT cadre sans calendrier validé.
-- Horaires ≠ 39 h/sem.
-- Arrondi fin de période CP (exemple 10,4→11) — opt-in uniquement.
-- Exceptions de report > 5 j (partenaire + plan 31/12).
-- Plafonds spéciaux `hypothese_demo`.
-
-## Fichiers principaux
-
-- `prisma/schema.prisma` + `prisma/migrations/20261110030000_entitlement_engine/`
-- `src/domain/types/entitlement.ts`
-- `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts` (+ tests)
-- `src/application/services/entitlement-service.ts` (+ tests)
-- `src/app/actions/entitlement.ts`
-- `src/app/(app)/administration/droits-conges/page.tsx`
-- `docs/LEAVE_LEDGER.md`, `docs/ENTITLEMENT_ENGINE.md`, `docs/HR_REQUIREMENTS.md`, `docs/ARCHITECTURE.md`
+- `prisma/schema.prisma`, `prisma/migrations/20261111010000_morocco_first/`
+- `src/domain/config/aster-locale.ts`
+- `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts`, `leave.ts`, `telework-monthly.ts`
+- `src/data/demo-seed.ts`
+- Docs Morocco-* / ASTER_SCOPE / ROLE_PERMISSIONS / PROGRESS
 
 ## Dépendances
 
@@ -59,15 +30,14 @@ Aucune dépendance npm ajoutée.
 
 ## Migrations
 
-- Migration **additive** créée : `20261110030000_entitlement_engine`.
-- **Non exécutée** depuis le poste local sur Production.
-- Déploiement DB attendu via pipeline Vercel (`npm run build:vercel` / `docs/DEPLOYMENT.md`).
+- Additive only. Pas de DROP/TRUNCATE. Pas de réécriture ledger.
+- Production : pipeline Vercel existant uniquement.
 
 ## Tests
 
 ```
-npx vitest run entitlement-accrual.test.ts entitlement-service.test.ts leave-ledger-balance.test.ts leave-ledger-service.test.ts
-→ 4 fichiers, 25 tests, OK
+npx vitest run aster-locale entitlement-accrual entitlement-service leave.test leave-ledger-service permissions
+→ 28 tests OK
 ```
 
 ## Qualité
@@ -75,16 +45,27 @@ npx vitest run entitlement-accrual.test.ts entitlement-service.test.ts leave-led
 | Check | Résultat |
 |-------|----------|
 | `npm run typecheck` | OK |
-| `npm run lint` | OK (0 erreur) |
+| `npm run lint` | OK |
 | `ASTER_BUILD_WITHOUT_DB=1 npm run build` | OK |
 
-## Limitations connues
+## Règles encore « À valider par RH »
 
-- Lots d’accrual / reports / calendriers : store mémoire process (Prisma models prêts ; persistance batch Prisma à brancher en itération suivante).
-- Formule RTT cadre (11 − fériés ouvrés, plancher 7) est **hr_configured** — à confirmer opérationnellement avec le calendrier réel du cabinet.
-- Pas de posting automatique au deploy ; pas de paie / solde de tout compte.
-- `docs/git ssh.txt` local non versionné volontairement.
+- Barème exact congé annuel / ancienneté (loi 65-99 articles exacts).
+- Existence éventuelle d’un avantage type RTT employeur Maroc.
+- Week-end réel par site ; convention collective applicable.
+- Processus CNSS maladie (stockage vs déclaration — ASTER ne déclare pas).
+- Organigramme définitif vs départements démo.
+
+## Limitations
+
+- Texte consolidé officiel 65-99 non récupéré intégralement via fetch auto → baseline documentée mais non `hr_configured`.
+- Lots d’accrual toujours en mémoire process (schéma Prisma prêt).
+- Pas de déploiement Production / migrate vérifié dans cette session.
 
 ## Prochaine étape recommandée
 
-Brancher la persistance Prisma des `AccrualBatch` / `CarryoverRequest` / `OfficeWorkCalendar` (déjà en schéma), seed d’un calendrier bureau validé pour un site démo, puis UI collaborateur affichant CP acquis vs en acquisition séparément.
+Faire valider par RH/juridique Maroc le barème de congé annuel (articles + ancienneté), passer `MA_ANNUAL_LEAVE_STATUTORY` en `hr_configured` uniquement après validation écrite, puis activer le posting preview contrôlé.
+
+## Git
+
+- Hash / push : renseignés après commit.

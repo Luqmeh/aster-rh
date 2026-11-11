@@ -4,7 +4,7 @@ Consignes pour les agents et l’équipe de reprise.
 
 ## Objectif
 
-Prototype RH français **ASTER** pour démonstration PKF Arsilon. Priorité : vendredi 13 novembre 2026.
+Prototype RH **ASTER** pour le **département Maroc** de PKF Arsilon (UI en français `fr-MA`). Priorité démo : novembre 2026. Ne pas réintroduire de politiques RH France comme défauts.
 
 ## Règles non négociables
 

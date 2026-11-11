@@ -20,7 +20,7 @@ function emp(partial: Partial<Employee>): Employee {
     jobTitle: "Collaborateur",
     departmentId: "dep",
     managerId: null,
-    site: "Paris",
+    site: "Casablanca (démo)",
     contractType: "cdi",
     category: "cadre",
     hireDate: "2020-01-01",
@@ -34,9 +34,10 @@ function emp(partial: Partial<Employee>): Employee {
     teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
     isPartTime: false,
-    weeklyContractHours: 39,
+    weeklyContractHours: 44,
     workingTimePercent: 100,
     officeCalendarId: null,
+    policyGroup: "standard_ma",
     ...partial,
   };
 }

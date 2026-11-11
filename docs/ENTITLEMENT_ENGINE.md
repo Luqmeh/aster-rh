@@ -1,10 +1,12 @@
-# ASTER — Moteur d’acquisition & politiques (Phase 2)
+# ASTER — Moteur d’acquisition & politiques (Phase 2 → Morocco-first)
 
-## Source
+## Source active
 
-**Guide des pratiques RH PKF Arsilon — novembre 2026, pages 38–48** (congés spéciaux : pages 45–47).
+**Département Maroc** — voir `docs/MOROCCO_HR_POLICY.md` (loi 65-99, validation RH).
 
-Ne pas substituer silencieusement le droit commun français. Les zones non précisées sont marquées `requires_hr_validation` / `requires_hr_decision`.
+Les politiques issues du guide RH **France** (p.38–48) sont conservées en **historique désactivé** (`jurisdiction=FR`, `isActive=false`) pour comprendre d’anciennes métadonnées ledger. Elles ne sont **jamais** utilisées pour preview/post Maroc.
+
+La politique `MA_ANNUAL_LEAVE_STATUTORY` (baseline 1,5 j/mois proposée) reste `requires_hr_decision` : **aucun posting automatique** tant que non `hr_configured`.
 
 ## Règles implémentées (avec référence)
 

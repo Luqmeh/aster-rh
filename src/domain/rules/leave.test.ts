@@ -37,9 +37,10 @@ describe("countBusinessDays", () => {
 });
 
 describe("soldes et catégories", () => {
-  it("distingue cadre et non-cadre pour les RTT de démo", () => {
-    expect(defaultAnnualEntitlement("cadre").rtt).toBe(10);
-    expect(defaultAnnualEntitlement("non_cadre").rtt).toBe(8);
+  it("n'attribue plus de RTT selon cadre/non-cadre", () => {
+    expect(defaultAnnualEntitlement("cadre").rtt).toBe(0);
+    expect(defaultAnnualEntitlement("non_cadre").congesPayes).toBe(18);
+    expect(defaultAnnualEntitlement("non_applicable").rtt).toBe(0);
   });
 
   it("bloque un dépassement de solde CP", () => {

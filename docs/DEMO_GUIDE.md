@@ -9,23 +9,23 @@ Public cible : conseil d’administration PKF Arsilon — **13 novembre 2026**.
 
 ## Scénario recommandé (8–10 min)
 
-### 1. Collaborateur — Léa Dubois (2 min)
+### 1. Collaborateur — Imane Chraibi (2 min)
 
 1. Se connecter avec le compte collaborateur.
 2. **Tableau de bord** : soldes CP/RTT, notifications.
 3. **Congés** : soumettre une demande courte (ex. 1 jour RTT).
 4. **Télétravail** : planifier un mois.
-5. **Mon profil** : fiche cadre, manager hiérarchique Julien Bernard ; édition des infos personnelles autorisées.
+5. **Mon profil** : fiche cadre, manager hiérarchique Youssef Alaoui ; édition des infos personnelles autorisées.
 6. Vérifier qu’**Annuaire** n’est pas accessible.
 
-### 2. Chef de projet — Julien Bernard (3 min)
+### 2. Chef de projet — Youssef Alaoui (3 min)
 
 1. Se connecter avec le compte Chef de projet.
 2. Tableau de bord : demandes à traiter + raccourcis administration.
 3. **Congés** / **Télétravail** / **Administration RH** : approuver ou refuser.
 4. **Annuaire** : ouvrir une fiche et montrer la gestion RH.
 
-### 3. Ressources humaines — Camille Moreau (2 min)
+### 3. Ressources humaines — Sara Benali (2 min)
 
 1. Se connecter avec le compte RH.
 2. **Administration RH** : effectifs, départements, file en lecture.
@@ -44,9 +44,9 @@ Public cible : conseil d’administration PKF Arsilon — **13 novembre 2026**.
 
 | Compte | Rôle | Objectif |
 |--------|------|----------|
-| Léa Dubois | Collaborateur | Parcours demandeur |
-| Julien Bernard | Chef de projet | Validations + RH |
-| Camille Moreau | Ressources humaines | Administration sans décision |
+| Imane Chraibi | Collaborateur | Parcours demandeur |
+| Youssef Alaoui | Chef de projet | Validations + RH |
+| Sara Benali | Ressources humaines | Administration sans décision |
 
 ## Réinitialisation
 

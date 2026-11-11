@@ -20,9 +20,12 @@ enum DemoRole {
   admin_rh
 }
 
+/// Classification héritée FR (`cadre`/`non_cadre`) conservée pour historique.
+/// Maroc : préférer `non_applicable` + `policyGroup` — ne pas piloter les droits via cadre.
 enum EmployeeCategory {
   cadre
   non_cadre
+  non_applicable
 }
 
 enum ContractType {
@@ -318,9 +321,11 @@ model Employee {
   weeklyContractHours Float?
   /// Pourcentage d'activité (null = non renseigné). Ne pas multiplier silencieusement les CP.
   workingTimePercent  Float?
-  /// Calendrier de bureau pour RTT cadres (null → revue RH si cadre).
+  /// Calendrier de bureau (ex. calculs employeur) — null si non configuré.
   officeCalendarId    String?
   officeCalendar      OfficeWorkCalendar? @relation(fields: [officeCalendarId], references: [id])
+  /// Groupe de politique employeur (Maroc) — indépendant du titre / ancien cadre.
+  policyGroup         String?
   leaveBalances       LeaveBalance[]
   leaveLedgerEntries  LeaveLedgerEntry[]
   leaveRequests       LeaveRequest[]
@@ -766,6 +771,10 @@ model EntitlementPolicyVersion {
   effectiveFrom    DateTime                    @db.Date
   effectiveTo      DateTime?                   @db.Date
   validationStatus EntitlementValidationStatus @default(draft)
+  /// FR = guide France (historique) ; MA = Maroc ; UNSET = legacy.
+  jurisdiction     String                      @default("UNSET")
+  /// false = désactivée pour preview/post (historique conservé).
+  isActive         Boolean                     @default(true)
   /// Paramètres JSON (taux, plafonds, arrondi, population, période d'acquisition…).
   rulesJson        Json
   sourceReference  String
@@ -777,6 +786,7 @@ model EntitlementPolicyVersion {
   @@unique([policyId, version])
   @@index([effectiveFrom])
   @@index([validationStatus])
+  @@index([jurisdiction, isActive])
 }
 
 /// Lot d'acquisition (preview puis posting contrôlé) — pas de scheduler silencieux.

@@ -5,7 +5,7 @@ export type DemoRole = "collaborateur" | "chef_de_projet" | "admin_rh";
 
 export type ContractType = "cdi" | "cdd" | "alternance" | "stage";
 
-export type EmployeeCategory = "cadre" | "non_cadre";
+export type EmployeeCategory = "cadre" | "non_cadre" | "non_applicable";
 
 export type RequestStatus =
   | "brouillon"
@@ -115,8 +115,13 @@ export interface Employee {
   weeklyContractHours: number | null;
   /** % d'activité — ne pas multiplier silencieusement les CP. */
   workingTimePercent: number | null;
-  /** Calendrier de bureau pour RTT cadres. */
+  /** Calendrier de bureau (config employeur). */
   officeCalendarId: string | null;
+  /**
+   * Groupe de politique RH Maroc (indépendant du titre).
+   * null = non renseigné → calculs d’acquisition non auto-postés.
+   */
+  policyGroup: string | null;
 }
 
 export interface LeaveBalance {

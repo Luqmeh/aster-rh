@@ -25,9 +25,10 @@ const employee: Employee = {
   teleworkDaysPerWeek: 2,
     standardDailyHours: 7,
     isPartTime: false,
-    weeklyContractHours: 39,
+    weeklyContractHours: 44,
     workingTimePercent: 100,
     officeCalendarId: null,
+    policyGroup: "standard_ma",
 };
 
 describe("telework weekly cap", () => {

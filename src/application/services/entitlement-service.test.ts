@@ -8,13 +8,13 @@ import { testSessionFor } from "@/infrastructure/auth/test-session";
 import { demoHrRepository } from "@/infrastructure/persistence/demo-hr-repository";
 import { resetDemoStore } from "@/infrastructure/persistence/demo-store";
 
-describe("entitlement service accrual posting", () => {
+describe("entitlement service Morocco-first", () => {
   beforeEach(() => {
     resetDemoStore();
     resetEntitlementMemoryForTests();
   });
 
-  it("previews then posts idempotently to the leave ledger", async () => {
+  it("previews without posting unverified Moroccan accruals", async () => {
     const leaveLedger = createLeaveLedgerService({ hr: demoHrRepository });
     const svc = createEntitlementService({
       hr: demoHrRepository,
@@ -30,23 +30,31 @@ describe("entitlement service accrual posting", () => {
     const postable = batch.lines.filter(
       (l) => l.calculationStatus === "calculated" && l.quantity > 0,
     );
-    expect(postable.length).toBeGreaterThan(0);
+    expect(postable.length).toBe(0);
 
     const first = await svc.postBatch(session, batch.id);
-    expect(first.posted).toBeGreaterThan(0);
+    expect(first.posted).toBe(0);
     expect(first.batch.status).toBe("posted");
 
-    const second = await svc.postBatch(session, batch.id);
-    expect(second.posted).toBe(0);
+    const accruals = (
+      await demoHrRepository.listLeaveLedgerEntries({ year: 2026 })
+    ).filter((e) => e.transactionType === "accrual");
+    expect(accruals.length).toBe(0);
+  });
 
-    const entries = await demoHrRepository.listLeaveLedgerEntries({
-      year: 2026,
+  it("lists FR policies as inactive historical and MA policy as requires decision", () => {
+    const leaveLedger = createLeaveLedgerService({ hr: demoHrRepository });
+    const svc = createEntitlementService({
+      hr: demoHrRepository,
+      leaveLedger,
     });
-    const accruals = entries.filter((e) => e.transactionType === "accrual");
-    expect(accruals.length).toBe(first.posted);
-
-    const keys = accruals.map((e) => e.sourceId);
-    expect(new Set(keys).size).toBe(keys.length);
+    const policies = svc.listPolicyVersions();
+    expect(policies.filter((p) => p.jurisdiction === "FR").every((p) => !p.isActive)).toBe(
+      true,
+    );
+    const ma = policies.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY");
+    expect(ma?.validationStatus).toBe("requires_hr_decision");
+    expect(ma?.isActive).toBe(true);
   });
 
   it("refuses collaborateur access to admin entitlement ops", async () => {
@@ -61,30 +69,5 @@ describe("entitlement service accrual posting", () => {
         month: 11,
       }),
     ).rejects.toMatchObject({ status: 403 });
-  });
-
-  it("does not auto-approve carryover above 5 days", async () => {
-    const leaveLedger = createLeaveLedgerService({ hr: demoHrRepository });
-    const svc = createEntitlementService({
-      hr: demoHrRepository,
-      leaveLedger,
-    });
-    const session = testSessionFor("emp-camille", "admin_rh");
-    const employees = await demoHrRepository.listEmployees();
-    const emp = employees[0]!;
-    const row = await svc.requestCpCarryover(session, {
-      employeeId: emp.id,
-      sourcePeriodKey: "CP:2025-2026",
-      targetPeriodKey: "CP:2026-2027",
-      requestedDays: 8,
-    });
-    expect(row.status).toBe("en_attente_validation");
-    await expect(
-      svc.decideCarryover(session, {
-        requestId: row.id,
-        approve: true,
-        decisionNote: "Sans validation partenaire",
-      }),
-    ).rejects.toThrow(/exception|5|partenaire/i);
   });
 });

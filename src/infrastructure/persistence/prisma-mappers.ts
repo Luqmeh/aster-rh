@@ -79,6 +79,7 @@ type PrismaEmployee = {
   weeklyContractHours?: number | null;
   workingTimePercent?: number | null;
   officeCalendarId?: string | null;
+  policyGroup?: string | null;
 };
 
 type PrismaLeaveBalance = {
@@ -186,6 +187,7 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     weeklyContractHours: row.weeklyContractHours ?? null,
     workingTimePercent: row.workingTimePercent ?? null,
     officeCalendarId: row.officeCalendarId ?? null,
+    policyGroup: row.policyGroup ?? null,
   };
 }
 

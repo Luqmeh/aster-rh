@@ -12,12 +12,10 @@ import type { Employee, LeaveRequest, RequestStatus } from "@/domain/types/hr";
 import { expandDateRange } from "@/domain/rules/dates";
 
 /**
- * Règles télétravail mensuel — Guide RH PKF Arsilon p.106 :
- * - jusqu'à 12 jours / mois
- * - minimum 80 % du temps de travail (cadre d'éligibilité, non calculé ici)
- * - tâches compatibles + continuité de service
- *
- * Planification UI : max 2 jours / semaine + plafond mensuel 12.
+ * Règles télétravail mensuel — politique **produit** paramétrable (présentation Conseil).
+ * Ce ne sont pas des obligations du Code du travail marocain.
+ * Valeurs par défaut alignées sur la démo : 2 j/semaine, 12 j/mois.
+ * Confirmation département Maroc requise (docs/MOROCCO_HR_POLICY.md).
  */
 
 export const MAX_TELEWORK_DAYS_PER_WEEK = 2;
@@ -47,7 +45,7 @@ export function assertTeleworkEligibility(
     return {
       ok: false,
       message:
-        "Ce profil de démonstration n'est pas éligible au télétravail (tâches incompatibles ou continuité de service — guide RH p.106).",
+        "Ce profil de démonstration n'est pas éligible au télétravail (tâches incompatibles ou continuité de service — politique département).",
     };
   }
   return { ok: true };
@@ -107,7 +105,7 @@ export function validateMonthlyTeleworkPlan(
   if (unique.length > MAX_TELEWORK_DAYS_PER_MONTH) {
     return {
       ok: false,
-      message: `Le plafond est de ${MAX_TELEWORK_DAYS_PER_MONTH} jours de télétravail par mois (guide RH p.106).`,
+      message: `Le plafond est de ${MAX_TELEWORK_DAYS_PER_MONTH} jours de télétravail par mois (politique produit paramétrable).`,
     };
   }
 

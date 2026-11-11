@@ -101,6 +101,7 @@ export const prismaHrRepository: HrRepository = {
           weeklyContractHours: input.weeklyContractHours ?? null,
           workingTimePercent: input.workingTimePercent ?? null,
           officeCalendarId: input.officeCalendarId ?? null,
+          policyGroup: input.policyGroup ?? null,
         },
       });
       return mapEmployee(row);

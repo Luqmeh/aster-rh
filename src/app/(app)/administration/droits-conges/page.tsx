@@ -51,7 +51,7 @@ export default async function DroitsCongesPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Droits à congés & acquisitions"
-        description="Politiques guide RH p.38–48, prévisualisation des accruals et reports — le grand livre reste la seule source de soldes."
+        description="Département Maroc — politiques MA à valider par RH. Les politiques FR Phase 2 sont désactivées (historique). Le grand livre reste la seule source de soldes."
         actions={
           <Button asChild size="sm" variant="secondary">
             <Link href="/administration">Retour administration</Link>
@@ -81,16 +81,16 @@ export default async function DroitsCongesPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Cibles d&apos;usage RTT</CardTitle>
+            <CardTitle className="text-base">RTT / avantages</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            {rttTargets.map((t) => (
-              <p key={t.label}>
-                {t.label} : {t.days} j (sur 11 non-cadre)
-              </p>
-            ))}
+            <p>
+              Pas de RTT statutaire Maroc auto-configuré. Soldes RTT ledger
+              historiques éventuels conservés.
+            </p>
             <p className="text-muted-foreground">
-              Objectifs de prise — pas des crédits supplémentaires.
+              Cibles d&apos;usage FR (réf. historique) :{" "}
+              {rttTargets.map((t) => `${t.label} ${t.days}j`).join(" · ")}
             </p>
           </CardContent>
         </Card>
@@ -101,7 +101,7 @@ export default async function DroitsCongesPage() {
           <CardContent className="text-sm">
             <p className="font-medium">{needingReview.length} ligne(s)</p>
             <p className="text-muted-foreground">
-              Temps partiel, mois partiels, RTT cadre sans calendrier, etc.
+              Temps partiel, mois partiels, politique MA non hr_configured, etc.
             </p>
           </CardContent>
         </Card>

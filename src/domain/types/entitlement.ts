@@ -36,6 +36,8 @@ export type RoundingMode =
   | "end_of_period_example_ceil_half"
   | "hr_configured";
 
+export type PolicyJurisdiction = "FR" | "MA" | "UNSET";
+
 export type EntitlementPolicyVersion = {
   id: string;
   policyId: string;
@@ -45,6 +47,10 @@ export type EntitlementPolicyVersion = {
   effectiveFrom: string;
   effectiveTo: string | null;
   validationStatus: EntitlementValidationStatus;
+  /** FR = historique guide France (désactivé pour le Maroc). */
+  jurisdiction: PolicyJurisdiction;
+  /** false = exclue du moteur preview/post Maroc. */
+  isActive: boolean;
   sourceReference: string;
   notes: string | null;
   rules: EntitlementPolicyRules;

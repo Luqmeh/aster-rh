@@ -31,10 +31,10 @@ describe("leave-ledger-service", () => {
       account: "conges_payes",
       year: 2026,
     });
-    // Seed Léa : 25 acquis, 8 pris, 17 restants
-    expect(cp.totalCredited).toBe(25);
+    // Seed Imane (emp-lea) : 18 acquis, 8 pris, 10 restants (démo Maroc)
+    expect(cp.totalCredited).toBe(18);
     expect(cp.totalConsumed).toBe(8);
-    expect(cp.ledgerBalance).toBe(17);
+    expect(cp.ledgerBalance).toBe(10);
   });
 
   it("n'écrit pas de consommation tant que la demande est pending", async () => {
@@ -73,12 +73,14 @@ describe("leave-ledger-service", () => {
     const lea = testSessionFor("emp-lea", "collaborateur");
     const chef = testSessionFor("emp-julien", "chef_de_projet");
     await ledger.ensureBackfill(2026);
-    const before = await ledger.getAccountBalance(lea, {
-      employeeId: "emp-lea",
-      account: "rtt",
-    });
+    const before = await ledger.getBalanceForLeaveType(
+      lea,
+      "emp-lea",
+      "conges_payes",
+      2026,
+    );
     const req = await leave.submit(lea, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2026-10-05",
       endDate: "2026-10-05",
       halfDayStart: false,
@@ -91,19 +93,26 @@ describe("leave-ledger-service", () => {
       request: { ...req, status: "approuvee" },
       actorEmployeeId: chef.employee.id,
     });
-    const after = await ledger.getAccountBalance(lea, {
-      employeeId: "emp-lea",
-      account: "rtt",
-    });
-    expect(after.ledgerBalance).toBeCloseTo(
-      before.ledgerBalance - req.daysCount,
+    const after = await ledger.getBalanceForLeaveType(
+      lea,
+      "emp-lea",
+      "conges_payes",
+      2026,
+    );
+    expect(after!.ledgerBalance).toBeCloseTo(
+      before!.ledgerBalance - req.daysCount,
       4,
     );
-    const consumptions = (await demoHrRepository.listLeaveLedgerEntries({
-      employeeId: "emp-lea",
-      account: "rtt",
-    })).filter((e) => e.transactionType === "leave_consumption");
-    expect(consumptions).toHaveLength(1);
+    const consumptions = (
+      await demoHrRepository.listLeaveLedgerEntries({
+        employeeId: "emp-lea",
+      })
+    ).filter(
+      (e) =>
+        e.transactionType === "leave_consumption" &&
+        String(e.sourceId).startsWith(req.id),
+    );
+    expect(consumptions.length).toBeGreaterThanOrEqual(1);
   });
 
   it("refuse l'ajustement aux collaborateurs et autorise RH/Chef", async () => {

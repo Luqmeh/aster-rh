@@ -22,19 +22,19 @@ const SEED_ACCOUNTS: Array<{
 }> = [
   {
     id: "user-lea",
-    email: "lea.dubois@demo.aster-rh.local",
+    email: "imane.chraibi@demo.aster-rh.local",
     employeeId: "emp-lea",
     role: "collaborateur",
   },
   {
     id: "user-julien",
-    email: "julien.bernard@demo.aster-rh.local",
+    email: "youssef.alaoui@demo.aster-rh.local",
     employeeId: "emp-julien",
     role: "chef_de_projet",
   },
   {
     id: "user-camille",
-    email: "camille.moreau@demo.aster-rh.local",
+    email: "sara.benali@demo.aster-rh.local",
     employeeId: "emp-camille",
     role: "admin_rh",
   },
@@ -126,6 +126,7 @@ export async function seedAsterDemoData(
         weeklyContractHours: emp.weeklyContractHours ?? null,
         workingTimePercent: emp.workingTimePercent ?? null,
         officeCalendarId: emp.officeCalendarId ?? null,
+        policyGroup: emp.policyGroup ?? null,
       },
       update: preserveExisting
         ? {}
@@ -155,6 +156,7 @@ export async function seedAsterDemoData(
             weeklyContractHours: emp.weeklyContractHours ?? null,
             workingTimePercent: emp.workingTimePercent ?? null,
             officeCalendarId: emp.officeCalendarId ?? null,
+            policyGroup: emp.policyGroup ?? null,
           },
     });
   }

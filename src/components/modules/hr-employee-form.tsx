@@ -131,8 +131,9 @@ export function HrEmployeeForm({
             className={selectClassName}
             defaultValue={employee.category}
           >
-            <option value="cadre">Cadre</option>
-            <option value="non_cadre">Non-cadre</option>
+            <option value="non_applicable">Non applicable (Maroc)</option>
+            <option value="cadre">Cadre (historique FR)</option>
+            <option value="non_cadre">Non-cadre (historique FR)</option>
           </select>
         </div>
         <div className="space-y-1.5 sm:col-span-2">

@@ -128,42 +128,37 @@ export function createEntitlementService(deps: {
         statuses.push("requires_hr_validation");
         warnings.push("Temps partiel — validation RH pour le calcul CP.");
       }
-      if (employee.category === "cadre" && isRttEligible(employee)) {
-        const cal = employee.officeCalendarId
-          ? memory().calendars.find((c) => c.id === employee.officeCalendarId)
-          : null;
-        if (!cal || cal.validationStatus === "draft") {
-          statuses.push("missing_policy_configuration");
-          warnings.push("RTT cadre : calendrier de bureau manquant ou non validé.");
-        }
-      }
       if (
         employee.weeklyContractHours != null &&
-        employee.weeklyContractHours !== 39
+        employee.weeklyContractHours !== 44
       ) {
         statuses.push("requires_hr_validation");
         warnings.push(
-          `Horaires ${employee.weeklyContractHours} h/sem ≠ 39 h — revue RH (guide).`,
+          `Horaires ${employee.weeklyContractHours} h/sem ≠ référence 44 h — À valider par RH.`,
         );
       }
+      if (!employee.policyGroup) {
+        statuses.push("missing_employment_information");
+        warnings.push("Groupe de politique (policyGroup) non renseigné.");
+      }
+      statuses.push("requires_hr_validation");
+      warnings.push(
+        "Politiques d’acquisition Maroc : validation RH requise avant posting automatique.",
+      );
 
       return {
         employeeId,
         cpEligible: isCpEligible(employee),
-        rttEligible: isRttEligible(employee),
-        isCadre: employee.category === "cadre",
+        rttEligible: false,
+        isCadre: false,
         isPartTime: employee.isPartTime,
         isAlternant: isAlternant(employee),
-        calculationStatuses: statuses.length ? statuses : ["calculated"],
+        calculationStatuses: [...new Set(statuses)],
         warnings,
         applicablePolicies: applicable.filter((p) => {
+          if (p.jurisdiction === "FR" || !p.isActive) return false;
           if (p.kind === "conges_payes") return isCpEligible(employee);
-          if (p.kind === "rtt") {
-            if (!isRttEligible(employee)) return false;
-            const cats = p.rules.eligibleCategories;
-            if (cats && !cats.includes(employee.category)) return false;
-            return true;
-          }
+          if (p.kind === "rtt") return false;
           return true;
         }),
       };

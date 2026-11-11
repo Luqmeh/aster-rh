@@ -49,7 +49,7 @@ export const navigationGroups: NavGroup[] = [
     id: "temps",
     label: "Gestion du temps",
     items: [
-      { href: "/conges", label: "Congés (CP / RTT)", icon: CalendarDays },
+      { href: "/conges", label: "Congés", icon: CalendarDays },
       {
         href: "/absences",
         label: "Arrêts & absences spéciales",

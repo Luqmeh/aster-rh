@@ -1,73 +1,57 @@
-# Exigences RH — PKF Arsilon
+# Exigences RH — PKF Arsilon (département Maroc)
 
-**Source authoritative :** guide RH PKF Arsilon (document confidentiel, **non versionné** dans ce dépôt).
+**Périmètre ASTER :** Maroc uniquement. Le département France a son propre SIRH.
 
-Ce fichier doit être mis à jour avec les **références de pages** du guide dès qu’elles sont saisies.  
-Toute valeur chiffrée non confirmée est marquée **HYPOTHÈSE DE DÉMONSTRATION**.
+**Source MA :** Code du travail (loi 65-99), CNSS, calendrier officiel, politique interne Maroc — voir `docs/MOROCCO_HR_POLICY.md`.
 
----
-
-## 1. Cadre vs non-cadre
-
-| Sujet | Statut | Notes / source |
-|-------|--------|----------------|
-| Distinction des régimes de temps de travail | **Guide p.38–48** | `Employee.category` |
-| Forfait jours (cadres) | **À documenter** | Module Temps de travail planifié |
-| Suivi horaire (non-cadres) | **À documenter** | Module Temps de travail planifié |
-| RTT non-cadres | **Guide p.38–48** | 11 j / période juil.–juin (journée solidarité déduite) |
-| RTT cadres | **Guide p.38–48** | 7–11 j selon fériés ouvrés — calendrier de bureau validé obligatoire ; sinon `requires_hr_validation` |
-| Alternants | **Guide p.38–48** | CP oui ; RTT non |
-
-Code : `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts`.
+Le guide RH France n’est **pas** une autorité pour les défauts Maroc. Les politiques FR Phase 2 sont désactivées (historique).  
+Toute valeur chiffrée non confirmée est **À valider par RH**.
 
 ---
 
-## 2. Congés payés
+## 1. Classification d’emploi (Maroc)
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
-| Droit annuel CP | **Guide p.38–48** | 5 semaines ; acquisition **2,08 j/mois** ; période **1er juin → 31 mai** |
-| CP acquis vs en acquisition | **Guide p.38–48** | Comptes ledger distincts ; ouverture Phase 1 reste sur `conges_payes` legacy |
-| Arrondi fin de période | **Guide (exemple)** | 10,4 → 11 illustratif — **configurable, non généralisé par défaut** |
-| Temps partiel | **Guide p.38–48** | Pas de × % d'activité ; jours travaillés selon planning ; sinon validation RH |
-| Report CP | **Guide p.38–48** | Max **5 j**, non cumulable ; exceptions partenaire + plan au 31/12 + RRH — jamais auto |
-| Calcul des jours (ouvrés lun–ven) | **HYPOTHÈSE DÉMO** | Simplifié ; hors jours fériés & conventions locales |
-| Demi-journées | **Implémenté (démo)** | Flags `halfDayStart` / `halfDayEnd` |
-| Circuit validation | **HYPOTHÈSE DÉMO** | Collaborateur → Chef de projet (RH en lecture seule) |
-| Contexte collaborateur à la validation | **Implémenté (démo)** | Panneau soldes / historique (`leave-approval-context`) |
-| Types d’absence (CP/RTT) | **Démo** | CP, RTT, sans solde, maladie, exceptionnel, parental (LeaveRequest) |
-| Arrêts / absences spéciales | **Guide p.45–47 + workflow** | Événementiels — pas de solde ledger cumulatif — voir §7 |
+| Cadre / non-cadre | **Historique FR** | Conservé en enum ; **non déterminant** d’acquisition MA |
+| `non_applicable` + `policyGroup` | **Implémenté** | Modèle Maroc |
+| RTT statutaire | **Non** | Pas d’acquisition auto MA |
+| Alternants | **À valider** | Congé annuel selon contrat — RTT non auto |
 
-Références guide :
+Code : `entitlement-policies.ts`, `MOROCCO_HR_POLICY.md`.
 
-- **Pages 38–48** : acquisition / prise CP & RTT, reports, expiry  
-- **Pages 45–47** : congés pour événements familiaux / spéciaux
+---
+
+## 2. Congé annuel (Maroc)
+
+| Sujet | Statut | Notes / source |
+|-------|--------|----------------|
+| Congé annuel payé | **À valider par RH** | Baseline proposée 1,5 j/mois (loi 65-99 citée) — **non auto-postée** |
+| Politiques FR 2,08 / juin–mai | **Désactivées** | Historique ledger uniquement |
+| Comptes ledger | **Conservés** | `conges_payes*` + `rtt` historique |
+| Temps partiel | **À valider** | Pas de × % inventé |
+| Report / expiry | **À valider** | Pas de règles FR appliquées |
+| Demi-journées | **Implémenté (démo)** | Flags half-day |
+| Circuit validation | **Produit** | Collaborateur → Chef ; RH lecture |
+| Spéciaux | **À valider** | Catalogue événementiel, plafonds non statutaires MA |
+
+Voir `docs/MOROCCO_HR_POLICY.md`.
 
 ---
 
 ## 3. Télétravail
 
-**Source guide RH : page 106**
+**Politique produit** (présentation Conseil) — **pas** une obligation du Code du travail marocain. À confirmer par le département Maroc.
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
-| Plafond mensuel | **Implémenté** | Jusqu’à **12 jours / mois** (p.106) |
-| Présence / temps de travail | **Documenté** | Minimum **80 %** d’un temps plein (p.106) — cadre d’éligibilité, non recalculé numériquement dans la démo |
-| Compatibilité des tâches | **Implémenté (flag)** | `Employee.teleworkEligible` — message clair si faux |
-| Continuité de service | **Documenté** | Condition p.106 ; refus Chef de projet possible avec motif |
-| Planification hebdomadaire UI | **Implémenté** | **Maximum 2 jours / semaine** dans le plan mensuel |
-| Pas de week-end | **Implémenté** | Validation domaine |
-| Conflits congés approuvés | **Implémenté** | Intersection dates refusée |
-| Circuit validation | **Implémenté** | Collaborateur → Chef de projet (motif obligatoire en cas de refus ; RH sans décision) |
+| Plafond mensuel | **Paramétrable** | Défaut démo **12 j / mois** |
+| Max hebdo UI | **Paramétrable** | Défaut **2 j / semaine** |
+| 80 % présence | **Non imposé comme loi MA** | Ancienne mention guide FR — non défaut Maroc |
+| Compatibilité des tâches | **Implémenté (flag)** | `Employee.teleworkEligible` |
+| Circuit validation | **Implémenté** | Collaborateur → Chef ; RH sans décision |
 
-Code :
-
-- `src/domain/rules/telework-monthly.ts`
-- `src/application/services/telework-service.ts`
-
-Références guide :
-
-- **Page 106** : 12 jours/mois, 80 % temps plein, tâches compatibles, continuité de service  
+Code : `telework-monthly.ts`, `telework-service.ts`.
 
 ---
 

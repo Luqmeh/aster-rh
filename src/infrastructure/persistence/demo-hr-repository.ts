@@ -84,6 +84,7 @@ export const demoHrRepository: HrRepository = {
       weeklyContractHours: input.weeklyContractHours ?? null,
       workingTimePercent: input.workingTimePercent ?? null,
       officeCalendarId: input.officeCalendarId ?? null,
+      policyGroup: input.policyGroup ?? null,
     };
     store.employees.push(employee);
     return employee;

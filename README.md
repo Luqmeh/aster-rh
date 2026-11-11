@@ -1,9 +1,10 @@
 # ASTER — Human Resources, connected.
 
-Prototype de plateforme RH en français pour **PKF Arsilon**, destiné à remplacer l’expérience Kammi.pro à terme.
+Prototype de plateforme RH pour le **département Maroc** de **PKF Arsilon** (interface en français `fr-MA`, fuseau `Africa/Casablanca`, devise MAD).
 
-> Produit de présentation (conseil d’administration, 13 novembre 2026).  
-> Les données sont fictives. L’authentification temporaire du prototype n’est **pas** un SSO de production.
+> Produit de présentation (conseil, novembre 2026).  
+> Données fictives. L’auth temporaire n’est **pas** un SSO de production.  
+> Les politiques RH France ne sont pas des défauts Maroc — voir `docs/MOROCCO_HR_POLICY.md`.
 
 ## Stack
 
@@ -35,9 +36,9 @@ Comptes seed (après seed avec `ASTER_SEED_PASSWORD`) :
 
 | E-mail | Rôle |
 |--------|------|
-| `lea.dubois@demo.aster-rh.local` | Collaborateur |
-| `julien.bernard@demo.aster-rh.local` | Chef de projet |
-| `camille.moreau@demo.aster-rh.local` | Ressources humaines |
+| `imane.chraibi@demo.aster-rh.local` | Collaborateur |
+| `youssef.alaoui@demo.aster-rh.local` | Chef de projet |
+| `sara.benali@demo.aster-rh.local` | Ressources humaines |
 
 Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 
@@ -70,6 +71,11 @@ Pas de bascule de rôle dans l’UI — chaque compte a un rôle serveur fixe.
 - [docs/SSO_HANDOVER.md](./docs/SSO_HANDOVER.md)
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 - [docs/DEMO_GUIDE.md](./docs/DEMO_GUIDE.md)
+- [docs/ASTER_SCOPE.md](./docs/ASTER_SCOPE.md)
+- [docs/MOROCCO_HR_POLICY.md](./docs/MOROCCO_HR_POLICY.md)
+- [docs/MOROCCO_LOCALISATION.md](./docs/MOROCCO_LOCALISATION.md)
+- [docs/MOROCCO_MIGRATION.md](./docs/MOROCCO_MIGRATION.md)
+- [docs/ROLE_PERMISSIONS.md](./docs/ROLE_PERMISSIONS.md)
 
 ## Sécurité
 

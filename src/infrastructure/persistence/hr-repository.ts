@@ -40,6 +40,7 @@ export type EmployeeCreateInput = Omit<
   | "weeklyContractHours"
   | "workingTimePercent"
   | "officeCalendarId"
+  | "policyGroup"
 > & {
   demoIdentityId?: string | null;
   avatarInitials?: string;
@@ -50,6 +51,7 @@ export type EmployeeCreateInput = Omit<
   weeklyContractHours?: number | null;
   workingTimePercent?: number | null;
   officeCalendarId?: string | null;
+  policyGroup?: string | null;
 };
 
 /**
@@ -91,6 +93,7 @@ export interface HrRepository {
         | "weeklyContractHours"
         | "workingTimePercent"
         | "officeCalendarId"
+        | "policyGroup"
         | "avatarInitials"
       >
     >,

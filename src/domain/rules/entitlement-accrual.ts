@@ -3,12 +3,12 @@
  * Ne poste pas au ledger ; le service d'application gère preview → post.
  */
 
+import { MOROCCO_LEGAL_WEEKLY_HOURS_REFERENCE } from "@/domain/config/aster-locale";
 import {
-  CP_MONTHLY_ACCRUAL_DAYS,
+  isPolicyAutoPostable,
+  MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
   RTT_CADRE_MAX_DAYS,
   RTT_CADRE_MIN_DAYS,
-  RTT_NON_CADRE_ANNUAL_DAYS,
-  STANDARD_WEEKLY_HOURS_REFERENCE,
   selectPolicyVersionsForDate,
 } from "@/domain/rules/entitlement-policies";
 import type {
@@ -206,12 +206,12 @@ export function assessPartTimeCp(
     if (
       weekly != null &&
       weekly > 0 &&
-      weekly !== STANDARD_WEEKLY_HOURS_REFERENCE
+      weekly !== MOROCCO_LEGAL_WEEKLY_HOURS_REFERENCE
     ) {
       return {
         status: "requires_hr_validation",
         warnings: [
-          `Horaires contractuels ${weekly} h/sem ≠ ${STANDARD_WEEKLY_HOURS_REFERENCE} h — orienter RH (guide) ; pas de formule inventée.`,
+          `Horaires contractuels ${weekly} h/sem ≠ référence ${MOROCCO_LEGAL_WEEKLY_HOURS_REFERENCE} h (durée légale couramment citée) — À valider par RH ; pas de formule inventée.`,
         ],
       };
     }
@@ -233,7 +233,10 @@ export function previewMonthlyCpAccrual(input: {
   const { employee, period, policies } = input;
   const asOf = period.monthEnd;
   const active = selectPolicyVersionsForDate(policies, asOf).find(
-    (p) => p.kind === "conges_payes" && p.policyCode === "CP_ACQUISITION_JUN_MAY",
+    (p) =>
+      p.kind === "conges_payes" &&
+      (p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY" ||
+        p.policyCode === "CP_ACQUISITION_JUN_MAY"),
   );
 
   if (!isCpEligible(employee)) {
@@ -251,7 +254,7 @@ export function previewMonthlyCpAccrual(input: {
         employeeId: employee.id,
         account: "conges_payes_en_acquisition",
         periodKey: period.periodKey,
-        policyCode: active?.policyCode ?? "CP_ACQUISITION_JUN_MAY",
+        policyCode: active?.policyCode ?? "MA_ANNUAL_LEAVE_STATUTORY",
       }),
     };
   }
@@ -265,13 +268,14 @@ export function previewMonthlyCpAccrual(input: {
       periodKey: period.periodKey,
       quantity: 0,
       calculationStatus: "missing_policy_configuration",
-      explanation: "Aucune version de politique CP applicable à cette date.",
-      warnings: ["Politique CP manquante."],
+      explanation:
+        "Aucune politique de congé annuel Maroc active — À valider par RH.",
+      warnings: ["Politique MA manquante ou politiques FR désactivées."],
       idempotencyKey: accrualIdempotencyKey({
         employeeId: employee.id,
         account: "conges_payes_en_acquisition",
         periodKey: period.periodKey,
-        policyCode: "CP_ACQUISITION_JUN_MAY",
+        policyCode: "MA_ANNUAL_LEAVE_STATUTORY",
       }),
     };
   }
@@ -347,10 +351,17 @@ export function previewMonthlyCpAccrual(input: {
     };
   }
 
-  const rate = active.rules.monthlyAccrualDays ?? CP_MONTHLY_ACCRUAL_DAYS;
-  const quantity = rate;
-  const status: CalculationStatus =
+  const rate =
+    active.rules.monthlyAccrualDays ?? MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED;
+  const postable = isPolicyAutoPostable(active);
+  let status: CalculationStatus =
     partTime.status === "calculated" ? "calculated" : partTime.status;
+  if (!postable) {
+    status = "requires_hr_validation";
+    warnings.push(
+      "Politique Maroc non hr_configured — aucun crédit auto (À valider par RH).",
+    );
+  }
 
   return {
     employeeId: employee.id,
@@ -358,12 +369,12 @@ export function previewMonthlyCpAccrual(input: {
     policyVersionId: active.id,
     policyCode: active.policyCode,
     periodKey: period.periodKey,
-    quantity: status === "calculated" ? quantity : 0,
+    quantity: status === "calculated" && postable ? rate : 0,
     calculationStatus: status,
     explanation:
-      status === "calculated"
-        ? `Acquisition CP ${rate} j pour mois plein ${period.periodKey} (période juin–mai, compte en cours d'acquisition).`
-        : `Calcul CP non postable automatiquement (${status}).`,
+      status === "calculated" && postable
+        ? `Acquisition congé annuel ${rate} j pour mois plein ${period.periodKey} (politique MA validée).`
+        : `Congé annuel Maroc : calcul non postable (${status}). Baseline proposée ${rate} j/mois — validation RH requise.`,
     warnings,
     idempotencyKey: accrualIdempotencyKey({
       employeeId: employee.id,
@@ -375,9 +386,9 @@ export function previewMonthlyCpAccrual(input: {
 }
 
 /**
- * RTT : crédit mensuel = annuel / 12 pour non-cadres (prise au fil de l'eau).
- * Cadres : uniquement si calendrier validé ; sinon flag RH.
- * Ne confond pas le prévisionnel annuel avec le déjà acquis.
+ * RTT : pas de droit statutaire Maroc automatique.
+ * Les politiques FR sont désactivées ; sans politique MA hr_configured → pas de crédit.
+ * Le paramètre cadre/non-cadre n’est plus un déterminant d’acquisition.
  */
 export function previewMonthlyRttAccrual(input: {
   employee: Employee;
@@ -387,36 +398,16 @@ export function previewMonthlyRttAccrual(input: {
 }): AccrualPreviewLine | null {
   const { employee, period, policies, officeCalendar } = input;
   const asOf = period.monthEnd;
-  const isCadre = employee.category === "cadre";
-  const active = selectPolicyVersionsForDate(policies, asOf).find((p) => {
-    if (p.kind !== "rtt") return false;
-    if (isCadre) return p.policyCode === "RTT_CADRE_JUL_JUN";
-    return p.policyCode === "RTT_NON_CADRE_JUL_JUN";
-  });
+  const active = selectPolicyVersionsForDate(policies, asOf).find(
+    (p) => p.kind === "rtt" && isPolicyAutoPostable(p),
+  );
 
   const baseKey = accrualIdempotencyKey({
     employeeId: employee.id,
     account: "rtt",
     periodKey: period.periodKey,
-    policyCode: active?.policyCode ?? (isCadre ? "RTT_CADRE_JUL_JUN" : "RTT_NON_CADRE_JUL_JUN"),
+    policyCode: active?.policyCode ?? "MA_RTT_NONE",
   });
-
-  if (!isRttEligible(employee)) {
-    return {
-      employeeId: employee.id,
-      account: "rtt",
-      policyVersionId: active?.id ?? null,
-      policyCode: active?.policyCode ?? null,
-      periodKey: period.periodKey,
-      quantity: 0,
-      calculationStatus: "ineligible",
-      explanation: isAlternant(employee)
-        ? "Alternants : pas d'acquisition RTT (guide p.38–48)."
-        : `Contrat ${employee.contractType} non éligible RTT.`,
-      warnings: [],
-      idempotencyKey: baseKey,
-    };
-  }
 
   if (!active) {
     return {
@@ -427,7 +418,43 @@ export function previewMonthlyRttAccrual(input: {
       periodKey: period.periodKey,
       quantity: 0,
       calculationStatus: "missing_policy_configuration",
-      explanation: "Politique RTT applicable introuvable.",
+      explanation:
+        "Aucun RTT statutaire Maroc configuré. Les politiques FR sont désactivées. Solde RTT historique éventuel conservé au ledger.",
+      warnings: [
+        "Pas d’acquisition RTT automatique — À valider par RH si avantage employeur.",
+      ],
+      idempotencyKey: baseKey,
+    };
+  }
+
+  if (!isRttEligible(employee)) {
+    return {
+      employeeId: employee.id,
+      account: "rtt",
+      policyVersionId: active.id,
+      policyCode: active.policyCode,
+      periodKey: period.periodKey,
+      quantity: 0,
+      calculationStatus: "ineligible",
+      explanation: isAlternant(employee)
+        ? "Alternant : hors population RTT employeur (si configurée)."
+        : `Contrat ${employee.contractType} non éligible RTT employeur.`,
+      warnings: [],
+      idempotencyKey: baseKey,
+    };
+  }
+
+  // Calendrier bureau uniquement si la politique MA active l’exige (pas via cadre).
+  if (active.rules.requiresOfficeCalendar && !officeCalendar) {
+    return {
+      employeeId: employee.id,
+      account: "rtt",
+      policyVersionId: active.id,
+      policyCode: active.policyCode,
+      periodKey: period.periodKey,
+      quantity: 0,
+      calculationStatus: "missing_policy_configuration",
+      explanation: "Calendrier de bureau requis par la politique employeur.",
       warnings: [],
       idempotencyKey: baseKey,
     };
@@ -467,35 +494,25 @@ export function previewMonthlyRttAccrual(input: {
     };
   }
 
-  let annual = active.rules.annualEntitlementDays ?? null;
-  const warnings: string[] = [];
-  let status: CalculationStatus = "calculated";
-
-  if (isCadre) {
-    const cadre = computeCadreRttEntitlement(officeCalendar);
-    warnings.push(...cadre.warnings);
-    if (cadre.days == null) {
-      return {
-        employeeId: employee.id,
-        account: "rtt",
-        policyVersionId: active.id,
-        policyCode: active.policyCode,
-        periodKey: period.periodKey,
-        quantity: 0,
-        calculationStatus: cadre.status,
-        explanation: "RTT cadre non calculable sans calendrier validé.",
-        warnings,
-        idempotencyKey: baseKey,
-      };
-    }
-    annual = cadre.days;
-    status = cadre.status;
-  } else {
-    annual = annual ?? RTT_NON_CADRE_ANNUAL_DAYS;
+  const annual = active.rules.annualEntitlementDays;
+  if (annual == null || annual <= 0) {
+    return {
+      employeeId: employee.id,
+      account: "rtt",
+      policyVersionId: active.id,
+      policyCode: active.policyCode,
+      periodKey: period.periodKey,
+      quantity: 0,
+      calculationStatus: "requires_hr_validation",
+      explanation:
+        "Politique RTT employeur sans quantum annuel — À valider par RH.",
+      warnings: [],
+      idempotencyKey: baseKey,
+    };
   }
 
-  // Crédit mensuel = annuel / 12 (prise au fil de l'eau) — ne pas créditer l'annuel d'un coup.
   const monthly = Math.round((annual / 12) * 10000) / 10000;
+  void officeCalendar;
 
   return {
     employeeId: employee.id,
@@ -503,13 +520,10 @@ export function previewMonthlyRttAccrual(input: {
     policyVersionId: active.id,
     policyCode: active.policyCode,
     periodKey: period.periodKey,
-    quantity: status === "calculated" ? monthly : 0,
-    calculationStatus: status,
-    explanation:
-      status === "calculated"
-        ? `Acquisition RTT mensuelle ${monthly} j (${annual} j prévisionnels / 12) — période juil.–juin ; distinct du déjà acquis.`
-        : `RTT non postable (${status}).`,
-    warnings,
+    quantity: monthly,
+    calculationStatus: "calculated",
+    explanation: `Acquisition RTT employeur mensuelle ${monthly} j (${annual} j / 12) — politique MA hr_configured.`,
+    warnings: [],
     idempotencyKey: baseKey,
   };
 }
@@ -542,13 +556,13 @@ export function assertCarryoverWithinPolicy(input: {
       ok: true,
       requiresException: true,
       reason:
-        "Report exceptionnel avec validation partenaire + plan jusqu'au 31/12 (guide) — à transmettre RRH.",
+        "Report exceptionnel avec validation partenaire + plan jusqu'au 31/12 — à transmettre RRH (règle employeur à confirmer Maroc).",
     };
   }
   return {
     ok: false,
     requiresException: true,
     reason:
-      "Au-delà de 5 j : exception non auto-approuvée — plan congés au 31/12 + validation partenaire puis RRH requis.",
+      "Au-delà du plafond configuré : exception non auto-approuvée — validation RH Maroc requise.",
   };
 }

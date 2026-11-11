@@ -1,9 +1,11 @@
 /**
- * Politiques d'acquisition ASTER — source : Guide des pratiques RH PKF Arsilon
- * novembre 2026, pages 38–48 (sauf mentions explicites).
+ * Politiques d'acquisition ASTER — département Maroc.
  *
- * Ne pas inventer de formules statutaires. Les règles non confirmées restent
- * `requires_hr_decision` / `draft`.
+ * Les politiques FR (guide PKF France p.38–48) sont conservées en historique
+ * désactivé (`jurisdiction=FR`, `isActive=false`) pour comprendre d’anciennes
+ * métadonnées ledger. Elles ne sont jamais utilisées pour preview/post Maroc.
+ *
+ * Voir docs/MOROCCO_HR_POLICY.md.
  */
 
 import type {
@@ -11,28 +13,45 @@ import type {
   RoundingMode,
 } from "@/domain/types/entitlement";
 
-const GUIDE_REF = "Guide RH PKF Arsilon nov. 2026, p.38–48";
+const GUIDE_FR_REF =
+  "HISTORIQUE — Guide RH PKF Arsilon France nov. 2026 p.38–48 (non applicable Maroc)";
+const MA_LABOUR_REF =
+  "Loi 65-99 Code du travail marocain — congé annuel (articles couramment cités 231 et s.) — À VALIDER";
 
+/** @deprecated Valeurs FR — ne plus utiliser pour le Maroc. */
 export const CP_MONTHLY_ACCRUAL_DAYS = 2.08;
-export const CP_WEEKS_ANNUAL = 5;
 export const CP_CARRYOVER_MAX_DAYS = 5;
 export const RTT_NON_CADRE_ANNUAL_DAYS = 11;
 export const RTT_CADRE_MIN_DAYS = 7;
 export const RTT_CADRE_MAX_DAYS = 11;
 export const RTT_MAX_NEGATIVE_DAYS = 6;
-/** Arrangement horaire de référence cité pour orientation RH (pas une formule auto). */
-export const STANDARD_WEEKLY_HOURS_REFERENCE = 39;
+
+/** Baseline MA proposée (1,5 j/mois) — non postable tant que non hr_configured. */
+export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED = 1.5;
+export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED = 18;
 
 export function defaultCpRoundingMode(): RoundingMode {
-  // L'exemple 10,4 → 11 est illustratif en fin de période — pas généralisé.
   return "none";
 }
 
-/** Politiques seed versionnées (v1) — guide documenté vs décisions RH. */
+function deactivateFr(
+  policy: EntitlementPolicyVersion,
+): EntitlementPolicyVersion {
+  return {
+    ...policy,
+    jurisdiction: "FR",
+    isActive: false,
+    effectiveTo: policy.effectiveTo ?? "2026-11-10",
+    validationStatus: "draft",
+    notes: `${policy.notes ?? ""} [DÉSACTIVÉ Maroc — historique FR]`.trim(),
+  };
+}
+
+/** Politiques seed : FR désactivées + CAP Maroc non auto. */
 export function seedEntitlementPolicyVersions(
-  nowIso = "2026-01-01T00:00:00.000Z",
+  nowIso = "2026-11-11T00:00:00.000Z",
 ): EntitlementPolicyVersion[] {
-  return [
+  const frHistorical = ([
     {
       id: "epv-cp-v1",
       policyId: "ep-cp",
@@ -40,11 +59,13 @@ export function seedEntitlementPolicyVersions(
       kind: "conges_payes",
       version: 1,
       effectiveFrom: "2025-06-01",
-      effectiveTo: null,
-      validationStatus: "guide_documented",
-      sourceReference: GUIDE_REF,
+      effectiveTo: "2026-11-10",
+      validationStatus: "draft",
+      jurisdiction: "FR",
+      isActive: false,
+      sourceReference: GUIDE_FR_REF,
       notes:
-        "5 semaines ; 2,08 j/mois ; période 1er juin → 31 mai ; CDI/CDD/alternants. CP acquis ≠ CP en acquisition.",
+        "HISTORIQUE FR — 2,08 j/mois juin–mai. Non applicable au département Maroc.",
       rules: {
         eligibleContractTypes: ["cdi", "cdd", "alternance"],
         eligibleCategories: null,
@@ -61,8 +82,7 @@ export function seedEntitlementPolicyVersions(
         allowHalfDay: true,
         rounding: {
           mode: defaultCpRoundingMode(),
-          notes:
-            "Exemple guide : 10,4 j arrondis à 11 en fin de période d'acquisition — configurable, non appliqué par défaut.",
+          notes: "Exemple FR 10,4→11 — non généralisé.",
         },
         carryover: {
           maxDays: CP_CARRYOVER_MAX_DAYS,
@@ -81,11 +101,12 @@ export function seedEntitlementPolicyVersions(
       kind: "rtt",
       version: 1,
       effectiveFrom: "2025-07-01",
-      effectiveTo: null,
-      validationStatus: "guide_documented",
-      sourceReference: GUIDE_REF,
-      notes:
-        "Non-cadres : 11 RTT / période annuelle après déduction journée solidarité. Alternants exclus. Prise au fil de l'eau.",
+      effectiveTo: "2026-11-10",
+      validationStatus: "draft",
+      jurisdiction: "FR",
+      isActive: false,
+      sourceReference: GUIDE_FR_REF,
+      notes: "HISTORIQUE FR — RTT non-cadre. Pas de RTT statutaire Maroc auto.",
       rules: {
         eligibleContractTypes: ["cdi", "cdd"],
         eligibleCategories: ["non_cadre"],
@@ -99,37 +120,8 @@ export function seedEntitlementPolicyVersions(
         ledgerAccount: "rtt",
         unit: "days",
         allowHalfDay: true,
-        rounding: { mode: "none", notes: "Demi-journée autorisée." },
+        rounding: { mode: "none", notes: "" },
         expiry: { onMonth: 7, onDay: 1, noCarryover: true },
-        negativeBalance: {
-          maxNegativeDays: RTT_MAX_NEGATIVE_DAYS,
-          checkpoints: [
-            {
-              month: 1,
-              day: 31,
-              label: "70 % du prévisionnel annuel pris au 31 janvier",
-            },
-            {
-              month: 6,
-              day: 30,
-              label: "100 % (reste 30 %) au 30 juin",
-            },
-          ],
-        },
-        usageTargets: [
-          {
-            byMonth: 1,
-            byDay: 31,
-            percentOfProjectedAnnual: 70,
-            label: "70 % RTT pris au 31/01",
-          },
-          {
-            byMonth: 6,
-            byDay: 30,
-            percentOfProjectedAnnual: 100,
-            label: "30 % restants au 30/06",
-          },
-        ],
         requiresOfficeCalendar: false,
       },
       createdByEmployeeId: null,
@@ -142,11 +134,12 @@ export function seedEntitlementPolicyVersions(
       kind: "rtt",
       version: 1,
       effectiveFrom: "2025-07-01",
-      effectiveTo: null,
-      validationStatus: "requires_hr_decision",
-      sourceReference: GUIDE_REF,
-      notes:
-        "Cadres : 7 à 11 RTT selon jours fériés tombant un jour ouvré — calendrier de bureau obligatoire et validé. Sans calendrier : pas de posting auto.",
+      effectiveTo: "2026-11-10",
+      validationStatus: "draft",
+      jurisdiction: "FR",
+      isActive: false,
+      sourceReference: GUIDE_FR_REF,
+      notes: "HISTORIQUE FR — RTT cadre. Désactivé Maroc.",
       rules: {
         eligibleContractTypes: ["cdi", "cdd"],
         eligibleCategories: ["cadre"],
@@ -156,41 +149,10 @@ export function seedEntitlementPolicyVersions(
           endMonth: 6,
           endDay: 30,
         },
-        annualEntitlementDays: undefined,
         ledgerAccount: "rtt",
         unit: "days",
         allowHalfDay: true,
-        rounding: { mode: "none", notes: "Demi-journée autorisée." },
-        expiry: { onMonth: 7, onDay: 1, noCarryover: true },
-        negativeBalance: {
-          maxNegativeDays: RTT_MAX_NEGATIVE_DAYS,
-          checkpoints: [
-            {
-              month: 1,
-              day: 31,
-              label: "70 % du prévisionnel annuel pris au 31 janvier",
-            },
-            {
-              month: 6,
-              day: 30,
-              label: "100 % (reste 30 %) au 30 juin",
-            },
-          ],
-        },
-        usageTargets: [
-          {
-            byMonth: 1,
-            byDay: 31,
-            percentOfProjectedAnnual: 70,
-            label: "70 % RTT pris au 31/01",
-          },
-          {
-            byMonth: 6,
-            byDay: 30,
-            percentOfProjectedAnnual: 100,
-            label: "30 % restants au 30/06",
-          },
-        ],
+        rounding: { mode: "none", notes: "" },
         requiresOfficeCalendar: true,
       },
       createdByEmployeeId: null,
@@ -203,11 +165,12 @@ export function seedEntitlementPolicyVersions(
       kind: "carryover_cp",
       version: 1,
       effectiveFrom: "2025-06-01",
-      effectiveTo: null,
-      validationStatus: "guide_documented",
-      sourceReference: GUIDE_REF,
-      notes:
-        "Report CP acquis limité à 5 j, non cumulable. Exceptions (incapacité / client) : plan jusqu'au 31/12 + validation partenaire + transmission RRH — jamais auto-approuvé.",
+      effectiveTo: "2026-11-10",
+      validationStatus: "draft",
+      jurisdiction: "FR",
+      isActive: false,
+      sourceReference: GUIDE_FR_REF,
+      notes: "HISTORIQUE FR — report 5 j. Report MA à définir.",
       rules: {
         eligibleContractTypes: ["cdi", "cdd", "alternance"],
         eligibleCategories: null,
@@ -237,11 +200,12 @@ export function seedEntitlementPolicyVersions(
       kind: "expiry_rtt",
       version: 1,
       effectiveFrom: "2025-07-01",
-      effectiveTo: null,
-      validationStatus: "guide_documented",
-      sourceReference: GUIDE_REF,
-      notes:
-        "RTT non reportables ; perdus au 1er juillet. Récupération également à prendre sur la période 1er juil. → 30 juin.",
+      effectiveTo: "2026-11-10",
+      validationStatus: "draft",
+      jurisdiction: "FR",
+      isActive: false,
+      sourceReference: GUIDE_FR_REF,
+      notes: "HISTORIQUE FR — expiry RTT 1er juillet.",
       rules: {
         eligibleContractTypes: ["cdi", "cdd"],
         eligibleCategories: null,
@@ -260,16 +224,74 @@ export function seedEntitlementPolicyVersions(
       createdByEmployeeId: null,
       createdAt: nowIso,
     },
-  ];
+  ] as EntitlementPolicyVersion[]).map(deactivateFr);
+
+  const maAnnual: EntitlementPolicyVersion = {
+    id: "epv-ma-annual-v1",
+    policyId: "ep-ma-annual",
+    policyCode: "MA_ANNUAL_LEAVE_STATUTORY",
+    kind: "conges_payes",
+    version: 1,
+    effectiveFrom: "2026-11-11",
+    effectiveTo: null,
+    validationStatus: "requires_hr_decision",
+    jurisdiction: "MA",
+    isActive: true,
+    sourceReference: MA_LABOUR_REF,
+    notes:
+      "Baseline proposée 1,5 j/mois (≈18 j/an). Texte article exact + barème ancienneté à confirmer RH/juridique Maroc. Aucun posting automatique.",
+    rules: {
+      eligibleContractTypes: ["cdi", "cdd", "alternance"],
+      eligibleCategories: null,
+      acquisitionPeriod: {
+        startMonth: 1,
+        startDay: 1,
+        endMonth: 12,
+        endDay: 31,
+      },
+      monthlyAccrualDays: MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
+      annualEntitlementDays: MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED,
+      ledgerAccount: "conges_payes_en_acquisition",
+      unit: "days",
+      allowHalfDay: true,
+      rounding: {
+        mode: "none",
+        notes: "Arrondi MA non configuré.",
+      },
+      partTimeRequiresHrValidation: true,
+    },
+    createdByEmployeeId: null,
+    createdAt: nowIso,
+  };
+
+  return [...frHistorical, maAnnual];
+}
+
+/** Politiques actives pour le moteur Maroc (exclut FR et inactives). */
+export function selectActiveMoroccoPolicies(
+  versions: EntitlementPolicyVersion[],
+  asOfDate: string,
+): EntitlementPolicyVersion[] {
+  return versions.filter((v) => {
+    if (!v.isActive) return false;
+    if (v.jurisdiction === "FR") return false;
+    if (v.effectiveFrom > asOfDate) return false;
+    if (v.effectiveTo && v.effectiveTo < asOfDate) return false;
+    return true;
+  });
 }
 
 export function selectPolicyVersionsForDate(
   versions: EntitlementPolicyVersion[],
   asOfDate: string,
 ): EntitlementPolicyVersion[] {
-  return versions.filter((v) => {
-    if (v.effectiveFrom > asOfDate) return false;
-    if (v.effectiveTo && v.effectiveTo < asOfDate) return false;
-    return true;
-  });
+  return selectActiveMoroccoPolicies(versions, asOfDate);
+}
+
+export function isPolicyAutoPostable(v: EntitlementPolicyVersion): boolean {
+  return (
+    v.isActive &&
+    v.jurisdiction === "MA" &&
+    v.validationStatus === "hr_configured"
+  );
 }

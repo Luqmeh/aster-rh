@@ -1,14 +1,12 @@
 import { z } from "zod";
-import type { Employee, EmployeeCategory, LeaveBalance, LeaveType } from "@/domain/types/hr";
+import type { Employee, LeaveBalance, LeaveType } from "@/domain/types/hr";
 
 /**
- * Règles de congés pour la démonstration ASTER.
+ * Règles de congés — ASTER département Maroc.
  *
- * IMPORTANT — Les valeurs numériques ci-dessous sont des HYPOTHÈSES DE DÉMONSTRATION
- * tant que le guide RH PKF Arsilon n'a pas été saisi page par page dans
- * docs/HR_REQUIREMENTS.md. Elles ne doivent pas être présentées comme politique officielle.
- *
- * Source à compléter : Guide RH PKF Arsilon (confidentiel, non versionné).
+ * Les ouvertures démo ne sont pas des droits statutaires validés.
+ * L’acquisition passe par le moteur d’entitlement (politiques MA).
+ * Voir docs/MOROCCO_HR_POLICY.md — ne pas réintroduire le guide FR comme défaut.
  */
 
 export const leaveRequestInputSchema = z
@@ -48,19 +46,15 @@ export function usesLeaveBalance(type: LeaveType): boolean {
 }
 
 /**
- * Cadre vs non-cadre — distinction préservée (forfait jours vs horaires).
- * Les modalités exactes (nombre de RTT, forfait) doivent être alignées sur le guide RH.
- * @see docs/HR_REQUIREMENTS.md § Cadre / non-cadre
+ * Ouvertures démo uniquement — indépendant de cadre/non-cadre (non déterminant MA).
+ * Congé annuel baseline proposée 18 j ; RTT = 0 (pas de RTT statutaire Maroc auto).
  */
-export function defaultAnnualEntitlement(category: EmployeeCategory): {
+export function defaultAnnualEntitlement(_category?: string): {
   congesPayes: number;
   rtt: number;
 } {
-  // Valeurs de démonstration uniquement — à remplacer par les chiffres du guide RH.
-  if (category === "cadre") {
-    return { congesPayes: 25, rtt: 10 };
-  }
-  return { congesPayes: 25, rtt: 8 };
+  void _category;
+  return { congesPayes: 18, rtt: 0 };
 }
 
 export function remainingBalanceForType(
@@ -131,8 +125,8 @@ export function canSubmitLeave(employee: Employee): boolean {
 
 export function leaveTypeLabel(type: LeaveType): string {
   const labels: Record<LeaveType, string> = {
-    conges_payes: "Congés payés",
-    rtt: "RTT",
+    conges_payes: "Congé annuel",
+    rtt: "RTT (historique / avantage employeur)",
     recuperation: "Récupération (jour férié travaillé)",
     sans_solde: "Congé sans solde",
     maladie: "Absence maladie",
