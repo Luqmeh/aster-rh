@@ -3,7 +3,7 @@
 **Date / heure :** 11 novembre 2026 ~21:40 UTC  
 **Branche :** `main`  
 **Phase :** Critical — alignement import Excel sur le modèle officiel `ASTER_Modele_Import_RH_Maroc.xlsx`  
-**État :** **terminée** (implémentation + E2E + QA locale OK). Commit/push à enchaîner.
+**État :** **terminée et poussée** — commit `7c71656` sur `origin/main`.
 
 ---
 
@@ -82,10 +82,10 @@
 
 ## Tâches restantes
 
-1. Commit + push sur `origin/main` (hors `docs/git ssh.txt`).
-2. (Optionnel) renommer / scinder le champ récupération du rapport Excel pour distinguer jours vs heures.
-3. (Optionnel) migrer `middleware` → `proxy` Next.js 16.
+1. (Optionnel) renommer / scinder le champ récupération du rapport Excel pour distinguer jours vs heures.
+2. (Optionnel) migrer `middleware` → `proxy` Next.js 16.
+3. Suivre `docs/ROADMAP.md` pour la suite démo (SSO Entra / polish UI).
 
 ## Prochaine étape recommandée
 
-Committer et pousser cette phase, puis enchaîner la roadmap démo (SSO Entra / polish UI) selon `docs/ROADMAP.md`.
+Enchaîner la roadmap démo (SSO Entra / polish UI) selon `docs/ROADMAP.md`. `docs/git ssh.txt` reste volontairement hors git.
