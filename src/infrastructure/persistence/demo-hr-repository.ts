@@ -85,6 +85,8 @@ export const demoHrRepository: HrRepository = {
       workingTimePercent: input.workingTimePercent ?? null,
       officeCalendarId: input.officeCalendarId ?? null,
       policyGroup: input.policyGroup ?? null,
+      birthDate: input.birthDate ?? null,
+      activitySector: input.activitySector ?? "non_agricole",
     };
     store.employees.push(employee);
     return employee;

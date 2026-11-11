@@ -122,6 +122,10 @@ export interface Employee {
    * null = non renseigné → calculs d’acquisition non auto-postés.
    */
   policyGroup: string | null;
+  /** Date de naissance ISO — art. 231 (moins de 18 ans). */
+  birthDate: string | null;
+  /** Art. 238-2 : non_agricole (191 h) | agricole (208 h). */
+  activitySector: "non_agricole" | "agricole";
 }
 
 export interface LeaveBalance {

@@ -6,11 +6,14 @@
 import { MOROCCO_LEGAL_WEEKLY_HOURS_REFERENCE } from "@/domain/config/aster-locale";
 import {
   isPolicyAutoPostable,
-  MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
   RTT_CADRE_MAX_DAYS,
   RTT_CADRE_MIN_DAYS,
   selectPolicyVersionsForDate,
 } from "@/domain/rules/entitlement-policies";
+import {
+  computeMoroccoAnnualLeaveAccrual,
+  isAnnualLeaveContractEligible,
+} from "@/domain/rules/morocco-annual-leave";
 import type {
   AccrualPreviewLine,
   CalculationStatus,
@@ -111,11 +114,7 @@ export function isAlternant(employee: Employee): boolean {
 }
 
 export function isCpEligible(employee: Employee): boolean {
-  return (
-    employee.contractType === "cdi" ||
-    employee.contractType === "cdd" ||
-    employee.contractType === "alternance"
-  );
+  return isAnnualLeaveContractEligible(employee.contractType);
 }
 
 export function isRttEligible(employee: Employee): boolean {
@@ -229,15 +228,24 @@ export function previewMonthlyCpAccrual(input: {
   employee: Employee;
   period: MonthlyPeriod;
   policies: EntitlementPolicyVersion[];
+  /** Jours fériés chômés ISO (art. 236) pour la période. */
+  publicHolidayDates?: string[];
+  /** Heures travaillées sur la période (art. 238-2), si connues. */
+  hoursWorkedInPeriod?: number | null;
 }): AccrualPreviewLine | null {
   const { employee, period, policies } = input;
   const asOf = period.monthEnd;
   const active = selectPolicyVersionsForDate(policies, asOf).find(
     (p) =>
-      p.kind === "conges_payes" &&
-      (p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY" ||
-        p.policyCode === "CP_ACQUISITION_JUN_MAY"),
+      p.kind === "conges_payes" && p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY",
   );
+
+  const baseKey = accrualIdempotencyKey({
+    employeeId: employee.id,
+    account: "conges_payes_en_acquisition",
+    periodKey: period.periodKey,
+    policyCode: active?.policyCode ?? "MA_ANNUAL_LEAVE_STATUTORY",
+  });
 
   if (!isCpEligible(employee)) {
     return {
@@ -248,14 +256,9 @@ export function previewMonthlyCpAccrual(input: {
       periodKey: period.periodKey,
       quantity: 0,
       calculationStatus: "ineligible",
-      explanation: `Contrat ${employee.contractType} hors population CP (CDI/CDD/alternance — guide p.38–48).`,
+      explanation: `Contrat ${employee.contractType} hors population congé annuel (CDI/CDD/alternance — art. 231).`,
       warnings: [],
-      idempotencyKey: accrualIdempotencyKey({
-        employeeId: employee.id,
-        account: "conges_payes_en_acquisition",
-        periodKey: period.periodKey,
-        policyCode: active?.policyCode ?? "MA_ANNUAL_LEAVE_STATUTORY",
-      }),
+      idempotencyKey: baseKey,
     };
   }
 
@@ -269,14 +272,9 @@ export function previewMonthlyCpAccrual(input: {
       quantity: 0,
       calculationStatus: "missing_policy_configuration",
       explanation:
-        "Aucune politique de congé annuel Maroc active — À valider par RH.",
-      warnings: ["Politique MA manquante ou politiques FR désactivées."],
-      idempotencyKey: accrualIdempotencyKey({
-        employeeId: employee.id,
-        account: "conges_payes_en_acquisition",
-        periodKey: period.periodKey,
-        policyCode: "MA_ANNUAL_LEAVE_STATUTORY",
-      }),
+        "Aucune politique MA_ANNUAL_LEAVE_STATUTORY active (politiques FR désactivées).",
+      warnings: [],
+      idempotencyKey: baseKey,
     };
   }
 
@@ -291,75 +289,25 @@ export function previewMonthlyCpAccrual(input: {
       calculationStatus: "missing_employment_information",
       explanation: "Date d'embauche manquante.",
       warnings: ["hireDate manquant."],
-      idempotencyKey: accrualIdempotencyKey({
-        employeeId: employee.id,
-        account: "conges_payes_en_acquisition",
-        periodKey: period.periodKey,
-        policyCode: active.policyCode,
-      }),
+      idempotencyKey: baseKey,
     };
   }
 
-  const partTime = assessPartTimeCp(employee);
-  const warnings = [...partTime.warnings];
+  const calc = computeMoroccoAnnualLeaveAccrual({
+    employee,
+    asOfDate: asOf,
+    periodStart: period.monthStart,
+    periodEnd: period.monthEnd,
+    publicHolidayDates: input.publicHolidayDates ?? [],
+    hoursWorkedInPeriod: input.hoursWorkedInPeriod ?? null,
+  });
 
-  if (!isFullMonthEmployed(employee, period)) {
-    const partialOutside =
-      employee.hireDate > period.monthEnd ||
-      (employee.departureDate != null &&
-        employee.departureDate < period.monthStart);
-    if (partialOutside) {
-      return {
-        employeeId: employee.id,
-        account: "conges_payes_en_acquisition",
-        policyVersionId: active.id,
-        policyCode: active.policyCode,
-        periodKey: period.periodKey,
-        quantity: 0,
-        calculationStatus: "calculated",
-        explanation:
-          "Hors emploi sur ce mois civil — aucun crédit CP (pas d'acquisition hors période d'emploi).",
-        warnings,
-        idempotencyKey: accrualIdempotencyKey({
-          employeeId: employee.id,
-          account: "conges_payes_en_acquisition",
-          periodKey: period.periodKey,
-          policyCode: active.policyCode,
-        }),
-      };
-    }
-    return {
-      employeeId: employee.id,
-      account: "conges_payes_en_acquisition",
-      policyVersionId: active.id,
-      policyCode: active.policyCode,
-      periodKey: period.periodKey,
-      quantity: 0,
-      calculationStatus: "requires_hr_validation",
-      explanation:
-        "Mois partiel d'emploi : le guide ne détaille pas le prorata intra-mois ici — règle RH approuvée requise (pas de formule inventée).",
-      warnings: [
-        ...warnings,
-        "Entrée/sortie en cours de mois — validation RH.",
-      ],
-      idempotencyKey: accrualIdempotencyKey({
-        employeeId: employee.id,
-        account: "conges_payes_en_acquisition",
-        periodKey: period.periodKey,
-        policyCode: active.policyCode,
-      }),
-    };
-  }
-
-  const rate =
-    active.rules.monthlyAccrualDays ?? MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED;
-  const postable = isPolicyAutoPostable(active);
-  let status: CalculationStatus =
-    partTime.status === "calculated" ? "calculated" : partTime.status;
-  if (!postable) {
+  let status = calc.calculationStatus;
+  const warnings = [...calc.warnings];
+  if (!isPolicyAutoPostable(active) && status === "calculated") {
     status = "requires_hr_validation";
     warnings.push(
-      "Politique Maroc non hr_configured — aucun crédit auto (À valider par RH).",
+      "Politique non postable automatiquement (statut validation ≠ guide_documented/hr_configured).",
     );
   }
 
@@ -369,19 +317,11 @@ export function previewMonthlyCpAccrual(input: {
     policyVersionId: active.id,
     policyCode: active.policyCode,
     periodKey: period.periodKey,
-    quantity: status === "calculated" && postable ? rate : 0,
+    quantity: calc.periodCreditDays,
     calculationStatus: status,
-    explanation:
-      status === "calculated" && postable
-        ? `Acquisition congé annuel ${rate} j pour mois plein ${period.periodKey} (politique MA validée).`
-        : `Congé annuel Maroc : calcul non postable (${status}). Baseline proposée ${rate} j/mois — validation RH requise.`,
+    explanation: `${calc.explanation} Réf. : ${calc.legalReferences.join(", ")}.`,
     warnings,
-    idempotencyKey: accrualIdempotencyKey({
-      employeeId: employee.id,
-      account: "conges_payes_en_acquisition",
-      periodKey: period.periodKey,
-      policyCode: active.policyCode,
-    }),
+    idempotencyKey: baseKey,
   };
 }
 

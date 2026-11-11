@@ -53,6 +53,8 @@ export async function requestCarryoverAction(formData: FormData) {
     String(formData.get("leavePlanThrough") ?? "") || undefined;
   const partnerApprovedById =
     String(formData.get("partnerApprovedById") ?? "") || undefined;
+  const hasMutualAgreement =
+    String(formData.get("hasMutualAgreement") ?? "") === "true";
 
   await entitlement.requestCpCarryover(session, {
     employeeId,
@@ -62,6 +64,7 @@ export async function requestCarryoverAction(formData: FormData) {
     exceptionReason,
     leavePlanThrough,
     partnerApprovedById,
+    hasMutualAgreement,
   });
   revalidatePath("/administration/droits-conges");
 }

@@ -1,5 +1,4 @@
 import {
-  assertCarryoverWithinPolicy,
   buildMonthlyPeriod,
   isAlternant,
   isCpEligible,
@@ -9,11 +8,17 @@ import {
   rttUsageTargetDays,
 } from "@/domain/rules/entitlement-accrual";
 import {
-  CP_CARRYOVER_MAX_DAYS,
   RTT_NON_CADRE_ANNUAL_DAYS,
   seedEntitlementPolicyVersions,
   selectPolicyVersionsForDate,
 } from "@/domain/rules/entitlement-policies";
+import {
+  assertMaCarryoverAgreement,
+  computeMoroccoAnnualLeaveAccrual,
+  continuousServiceMonths,
+  MA_CONTINUOUS_SERVICE_MONTHS_BEFORE_ENTITLEMENT,
+} from "@/domain/rules/morocco-annual-leave";
+import { listCuratedMoroccoHolidays } from "@/data/morocco-holidays";
 import { SPECIAL_LEAVE_ENTITLEMENTS } from "@/domain/rules/special-leave-entitlements";
 import { canAccessHrAdministration } from "@/domain/rules/permissions";
 import type {
@@ -126,25 +131,38 @@ export function createEntitlementService(deps: {
       }
       if (employee.isPartTime) {
         statuses.push("requires_hr_validation");
-        warnings.push("Temps partiel — validation RH pour le calcul CP.");
-      }
-      if (
-        employee.weeklyContractHours != null &&
-        employee.weeklyContractHours !== 44
-      ) {
-        statuses.push("requires_hr_validation");
         warnings.push(
-          `Horaires ${employee.weeklyContractHours} h/sem ≠ référence 44 h — À valider par RH.`,
+          "Temps partiel — heures de période requises (art. 238-2) pour posting auto.",
+        );
+      }
+      if (!employee.birthDate) {
+        warnings.push(
+          "birthDate manquant — régime adulte art. 231 par défaut.",
         );
       }
       if (!employee.policyGroup) {
-        statuses.push("missing_employment_information");
         warnings.push("Groupe de politique (policyGroup) non renseigné.");
       }
-      statuses.push("requires_hr_validation");
-      warnings.push(
-        "Politiques d’acquisition Maroc : validation RH requise avant posting automatique.",
+      const serviceMonths = continuousServiceMonths(
+        employee.hireDate,
+        asOfDate,
+        employee.departureDate,
       );
+      if (serviceMonths < MA_CONTINUOUS_SERVICE_MONTHS_BEFORE_ENTITLEMENT) {
+        statuses.push("requires_hr_validation");
+        warnings.push(
+          `Art. 231 : ${serviceMonths}/${MA_CONTINUOUS_SERVICE_MONTHS_BEFORE_ENTITLEMENT} mois de service continu — droit non encore ouvert.`,
+        );
+      }
+      const sample = computeMoroccoAnnualLeaveAccrual({
+        employee,
+        asOfDate,
+        periodStart: asOfDate.slice(0, 8) + "01",
+        periodEnd: asOfDate,
+        publicHolidayDates: [],
+      });
+      statuses.push(sample.calculationStatus);
+      warnings.push(...sample.warnings);
 
       return {
         employeeId,
@@ -154,7 +172,7 @@ export function createEntitlementService(deps: {
         isPartTime: employee.isPartTime,
         isAlternant: isAlternant(employee),
         calculationStatuses: [...new Set(statuses)],
-        warnings,
+        warnings: [...new Set(warnings)],
         applicablePolicies: applicable.filter((p) => {
           if (p.jurisdiction === "FR" || !p.isActive) return false;
           if (p.kind === "conges_payes") return isCpEligible(employee);
@@ -181,6 +199,12 @@ export function createEntitlementService(deps: {
         ? employees.filter((e) => input.employeeIds!.includes(e.id))
         : employees.filter((e) => e.employmentStatus === "actif");
 
+      const holidays = listCuratedMoroccoHolidays([input.year])
+        .filter(
+          (h) => h.date >= period.monthStart && h.date <= period.monthEnd,
+        )
+        .map((h) => h.date);
+
       const lines: AccrualPreviewLine[] = [];
       for (const employee of selected) {
         const cal = employee.officeCalendarId
@@ -191,6 +215,7 @@ export function createEntitlementService(deps: {
           employee,
           period,
           policies,
+          publicHolidayDates: holidays,
         });
         if (cp) lines.push(cp);
         const rtt = previewMonthlyRttAccrual({
@@ -424,46 +449,29 @@ export function createEntitlementService(deps: {
         exceptionReason?: string;
         leavePlanThrough?: string;
         partnerApprovedById?: string;
+        /** Accord mutuel salarié–employeur (art. 240). */
+        hasMutualAgreement?: boolean;
       },
     ): Promise<CarryoverRequest> {
       requireSession(session);
       assertHrAdmin(session);
-      const check = assertCarryoverWithinPolicy({
-        requestedDays: input.requestedDays,
-        maxDays: CP_CARRYOVER_MAX_DAYS,
-        hasPartnerApproval: Boolean(input.partnerApprovedById),
-        hasLeavePlanThroughDec31: Boolean(
-          input.leavePlanThrough?.endsWith("-12-31"),
-        ),
-      });
-      if (!check.ok && check.requiresException) {
-        // On enregistre en attente — jamais d'auto-approbation ni posting.
-        const row: CarryoverRequest = {
-          id: newId("cvr"),
-          employeeId: input.employeeId,
-          sourcePeriodKey: input.sourcePeriodKey,
-          targetPeriodKey: input.targetPeriodKey,
-          requestedDays: input.requestedDays,
-          status: "en_attente_validation",
-          exceptionReason: input.exceptionReason ?? check.reason,
-          leavePlanThrough: input.leavePlanThrough ?? null,
-          partnerApprovedById: input.partnerApprovedById ?? null,
-          partnerApprovedAt: null,
-          rrhForwardedAt: null,
-          decidedByEmployeeId: null,
-          decidedAt: null,
-          decisionNote: null,
-          ledgerCarryoverEntryId: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        memory().carryovers.unshift(row);
-        return row;
+      if (input.requestedDays <= 0) {
+        throw new Error("Quantité de report invalide.");
       }
+      const check = assertMaCarryoverAgreement({
+        hasMutualAgreement: Boolean(input.hasMutualAgreement),
+        spansAtMostTwoConsecutiveYears: (() => {
+          const a = input.sourcePeriodKey.match(/(\d{4})/);
+          const b = input.targetPeriodKey.match(/(\d{4})/);
+          if (!a || !b) return false;
+          const diff = Math.abs(Number(b[1]) - Number(a[1]));
+          return diff === 1;
+        })(),
+      });
       if (!check.ok) {
         throw new Error(check.reason);
       }
-
+      // Toujours enregistré en attente — jamais d'auto-approbation / posting.
       const row: CarryoverRequest = {
         id: newId("cvr"),
         employeeId: input.employeeId,
@@ -471,7 +479,9 @@ export function createEntitlementService(deps: {
         targetPeriodKey: input.targetPeriodKey,
         requestedDays: input.requestedDays,
         status: "en_attente_validation",
-        exceptionReason: input.exceptionReason ?? null,
+        exceptionReason:
+          input.exceptionReason?.trim() ||
+          "Art. 240 — accord mutuel déclaré ; validation RH avant posting ledger.",
         leavePlanThrough: input.leavePlanThrough ?? null,
         partnerApprovedById: input.partnerApprovedById ?? null,
         partnerApprovedAt: input.partnerApprovedById
@@ -506,13 +516,12 @@ export function createEntitlementService(deps: {
       const row = memory().carryovers.find((c) => c.id === input.requestId);
       if (!row) throw new AuthError("Demande de report introuvable.", 404);
 
-      const check = assertCarryoverWithinPolicy({
-        requestedDays: row.requestedDays,
-        maxDays: CP_CARRYOVER_MAX_DAYS,
-        hasPartnerApproval: Boolean(row.partnerApprovedById),
-        hasLeavePlanThroughDec31: Boolean(
-          row.leavePlanThrough?.endsWith("-12-31"),
-        ),
+      const check = assertMaCarryoverAgreement({
+        hasMutualAgreement:
+          Boolean(row.partnerApprovedById) ||
+          Boolean(row.exceptionReason?.trim()) ||
+          note.toLowerCase().includes("accord"),
+        spansAtMostTwoConsecutiveYears: true,
       });
 
       if (input.approve && !check.ok) {
@@ -529,28 +538,33 @@ export function createEntitlementService(deps: {
         return row;
       }
 
-      // Posting ledger : débit période source (expiry/consommation report) + crédit acquis cible.
-      const idempotencyKey = `carryover:cp:${row.employeeId}:${row.sourcePeriodKey}:${row.targetPeriodKey}`;
-      const year = Number(row.targetPeriodKey.slice(0, 4)) || 2026;
-      const effectiveDate = `${year}-06-01`;
+      // Art. 240 : transfert par accord — pas une expiry/forfaiture statutaire.
+      const idempotencyKey = `carryover:ma:${row.employeeId}:${row.sourcePeriodKey}:${row.targetPeriodKey}`;
+      const yearMatch = row.targetPeriodKey.match(/(\d{4})/);
+      const year = yearMatch ? Number(yearMatch[1]) : 2026;
+      const sourceYearMatch = row.sourcePeriodKey.match(/(\d{4})/);
+      const sourceYear = sourceYearMatch
+        ? Number(sourceYearMatch[1])
+        : year - 1;
+      const effectiveDate = `${year}-01-01`;
 
-      // Débit sur acquis source (traçabilité période)
       await deps.hr.appendLeaveLedgerEntry({
         employeeId: row.employeeId,
         account: "conges_payes_acquis",
-        transactionType: "expiry",
+        transactionType: "hr_adjustment",
         quantity: -row.requestedDays,
         unit: "days",
-        year: year - 1,
+        year: sourceYear,
         effectiveDate,
         sourceKind: "entitlement_carryover_out",
-        sourceId: idempotencyKey,
-        reason: `Report CP sortant (${row.sourcePeriodKey}) — ${row.requestedDays} j.`,
+        sourceId: `${idempotencyKey}:out`,
+        reason: `Art. 240 report sortant (${row.sourcePeriodKey}) — ${row.requestedDays} j (accord mutuel).`,
         actorEmployeeId: session.employee.id,
         metadataJson: {
           carryoverRequestId: row.id,
           sourcePeriodKey: row.sourcePeriodKey,
           targetPeriodKey: row.targetPeriodKey,
+          art240: true,
         },
       });
 
@@ -563,14 +577,14 @@ export function createEntitlementService(deps: {
         year,
         effectiveDate,
         sourceKind: "entitlement_carryover_in",
-        sourceId: idempotencyKey,
-        reason: `Report CP entrant (${row.targetPeriodKey}) depuis ${row.sourcePeriodKey}.`,
+        sourceId: `${idempotencyKey}:in`,
+        reason: `Art. 240 report entrant (${row.targetPeriodKey}) depuis ${row.sourcePeriodKey}.`,
         actorEmployeeId: session.employee.id,
         metadataJson: {
           carryoverRequestId: row.id,
           sourcePeriodKey: row.sourcePeriodKey,
-          nonCumulative: true,
-          maxDays: CP_CARRYOVER_MAX_DAYS,
+          art240: true,
+          mutualAgreement: true,
         },
       });
 

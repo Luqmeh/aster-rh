@@ -102,6 +102,10 @@ export const prismaHrRepository: HrRepository = {
           workingTimePercent: input.workingTimePercent ?? null,
           officeCalendarId: input.officeCalendarId ?? null,
           policyGroup: input.policyGroup ?? null,
+          birthDate: input.birthDate
+            ? dateOnlyToUtc(input.birthDate)
+            : null,
+          activitySector: input.activitySector ?? "non_agricole",
         },
       });
       return mapEmployee(row);
@@ -125,6 +129,14 @@ export const prismaHrRepository: HrRepository = {
       data.departureDate = dateOnlyToUtc(patch.departureDate);
     } else if (patch.departureDate === null) {
       data.departureDate = null;
+    }
+    if (typeof patch.birthDate === "string") {
+      data.birthDate = dateOnlyToUtc(patch.birthDate);
+    } else if (patch.birthDate === null) {
+      data.birthDate = null;
+    }
+    if (typeof patch.activitySector === "string") {
+      data.activitySector = patch.activitySector;
     }
     if (patch.employmentStatus) {
       data.isActive = syncIsActive(patch.employmentStatus);

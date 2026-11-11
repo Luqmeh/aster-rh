@@ -326,6 +326,10 @@ model Employee {
   officeCalendar      OfficeWorkCalendar? @relation(fields: [officeCalendarId], references: [id])
   /// Groupe de politique employeur (Maroc) — indépendant du titre / ancien cadre.
   policyGroup         String?
+  /// Date de naissance (art. 231 — régime moins de 18 ans). Nullable.
+  birthDate           DateTime?          @db.Date
+  /// Secteur pour art. 238-2 (191 h non agricole / 208 h agricole).
+  activitySector      String?            @default("non_agricole")
   leaveBalances       LeaveBalance[]
   leaveLedgerEntries  LeaveLedgerEntry[]
   leaveRequests       LeaveRequest[]

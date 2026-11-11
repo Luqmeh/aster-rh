@@ -51,7 +51,7 @@ export default async function DroitsCongesPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Droits à congés & acquisitions"
-        description="Département Maroc — politiques MA à valider par RH. Les politiques FR Phase 2 sont désactivées (historique). Le grand livre reste la seule source de soldes."
+        description="CAP Maroc (Loi 65-99 art. 231–240) — preview avant posting. Politiques FR désactivées. Ledger append-only."
         actions={
           <Button asChild size="sm" variant="secondary">
             <Link href="/administration">Retour administration</Link>
@@ -241,9 +241,61 @@ export default async function DroitsCongesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Report CP (max 5 j)</CardTitle>
+          <CardTitle className="text-base">
+            Entrées de calcul (échantillon preview)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Données utilisées pour art. 231 / 238 — les absences = données
+            manquantes bloquent le posting automatique.
+          </p>
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-2">Collaborateur</th>
+                <th className="py-2 pr-2">Embauche</th>
+                <th className="py-2 pr-2">Naissance</th>
+                <th className="py-2 pr-2">TP</th>
+                <th className="py-2 pr-2">h/sem</th>
+                <th className="py-2">Secteur</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.slice(0, 12).map((e) => (
+                <tr key={e.id} className="border-b">
+                  <td className="py-2 pr-2">
+                    {fullName(e.firstName, e.lastName)}
+                  </td>
+                  <td className="py-2 pr-2 font-mono text-xs">{e.hireDate}</td>
+                  <td className="py-2 pr-2 font-mono text-xs">
+                    {e.birthDate ?? "— manquant"}
+                  </td>
+                  <td className="py-2 pr-2">{e.isPartTime ? "oui" : "non"}</td>
+                  <td className="py-2 pr-2">
+                    {e.weeklyContractHours ?? "—"}
+                  </td>
+                  <td className="py-2 text-xs">{e.activitySector}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Report / fractionnement (art. 240)
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Cumul ou fractionnement sur deux années civiles consécutives
+            uniquement après accord salarié–employeur (mention registre des
+            congés). Pas d&apos;expiry automatique statutaire. Pas de règle
+            française de report « 5 j ».
+          </p>
           <form
             action={requestCarryoverAction}
             className="grid gap-2 md:grid-cols-2"
@@ -269,31 +321,49 @@ export default async function DroitsCongesPage() {
                 type="number"
                 step="0.5"
                 min="0.5"
-                defaultValue={5}
+                defaultValue={3}
                 className="mt-1 w-full rounded border bg-background px-2 py-1.5"
                 required
               />
             </label>
-            <input
-              type="hidden"
-              name="sourcePeriodKey"
-              value="CP:2025-2026"
-            />
-            <input
-              type="hidden"
-              name="targetPeriodKey"
-              value="CP:2026-2027"
-            />
-            <label className="text-sm md:col-span-2">
-              Motif / exception
+            <label className="text-sm">
+              Année source
               <input
-                name="exceptionReason"
+                name="sourcePeriodKey"
+                defaultValue="2025"
                 className="mt-1 w-full rounded border bg-background px-2 py-1.5"
-                placeholder="Optionnel si ≤ 5 j"
+                required
               />
             </label>
             <label className="text-sm">
-              Plan congés jusqu&apos;au (exception)
+              Année cible
+              <input
+                name="targetPeriodKey"
+                defaultValue="2026"
+                className="mt-1 w-full rounded border bg-background px-2 py-1.5"
+                required
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm md:col-span-2">
+              <input
+                type="checkbox"
+                name="hasMutualAgreement"
+                value="true"
+                required
+              />
+              Accord mutuel salarié–employeur (art. 240) confirmé
+            </label>
+            <label className="text-sm md:col-span-2">
+              Motif / référence registre
+              <input
+                name="exceptionReason"
+                className="mt-1 w-full rounded border bg-background px-2 py-1.5"
+                placeholder="Réf. accord / registre des congés"
+                required
+              />
+            </label>
+            <label className="text-sm">
+              Plan congés jusqu&apos;au
               <input
                 name="leavePlanThrough"
                 type="date"
@@ -302,7 +372,7 @@ export default async function DroitsCongesPage() {
             </label>
             <div className="flex items-end">
               <Button type="submit" size="sm">
-                Enregistrer demande de report
+                Enregistrer demande (en attente)
               </Button>
             </div>
           </form>

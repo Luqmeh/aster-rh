@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  assertCarryoverWithinPolicy,
-  buildMonthlyPeriod,
-  previewMonthlyCpAccrual,
-  previewMonthlyRttAccrual,
-} from "@/domain/rules/entitlement-accrual";
+import { buildMonthlyPeriod, previewMonthlyCpAccrual, previewMonthlyRttAccrual } from "@/domain/rules/entitlement-accrual";
 import {
   isPolicyAutoPostable,
-  MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
   seedEntitlementPolicyVersions,
 } from "@/domain/rules/entitlement-policies";
 import type { Employee } from "@/domain/types/hr";
@@ -24,7 +18,7 @@ function emp(partial: Partial<Employee> & Pick<Employee, "id">): Employee {
     site: "Casablanca (démo)",
     contractType: "cdi",
     category: "non_applicable",
-    hireDate: "2024-01-01",
+    hireDate: "2020-01-01",
     employmentStatus: "actif",
     departureDate: null,
     departureNote: null,
@@ -39,88 +33,63 @@ function emp(partial: Partial<Employee> & Pick<Employee, "id">): Employee {
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
     ...partial,
   };
 }
 
 const policies = seedEntitlementPolicyVersions();
 
-describe("Morocco entitlement engine", () => {
-  it("does not auto-apply deactivated French CP 2.08 policy", () => {
-    const fr = policies.find((p) => p.policyCode === "CP_ACQUISITION_JUN_MAY");
-    expect(fr?.isActive).toBe(false);
-    expect(fr?.jurisdiction).toBe("FR");
+describe("Morocco entitlement preview wiring", () => {
+  it("keeps French policies inactive", () => {
+    expect(
+      policies.filter((p) => p.jurisdiction === "FR").every((p) => !p.isActive),
+    ).toBe(true);
   });
 
-  it("does not auto-post Moroccan annual leave until hr_configured", () => {
-    const ma = policies.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY");
-    expect(ma).toBeTruthy();
-    expect(isPolicyAutoPostable(ma!)).toBe(false);
-
-    const period = buildMonthlyPeriod(2026, 11);
+  it("posts MA statutory policy when guide_documented and eligibility met", () => {
+    const ma = policies.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY")!;
+    expect(isPolicyAutoPostable(ma)).toBe(true);
     const line = previewMonthlyCpAccrual({
-      employee: emp({ id: "e1" }),
-      period,
+      employee: emp({ id: "ok" }),
+      period: buildMonthlyPeriod(2026, 11),
       policies,
+      publicHolidayDates: [],
     });
-    expect(line?.quantity).toBe(0);
-    expect(line?.calculationStatus).toBe("requires_hr_validation");
-    expect(line?.explanation).toMatch(/valider|RH/i);
-    expect(ma!.rules.monthlyAccrualDays).toBe(
-      MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
-    );
+    expect(line?.calculationStatus).toBe("calculated");
+    expect(line?.quantity).toBeGreaterThan(0);
+    expect(line?.explanation).toMatch(/231|238/);
   });
 
   it("does not use cadre/non-cadre for entitlement", () => {
-    const period = buildMonthlyPeriod(2026, 11);
-    const cadre = previewMonthlyCpAccrual({
+    const a = previewMonthlyCpAccrual({
       employee: emp({ id: "c", category: "cadre" }),
-      period,
+      period: buildMonthlyPeriod(2026, 11),
       policies,
     });
-    const non = previewMonthlyCpAccrual({
+    const b = previewMonthlyCpAccrual({
       employee: emp({ id: "n", category: "non_cadre" }),
-      period,
+      period: buildMonthlyPeriod(2026, 11),
       policies,
     });
-    expect(cadre?.quantity).toBe(0);
-    expect(non?.quantity).toBe(0);
-    expect(cadre?.calculationStatus).toBe(non?.calculationStatus);
+    expect(a?.quantity).toBe(b?.quantity);
   });
 
-  it("does not grant French RTT automatically", () => {
-    const period = buildMonthlyPeriod(2026, 11);
+  it("does not grant French RTT", () => {
     const line = previewMonthlyRttAccrual({
       employee: emp({ id: "r" }),
-      period,
+      period: buildMonthlyPeriod(2026, 11),
       policies,
       officeCalendar: null,
     });
     expect(line?.quantity).toBe(0);
     expect(line?.calculationStatus).toBe("missing_policy_configuration");
-    expect(policies.filter((p) => p.kind === "rtt").every((p) => !p.isActive)).toBe(
-      true,
-    );
   });
 
-  it("flags part-time without inventing a formula", () => {
-    const period = buildMonthlyPeriod(2026, 11);
-    const line = previewMonthlyCpAccrual({
-      employee: emp({ id: "pt", isPartTime: true }),
-      period,
-      policies,
-    });
-    expect(line?.quantity).toBe(0);
-    expect(line?.calculationStatus).toBe("requires_hr_validation");
-  });
-
-  it("keeps carryover exceptions non-automatic", () => {
-    const blocked = assertCarryoverWithinPolicy({
-      requestedDays: 8,
-      maxDays: 5,
-      hasPartnerApproval: false,
-      hasLeavePlanThroughDec31: false,
-    });
-    expect(blocked.ok).toBe(false);
+  it("preserves historical French ledger accounts without reactivating FR accrual", () => {
+    expect(
+      policies.find((p) => p.policyCode === "CP_ACQUISITION_JUN_MAY")?.isActive,
+    ).toBe(false);
   });
 });

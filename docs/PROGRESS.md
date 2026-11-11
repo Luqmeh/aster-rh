@@ -1,71 +1,101 @@
-# ASTER — Rapport de progression (frais)
+# ASTER — Progress Report
 
 **Date :** 11 novembre 2026  
-**Périmètre :** Refactoring Morocco-first (correction produit / domaine)  
-**Commit prévu :** voir hash git en bas après commit
+**Branche :** `main`  
+**Phase :** 3 — Validation & moteur CAP statutaire Maroc (Loi 65-99)
 
-## Changements livrés
+> Rapport généré à neuf (ancien fichier supprimé). Ne constitue pas un avis juridique.
 
-- Audit France→Maroc (`docs/MOROCCO_AUDIT.md`) + gouvernance (`MOROCCO_HR_POLICY`, `MOROCCO_LOCALISATION`, `MOROCCO_MIGRATION`, `ASTER_SCOPE`, `ROLE_PERMISSIONS`).
-- Politiques FR Phase 2 **désactivées** (`jurisdiction=FR`, `isActive=false`) — historique ledger intact.
-- Politique MA `MA_ANNUAL_LEAVE_STATUTORY` (baseline 1,5 j/mois proposée) en `requires_hr_decision` — **aucun auto-post**.
-- `cadre`/`non_cadre` ne pilotent plus les droits ; ajout `non_applicable` + `policyGroup`.
-- Locale centralisée : `fr-MA`, `Africa/Casablanca`, MAD (`aster-locale.ts`).
-- Démo Maroc (personas / sites Casablanca–Rabat, départements présentation, RTT démo à 0).
-- Télétravail : plafonds traités comme politique produit paramétrable (pas guide FR).
-- UI : libellés congé annuel, navigation, droits-conges, formulaire RH.
-- Migration additive `20261111010000_morocco_first` (non exécutée en Production depuis ce poste).
+## 1. Rules verified and sources
 
-## Fichiers clés
+| Rule | Source | Status |
+|------|--------|--------|
+| Art. 231 — 1,5 j / mois de service (adulte) ; 2 j (<18) | PDF Adala Code du travail, consolidé 26/10/2011 | Documenté & implémenté |
+| Art. 231 — ouverture après 6 mois de service continu | Idem | Documenté & gate posting |
+| Art. 232 — +1,5 j / 5 ans, plafond 30 j | Idem | Documenté & implémenté |
+| Art. 233 — CDD : congé avant fin de contrat | Idem | Warning process RH |
+| Art. 236–238 — jours effectifs / 26 ; 191 h non-agri / 208 h agri | Idem | Documenté & implémenté |
+| Art. 240 — fractionnement / cumul 2 années par accord | Idem | Workflow admin, pas d’auto-post |
+| URL officielle | https://adala.justice.gov.ma/api/uploads/2024/04/30/code%20du%20travail-1714463246806.pdf | Vérif. documentaire 11/11/2026 |
 
-- `prisma/schema.prisma`, `prisma/migrations/20261111010000_morocco_first/`
-- `src/domain/config/aster-locale.ts`
-- `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts`, `leave.ts`, `telework-monthly.ts`
-- `src/data/demo-seed.ts`
-- Docs Morocco-* / ASTER_SCOPE / ROLE_PERMISSIONS / PROGRESS
+Aucun amendement post-2011 spécifique aux art. 231–245 n’a été identifié lors de la recherche du 11/11/2026 — **vigilance** requise.
 
-## Dépendances
+## 2. Rules still awaiting HR / legal validation
 
-Aucune dépendance npm ajoutée.
+- Art. 235 — extension de durée si fête/férié pendant le congé (consommation, pas accrual).
+- Art. 239 — périodes assimilées à du travail effectif (mapping WorkAbsence).
+- Week-end réel par site (ven–sam vs sam–dim) pour art. 236/238-1.
+- Heures réelles / timesheet pour art. 238-2 temps partiel.
+- Process CDD art. 233 + indemnité compensatrice (art. 251 s., hors paie ASTER).
+- Registre des congés (art. 246).
+- Confirmation cabinet qu’aucun texte ultérieur ne modifie art. 231–245.
+- Avantage RTT employeur éventuel (pas de RTT statutaire MA).
 
-## Migrations
+## 3. Calculation changes
 
-- Additive only. Pas de DROP/TRUNCATE. Pas de réécriture ledger.
-- Production : pipeline Vercel existant uniquement.
+Moteur `src/domain/rules/morocco-annual-leave.ts` branché via `entitlement-accrual` / `entitlement-service` :
 
-## Tests
+1. Taux art. 231 selon âge (`birthDate`) — défaut adulte + warning si naissance absente.
+2. Annuel = `min(30, taux×12 + 1,5×⌊années/5⌋)` (art. 232).
+3. Mois de service période (art. 238) : heures saisies / 191|208 ; sinon équivalence temps plein `weeklyContractHours` ; sinon jours effectifs / 26 ; temps partiel sans heures → non postable.
+4. Crédit période = mois de service × (annuel / 12) — **pas** un simple `mois calendaires × 1,5`.
+5. Posting auto seulement si politique MA `guide_documented`/`hr_configured`, statut `calculated`, ≥ 6 mois, quantité > 0.
+6. Art. 240 : demande avec accord mutuel obligatoire ; posting manuel RH ; **pas** d’expiry FR / forfaiture auto.
+7. Ledger append-only ; clés d’idempotence ; politiques FR inactives conservées historiquement.
 
-```
-npx vitest run aster-locale entitlement-accrual entitlement-service leave.test leave-ledger-service permissions
-→ 28 tests OK
-```
+## 4. Files and migrations changed
 
-## Qualité
+**Migration additive :** `prisma/migrations/20261111160000_ma_annual_leave_fields/`  
+(`Employee.birthDate`, `Employee.activitySector`)
 
-| Check | Résultat |
-|-------|----------|
-| `npm run typecheck` | OK |
-| `npm run lint` | OK |
-| `ASTER_BUILD_WITHOUT_DB=1 npm run build` | OK |
+**Domain / application :**
+- `src/domain/rules/morocco-annual-leave.ts` (+ tests)
+- `src/domain/rules/entitlement-accrual.ts` (+ tests)
+- `src/domain/rules/entitlement-policies.ts`
+- `src/application/services/entitlement-service.ts` (+ tests)
+- `src/app/actions/entitlement.ts`
+- `src/app/(app)/administration/droits-conges/page.tsx`
+- Types / seed / repos / mappers Prisma & démo
 
-## Règles encore « À valider par RH »
+**Docs :** `docs/MOROCCO_HR_POLICY.md` (matrice), `docs/MOROCCO_MIGRATION.md`, ce rapport.
 
-- Barème exact congé annuel / ancienneté (loi 65-99 articles exacts).
-- Existence éventuelle d’un avantage type RTT employeur Maroc.
-- Week-end réel par site ; convention collective applicable.
-- Processus CNSS maladie (stockage vs déclaration — ASTER ne déclare pas).
-- Organigramme définitif vs départements démo.
+## 5. Test results
 
-## Limitations
+Focused Vitest (27 tests, 4 files) — **PASS** :
 
-- Texte consolidé officiel 65-99 non récupéré intégralement via fetch auto → baseline documentée mais non `hr_configured`.
-- Lots d’accrual toujours en mémoire process (schéma Prisma prêt).
-- Pas de déploiement Production / migrate vérifié dans cette session.
+- `morocco-annual-leave.test.ts` (13)
+- `entitlement-accrual.test.ts` (5)
+- `entitlement-service.test.ts` (6)
+- `leave-ledger-balance.test.ts` (3)
 
-## Prochaine étape recommandée
+Couverture : art. 231/232/238, gate 6 mois, mineurs, TP sans heures, CDD warning, art. 240 accord, idempotence posting, rôles collaborateur/RH/Chef, conservation politiques FR inactives.
 
-Faire valider par RH/juridique Maroc le barème de congé annuel (articles + ancienneté), passer `MA_ANNUAL_LEAVE_STATUTORY` en `hr_configured` uniquement après validation écrite, puis activer le posting preview contrôlé.
+> Les tests ne prouvent pas à eux seuls la conformité juridique.
 
-## Git
+## 6. Typecheck / lint / build
 
-- Hash : `efcbc1743b6718a7e20d4a300be82848bbb14f33` — push : tentative suivante.
+| Check | Result |
+|-------|--------|
+| `tsc --noEmit` | PASS |
+| `npm run lint` | PASS |
+| `npm run build` (`ASTER_BUILD_WITHOUT_DB=1`) | PASS |
+
+## 7. Production status
+
+- **Pas** de bulk accrual Production exécuté.
+- **Pas** de seed démo activé.
+- Migration additive uniquement — pipeline Vercel `build:vercel` / `prisma migrate deploy` inchangé.
+- Historique ledger FR préservé (pas de rewrite / truncate).
+- Cas ambigus (TP sans heures, < 6 mois, art. 239…) restent non postables automatiquement.
+
+## 8. Remaining risks
+
+1. PDF Adala consolidé 2011 — risque de texte postérieur non détecté.
+2. Assimilation art. 239 et week-end site non branchés → sous/sur-mesure possible si RH poste sans contrôle.
+3. Art. 235 non dans le moteur de consommation.
+4. Heures période non issues d’un timesheet — saisie manuelle / validation RH requise pour TP.
+5. Appréciation ancienneté « continue ou non » (art. 232) simplifiée via années depuis embauche.
+
+## 9. Exact next recommended step
+
+Faire valider la matrice `docs/MOROCCO_HR_POLICY.md` par RH / conseil juridique du cabinet (articles 235, 239, week-end site, timesheet), puis — seulement après validation écrite — autoriser un premier posting contrôlé d’un mois pilote (pas de bulk) sur un sous-ensemble d’employés à temps plein avec données d’emploi complètes.

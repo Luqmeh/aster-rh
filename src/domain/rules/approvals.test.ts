@@ -36,6 +36,8 @@ const chef: Employee = {
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
 };
 
 const report: Employee = {

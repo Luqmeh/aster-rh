@@ -16,7 +16,7 @@ import type {
 const GUIDE_FR_REF =
   "HISTORIQUE — Guide RH PKF Arsilon France nov. 2026 p.38–48 (non applicable Maroc)";
 const MA_LABOUR_REF =
-  "Loi 65-99 Code du travail marocain — congé annuel (articles couramment cités 231 et s.) — À VALIDER";
+  "Loi 65-99 art. 231–240 — Adala justice.gov.ma PDF consolidé 26/10/2011 (vérif. 2026-11-11)";
 
 /** @deprecated Valeurs FR — ne plus utiliser pour le Maroc. */
 export const CP_MONTHLY_ACCRUAL_DAYS = 2.08;
@@ -26,7 +26,7 @@ export const RTT_CADRE_MIN_DAYS = 7;
 export const RTT_CADRE_MAX_DAYS = 11;
 export const RTT_MAX_NEGATIVE_DAYS = 6;
 
-/** Baseline MA proposée (1,5 j/mois) — non postable tant que non hr_configured. */
+/** Art. 231 adultes — 1,5 j de travail effectif / mois de service. */
 export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED = 1.5;
 export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED = 18;
 
@@ -232,14 +232,15 @@ export function seedEntitlementPolicyVersions(
     policyCode: "MA_ANNUAL_LEAVE_STATUTORY",
     kind: "conges_payes",
     version: 1,
-    effectiveFrom: "2026-11-11",
+    // Entrée en vigueur historique du Code (BO 2004) — pas la date du refactor ASTER.
+    effectiveFrom: "2004-05-06",
     effectiveTo: null,
-    validationStatus: "requires_hr_decision",
+    validationStatus: "guide_documented",
     jurisdiction: "MA",
     isActive: true,
     sourceReference: MA_LABOUR_REF,
     notes:
-      "Baseline proposée 1,5 j/mois (≈18 j/an). Texte article exact + barème ancienneté à confirmer RH/juridique Maroc. Aucun posting automatique.",
+      "Art. 231–238 : 1,5 j (adulte) / 2 j (<18) par mois de service ; +1,5 j / 5 ans max 30 ; mois = 26 j effectifs ou 191/208 h ; droit après 6 mois de service continu. Temps partiel sans heures → non postable. Art. 240 report par accord uniquement.",
     rules: {
       eligibleContractTypes: ["cdi", "cdd", "alternance"],
       eligibleCategories: null,
@@ -256,9 +257,14 @@ export function seedEntitlementPolicyVersions(
       allowHalfDay: true,
       rounding: {
         mode: "none",
-        notes: "Arrondi MA non configuré.",
+        notes: "Pas d'arrondi statutaire spécifique — décimales conservées.",
       },
       partTimeRequiresHrValidation: true,
+      carryover: {
+        maxDays: 30,
+        cumulative: true,
+        requiresApprovalAboveMax: true,
+      },
     },
     createdByEmployeeId: null,
     createdAt: nowIso,
@@ -292,6 +298,7 @@ export function isPolicyAutoPostable(v: EntitlementPolicyVersion): boolean {
   return (
     v.isActive &&
     v.jurisdiction === "MA" &&
-    v.validationStatus === "hr_configured"
+    (v.validationStatus === "hr_configured" ||
+      v.validationStatus === "guide_documented")
   );
 }

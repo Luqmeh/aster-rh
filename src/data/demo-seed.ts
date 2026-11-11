@@ -54,6 +54,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-julien",
@@ -82,6 +84,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-lea",
@@ -110,6 +114,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-thomas",
@@ -138,6 +144,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-ines",
@@ -166,6 +174,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-hugo",
@@ -194,6 +204,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-sarah",
@@ -222,6 +234,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
   {
     id: "emp-marc",
@@ -250,6 +264,8 @@ export const employees: Employee[] = [
     workingTimePercent: 100,
     officeCalendarId: null,
     policyGroup: "standard_ma",
+    birthDate: "1990-01-15",
+    activitySector: "non_agricole",
   },
 ];
 

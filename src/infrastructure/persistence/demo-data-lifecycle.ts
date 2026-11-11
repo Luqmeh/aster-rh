@@ -127,6 +127,8 @@ export async function seedAsterDemoData(
         workingTimePercent: emp.workingTimePercent ?? null,
         officeCalendarId: emp.officeCalendarId ?? null,
         policyGroup: emp.policyGroup ?? null,
+        birthDate: emp.birthDate ? dateOnlyToUtc(emp.birthDate) : null,
+        activitySector: emp.activitySector ?? "non_agricole",
       },
       update: preserveExisting
         ? {}
@@ -157,6 +159,8 @@ export async function seedAsterDemoData(
             workingTimePercent: emp.workingTimePercent ?? null,
             officeCalendarId: emp.officeCalendarId ?? null,
             policyGroup: emp.policyGroup ?? null,
+            birthDate: emp.birthDate ? dateOnlyToUtc(emp.birthDate) : null,
+            activitySector: emp.activitySector ?? "non_agricole",
           },
     });
   }

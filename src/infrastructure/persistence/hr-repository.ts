@@ -41,6 +41,8 @@ export type EmployeeCreateInput = Omit<
   | "workingTimePercent"
   | "officeCalendarId"
   | "policyGroup"
+  | "birthDate"
+  | "activitySector"
 > & {
   demoIdentityId?: string | null;
   avatarInitials?: string;
@@ -52,6 +54,8 @@ export type EmployeeCreateInput = Omit<
   workingTimePercent?: number | null;
   officeCalendarId?: string | null;
   policyGroup?: string | null;
+  birthDate?: string | null;
+  activitySector?: "non_agricole" | "agricole";
 };
 
 /**
@@ -94,6 +98,8 @@ export interface HrRepository {
         | "workingTimePercent"
         | "officeCalendarId"
         | "policyGroup"
+        | "birthDate"
+        | "activitySector"
         | "avatarInitials"
       >
     >,
