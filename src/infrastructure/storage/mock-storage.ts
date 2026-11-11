@@ -16,6 +16,10 @@ export const mockDocumentStorage: DocumentStoragePort = {
     return { key, contentType, sizeBytes: data.byteLength };
   },
 
+  async getObject(key) {
+    return memoryFiles.get(key)?.data ?? null;
+  },
+
   async deleteObject(key) {
     memoryFiles.delete(key);
   },

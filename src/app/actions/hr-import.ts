@@ -10,6 +10,7 @@ function service() {
   return createHrImportService({
     hr: container.hr,
     storage: container.storage,
+    email: container.email,
   });
 }
 

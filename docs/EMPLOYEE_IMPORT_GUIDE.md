@@ -7,16 +7,33 @@ Réservé au département Maroc. Pas de paie, CNSS, ni activation automatique d'
 
 | Rôle | Droits |
 |------|--------|
-| `admin_rh` | Préparer, valider, prévisualiser, confirmer et exécuter |
-| `chef_de_projet` | Consulter lots / rapports (pas d'exécution) |
+| `admin_rh` | Préparer, valider, prévisualiser, confirmer, exécuter, récupérer un lot interrompu, reprovisionner un compte collaborateur |
+| `chef_de_projet` | Consulter lots / rapports persistés (pas d'exécution) |
 | `collaborateur` | Aucun accès |
 
 Parcours UI : **Administration → Import des collaborateurs** (`/administration/import-collaborateurs`).
-Les contrôles d'autorisation sont appliqués côté serveur (`hr.import.view` / `hr.import.execute`).
+Contrôles serveur : `hr.import.view` / `hr.import.execute` (+ `employee.provision` pour les comptes).
+
+## Persistance durable des lots
+
+Chaque lot est enregistré en base PostgreSQL (`HrImportBatch`) lorsque `ASTER_PERSISTENCE=prisma` / `DATABASE_URL` est présent ; en mode mémoire de démo, les lots vivent dans le store démo (survivent à un redémarrage du cache parse).
+
+Champs clés : `id`, statut, type/version de modèle, fichier source (nom + `storageKey` privé), auteur RH, timestamps (`createdAt`, `validatedAt`, `executionStartedAt`, `executedAt`), compteurs (lignes, créations, soldes, comptes), brouillons de validation, rapport d'exécution / réconciliation, résumé d'échec.
+
+Les classeurs ne sont **jamais** exposés publiquement (`imports/private/...`). Après exécution réussie, le cache local du fichier est purgé ; le rapport reste en base.
+
+### Cycle de vie
+
+`uploaded` → `validating` → `awaiting_confirmation` → `executing` → `completed` | `completed_with_errors` | `failed`
+
+- Claim atomique avant exécution : empêche les doubles lancements concurrents.
+- `completed` / `completed_with_errors` : réexécution refusée.
+- Lot bloqué en `executing` : récupération manuelle RH → `failed` (pas de retry automatique qui dupliquerait le ledger).
+- Depuis `failed` : nouvelle confirmation `IMPORTER` possible ; créations employés / ouvertures ledger / comptes restent idempotentes.
 
 ## Modèles Excel
 
-Téléchargeables depuis l'assistant (fichiers `.xlsx`, max 5 Mo).
+Téléchargeables depuis l'assistant (`.xlsx`, max 5 Mo). Version modèle actuelle : `1`.
 
 ### Template A — Collaborateurs
 
@@ -25,84 +42,80 @@ Téléchargeables depuis l'assistant (fichiers `.xlsx`, max 5 Mo).
 | `matricule` | oui | Identifiant unique ASTER |
 | `prenom` | oui | texte |
 | `nom` | oui | texte |
-| `email_professionnel` | oui | e-mail réel fourni par RH (jamais inventé) |
+| `email_professionnel` | recommandé | e-mail réel ; **absent** → fiche OK, compte en attente |
 | `departement` | oui | code (`AUD`, `RH`…) ou libellé ; mappable |
 | `poste` | oui | texte |
 | `site` | oui | texte ; mappable ; site inconnu → avertissement |
 | `date_embauche` | oui | `AAAA-MM-JJ` ou `JJ/MM/AAAA` |
 | `type_contrat` | oui | `cdi`, `cdd`, `alternance`, `stage` |
-| `statut_emploi` | oui | `actif`, `inactif`, `parti` (défaut `actif` si vide) |
+| `statut_emploi` | oui | `actif`, `inactif`, `parti` |
 | `matricule_manager` | non | matricule existant ou présent dans le lot |
+
+Sans e-mail, ASTER pose un marqueur technique `@no-mailbox.aster-rh.local` (pas de boîte mail, pas de compte).
 
 ### Template B — Soldes d'ouverture
 
 | Colonne | Obligatoire | Format |
 |---------|-------------|--------|
-| `matricule` | oui | doit exister dans ASTER ou dans le lot collaborateurs |
-| `solde_cp_jours` | un solde min. | décimal (`,` ou `.`), ≥ 0 |
-| `solde_rtt_jours` | un solde min. | idem |
-| `solde_recuperation_heures` | un solde min. | heures → jours via 7 h/jour (standard) |
-| `date_effet` | oui | `AAAA-MM-JJ` ou `JJ/MM/AAAA` |
-| `reference_source` | recommandé | référence d'audit Excel |
-| `statut_verification_rh` | recommandé | `verifie` / `vérifié` |
-| `notes` | non | texte libre |
+| `matricule` | oui | doit exister dans ASTER ou dans le lot |
+| `solde_cp_jours` / `solde_rtt_jours` / `solde_recuperation_heures` | au moins un | décimal ≥ 0 ; récupération en heures → jours (7 h) |
+| `date_effet` | oui | date |
+| `reference_source` | recommandé | audit |
+| `statut_verification_rh` | recommandé | `verifie` |
+| `notes` | non | texte |
 
-### Template C — Historique (optionnel, non exécuté)
+### Template C — Historique (optionnel)
 
-Structure future : congés / absences / télétravail / récupérations historiques.
-**Non activé** à l'onboarding initial — modèle fourni pour compatibilité seulement.
+Structure future uniquement — **non exécuté**.
 
 ## Mapping de colonnes
 
-À l'upload, ASTER détecte les en-têtes FR/EN courants (`prenom` → `firstName`, `solde_cp_jours` → `cpDays`, etc.).
-Les mappings département / site sont configurables sur le lot (JSON) pour aligner les libellés Excel sur le référentiel.
+Détection automatique des en-têtes FR/EN. Mappings département / site stockés sur le lot.
 
 ## Workflow
 
 1. Télécharger le(s) modèle(s).
-2. Remplir sans inventer d'e-mails ni de mots de passe.
-3. Téléverser le classeur `.xlsx`.
-4. Prévisualiser feuilles, en-têtes, lignes et soldes.
-5. Corriger le fichier et re-téléverser si erreurs (aucune ligne invalide n'est ignorée silencieusement).
-6. Option : cocher **Mettre à jour les fiches existantes** (aperçu champ par champ via messages de ligne).
-7. Saisir **IMPORTER** pour confirmer explicitement.
-8. Exécution en lot contrôlé + rapport de réconciliation téléchargeable.
+2. Remplir sans inventer d'e-mails ni de mots de passe, sans rôles RH/Chef dans le fichier.
+3. Téléverser le `.xlsx`.
+4. Prévisualiser et corriger / re-téléverser si besoin.
+5. Option : **Mettre à jour les fiches existantes**.
+6. Confirmer avec **IMPORTER**.
+7. Consulter le rapport persisté (réconciliation + provisioning comptes).
 
-## Règles de validation (extraits)
+## Provisioning des comptes ASTER
 
-- Matricules / e-mails manquants ou en double
-- Dates et décimaux invalides
-- Départements inconnus
-- Statuts / contrats invalides
-- Soldes négatifs refusés
-- Matricules de solde inconnus
-- Doublons de lignes de solde
-- Sites hors référentiel → avertissement (pas d'invention de données)
+Lors de la création d'un collaborateur importé :
 
-## Sémantique des soldes d'ouverture
+| Situation | Résultat |
+|-----------|----------|
+| E-mail pro valide, pas de compte | Compte `collaborateur` créé, `mustChangePassword=true`, mot de passe temporaire **envoyé par e-mail uniquement** (jamais dans le rapport / Excel / logs) |
+| Compte déjà lié | `already_existing` — credentials non écrasés |
+| E-mail absent | `pending` — fiche créée, pas de compte |
+| Échec technique | `failed` — visible dans le rapport ; lot éventuellement `completed_with_errors` |
 
-Les soldes importés sont des écritures ledger **append-only** :
+Le fichier Excel **ne peut pas** attribuer `admin_rh` ni `chef_de_projet`.
+
+Un compte ASTER ≠ boîte mail entreprise.
+
+Reprovisioning / reset : opération RH **explicite** et auditée (`reprovisionImportedAccount`) — jamais déclenchée silencieusement par un ré-import.
+
+## Soldes d'ouverture (ledger)
+
+Écritures append-only :
 
 - `transactionType` = `opening_balance`
 - `sourceKind` = `hr_excel_import_opening`
-- `sourceId` = `{batchId}:{matricule}:{account}` (idempotent)
-- Métadonnées : lot, référence source, statut de vérification RH, notes, heures de récupération
+- `sourceId` = `{batchId}:{matricule}:{account}`
 
-**Interdit :** recalcul d'acquisition historique, postings mensuels dérivés des soldes Excel, écrasement silencieux d'ouvertures existantes, assimilation des demandes en attente à de la consommation.
+Pas de recalcul d'acquisition, pas d'écrasement d'ouvertures existantes, pas d'assimilation des demandes en attente.
 
-Les réservations en attente restent distinctes des soldes consommés. Toute correction ultérieure passe par le workflow d'ajustement audité du ledger.
+## Idempotence et reprise
 
-## Idempotence et sécurité
-
-- Chaque lot a un `batchId` unique ; réexécution d'un lot `completed` refusée.
-- Réessai après `failed` : revalider puis confirmer à nouveau.
-- Fichiers traités en privé (stockage `imports/private/...` si adaptateur présent) ; pas d'URL publique.
-- Pas de journalisation inutile de données nominatives sensibles.
+- Un seul claim d'exécution à la fois.
+- Réexécution d'un lot terminé refusée.
+- Reprise après `failed` : sans doublon ledger / sans écrasement de mots de passe.
+- Pas de retry background automatique.
 
 ## Réconciliation
 
-Le rapport post-import indique : lot, date, administrateur RH, créations / mises à jour, soldes importés, rejets, avertissements, totaux par catégorie, interventions manuelles, et une vue Excel ↔ ASTER par matricule.
-
-## Corrections
-
-Ne jamais réécrire une ouverture existante. Utiliser un ajustement ledger audité (RH) pour corriger un écart après import.
+Rapport persisté : lot, date, auteur, créations / mises à jour, soldes, comptes (créés / existants / pending / failed), rejets, avertissements, interventions manuelles, comparaison Excel ↔ ASTER par matricule. Téléchargement Excel du rapport disponible pour RH et Chef.

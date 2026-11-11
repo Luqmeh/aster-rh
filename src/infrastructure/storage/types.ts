@@ -15,5 +15,7 @@ export interface DocumentStoragePort {
     data: Uint8Array,
     contentType: string,
   ): Promise<StoredObjectMeta>;
+  /** Lecture privée optionnelle (reprise d'import / traitement serveur). */
+  getObject?(key: string): Promise<Uint8Array | null>;
   deleteObject?(key: string): Promise<void>;
 }

@@ -223,6 +223,19 @@ export function createDocumentStorage(
       return { key, contentType, sizeBytes: data.byteLength };
     },
 
+    async getObject(key) {
+      await assertBucketPresent();
+      const { data, error } = await client.storage.from(config.bucket).download(key);
+      if (error || !data) {
+        throw enrichStorageError(
+          config,
+          "Impossible de lire l'objet privé",
+          error?.message ?? "inconnu",
+        );
+      }
+      return new Uint8Array(await data.arrayBuffer());
+    },
+
     async getDownloadUrl(key, expiresInSeconds = MAX_SIGNED_URL_SECONDS) {
       await assertBucketPresent();
       const ttl = Math.min(

@@ -27,6 +27,7 @@ import type {
   WorkAbsenceEvent,
   WorkOnHolidayRequest,
 } from "@/domain/types/hr";
+import type { HrImportBatch } from "@/domain/types/hr-import";
 import type { LeaveLedgerEntry } from "@/domain/types/leave-ledger";
 import type { StoredUserAccount } from "@/infrastructure/auth/account-store";
 
@@ -51,6 +52,7 @@ export interface DemoStore {
   workAbsenceEvents: WorkAbsenceEvent[];
   roleChangeAudits: RoleChangeAuditEntry[];
   accounts: StoredUserAccount[];
+  hrImportBatches: HrImportBatch[];
 }
 
 declare global {
@@ -79,6 +81,7 @@ function cloneStore(): DemoStore {
     workAbsenceEvents: [],
     roleChangeAudits: [],
     accounts: [],
+    hrImportBatches: [],
   };
 }
 

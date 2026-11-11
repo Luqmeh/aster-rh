@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import {
   autoDetectColumnMapping,
@@ -18,46 +19,66 @@ import {
 } from "@/domain/rules/hr-import/validate";
 import {
   canExecuteHrImport,
+  canProvisionEmployees,
   canViewHrImport,
 } from "@/domain/rules/permissions";
 import type {
   HrImportBatch,
   HrImportExecutionReport,
   HrImportPreviewSummary,
+  HrImportProvisioningResult,
 } from "@/domain/types/hr-import";
 import {
   HR_IMPORT_OPENING_SOURCE_KIND,
+  HR_IMPORT_TEMPLATE_VERSION,
+  HR_IMPORT_TYPE_EMPLOYEES_BALANCES,
+  canRetryImportExecution,
   importOpeningSourceId,
+  isPendingImportEmail,
+  isTerminalImportStatus,
 } from "@/domain/types/hr-import";
 import type { ContractType, EmploymentStatus } from "@/domain/types/hr";
+import {
+  createUserAccount,
+  findAccountByEmail,
+  findAccountByEmployeeId,
+  updateUserAccount,
+} from "@/infrastructure/auth/account-store";
 import { AuthError, requireSession } from "@/infrastructure/auth/authorization";
+import { hashPassword } from "@/infrastructure/auth/password";
 import type { AuthSession } from "@/infrastructure/auth/types";
+import type { EmailPort } from "@/infrastructure/email/types";
+import {
+  claimHrImportBatchExecution,
+  deleteHrImportWorkbook,
+  getHrImportBatch,
+  getHrImportWorkbook,
+  listHrImportBatches,
+  putHrImportWorkbook,
+  resetHrImportWorkbookCacheForTests,
+  saveHrImportBatch,
+} from "@/infrastructure/persistence/hr-import-batch-store";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
-import type { DocumentStoragePort } from "@/infrastructure/storage/types";
 import { createStyledWorkbook } from "@/infrastructure/reporting/excel-workbook";
+import type { DocumentStoragePort } from "@/infrastructure/storage/types";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const XLSX_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-type ImportMemory = {
-  batches: HrImportBatch[];
-  /** Buffers temporaires — jamais exposés publiquement. */
-  buffers: Map<string, Uint8Array>;
+type ParseCache = {
   parsed: Map<string, ParsedWorkbook>;
 };
 
 declare global {
-  var __asterHrImportMemory: ImportMemory | undefined;
+  var __asterHrImportParseCache: ParseCache | undefined;
 }
 
-function memory(): ImportMemory {
-  if (!globalThis.__asterHrImportMemory) {
-    globalThis.__asterHrImportMemory = {
-      batches: [],
-      buffers: new Map(),
-      parsed: new Map(),
-    };
+function parseCache(): ParseCache {
+  if (!globalThis.__asterHrImportParseCache) {
+    globalThis.__asterHrImportParseCache = { parsed: new Map() };
   }
-  return globalThis.__asterHrImportMemory;
+  return globalThis.__asterHrImportParseCache;
 }
 
 function newId(prefix: string): string {
@@ -82,6 +103,10 @@ function emptySummary(): HrImportPreviewSummary {
   };
 }
 
+function generateTemporaryPassword(): string {
+  return `Aster-${randomBytes(9).toString("base64url")}`;
+}
+
 function assertCanView(session: AuthSession) {
   requireSession(session);
   if (!canViewHrImport(session.role)) {
@@ -102,8 +127,118 @@ function assertCanExecute(session: AuthSession) {
 export function createHrImportService(deps: {
   hr: HrRepository;
   storage?: DocumentStoragePort | null;
+  email?: EmailPort | null;
 }) {
   const leaveLedger = createLeaveLedgerService({ hr: deps.hr });
+
+  async function loadParsed(batch: HrImportBatch): Promise<ParsedWorkbook> {
+    const cached = parseCache().parsed.get(batch.id);
+    if (cached) return cached;
+
+    let bytes = await getHrImportWorkbook(batch.id);
+    if (!bytes && batch.storageKey && deps.storage?.getObject) {
+      bytes = await deps.storage.getObject(batch.storageKey);
+      if (bytes) await putHrImportWorkbook(batch.id, bytes);
+    }
+    if (!bytes) {
+      throw new Error(
+        "Fichier source indisponible après redémarrage — réimportez le classeur ou vérifiez le stockage privé.",
+      );
+    }
+    const parsed = await parseExcelWorkbook(bytes);
+    parseCache().parsed.set(batch.id, parsed);
+    return parsed;
+  }
+
+  async function provisionAccountForImport(input: {
+    session: AuthSession;
+    employeeId: string;
+    email: string;
+    firstName: string;
+    emailMissing: boolean;
+  }): Promise<HrImportProvisioningResult> {
+    const base = {
+      matricule: input.employeeId,
+      employeeId: input.employeeId,
+      email: input.emailMissing ? null : input.email,
+    };
+
+    if (input.emailMissing || isPendingImportEmail(input.email)) {
+      return {
+        ...base,
+        status: "pending",
+        message:
+          "Pas d'e-mail professionnel — compte ASTER en attente de provisioning RH.",
+      };
+    }
+
+    if (!canProvisionEmployees(input.session.role)) {
+      return {
+        ...base,
+        status: "failed",
+        message: "Provisioning compte refusé — droits insuffisants.",
+      };
+    }
+
+    const existingByEmployee = await findAccountByEmployeeId(input.employeeId);
+    if (existingByEmployee) {
+      return {
+        ...base,
+        status: "already_existing",
+        message: "Compte déjà lié — identifiants non modifiés.",
+      };
+    }
+    const existingByEmail = await findAccountByEmail(input.email);
+    if (existingByEmail) {
+      return {
+        ...base,
+        status: "already_existing",
+        message: "Compte existant pour cet e-mail — non écrasé.",
+      };
+    }
+
+    try {
+      const temporaryPassword = generateTemporaryPassword();
+      const passwordHash = await hashPassword(temporaryPassword);
+      const account = await createUserAccount({
+        email: input.email,
+        passwordHash,
+        authProvider: "credentials",
+        role: "collaborateur",
+        employeeId: input.employeeId,
+        isActive: true,
+        mustChangePassword: true,
+      });
+      await deps.hr.addRoleChangeAudit({
+        targetAccountId: account.id,
+        previousRole: "collaborateur",
+        newRole: "collaborateur",
+        actorEmployeeId: input.session.employee.id,
+      });
+      if (deps.email) {
+        await deps.email.send({
+          to: input.email,
+          subject: "[ASTER] Compte collaborateur provisionné (import Excel)",
+          body: `Bonjour ${input.firstName},\n\nVotre compte ASTER a été créé suite à un import RH.\nIdentifiant : ${input.email}\nMot de passe temporaire : ${temporaryPassword}\n\nÀ la première connexion, vous devrez changer ce mot de passe.\nCe message ne constitue pas la création d'une boîte mail entreprise.`,
+        });
+      }
+      return {
+        ...base,
+        status: "created",
+        message:
+          "Compte collaborateur créé (mustChangePassword) — mot de passe temporaire envoyé par e-mail uniquement.",
+      };
+    } catch (err) {
+      return {
+        ...base,
+        status: "failed",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Échec de provisioning du compte.",
+      };
+    }
+  }
 
   return {
     async downloadTemplate(
@@ -171,7 +306,7 @@ export function createHrImportService(deps: {
 
     async downloadExecutionReport(session: AuthSession, batchId: string) {
       assertCanView(session);
-      const batch = memory().batches.find((b) => b.id === batchId);
+      const batch = await getHrImportBatch(batchId);
       if (!batch?.executionReport) {
         throw new Error("Rapport indisponible — lot non exécuté.");
       }
@@ -208,20 +343,24 @@ export function createHrImportService(deps: {
           employeesCreated: report.employeesCreated,
           employeesUpdated: report.employeesUpdated,
           balancesImported: report.balancesImported,
+          accountsCreated: report.accountsCreated,
           rejectedRows: report.rejectedRows,
           warningRows: report.warningRows,
         },
       }));
     },
 
-    listBatches(session: AuthSession): HrImportBatch[] {
+    async listBatches(session: AuthSession): Promise<HrImportBatch[]> {
       assertCanView(session);
-      return memory().batches;
+      return listHrImportBatches();
     },
 
-    getBatch(session: AuthSession, batchId: string): HrImportBatch | null {
+    async getBatch(
+      session: AuthSession,
+      batchId: string,
+    ): Promise<HrImportBatch | null> {
       assertCanView(session);
-      return memory().batches.find((b) => b.id === batchId) ?? null;
+      return getHrImportBatch(batchId);
     },
 
     async uploadWorkbook(
@@ -232,7 +371,10 @@ export function createHrImportService(deps: {
       if (!input.fileName.toLowerCase().endsWith(".xlsx")) {
         throw new Error("Seuls les fichiers .xlsx sont acceptés.");
       }
-      if (input.bytes.byteLength === 0 || input.bytes.byteLength > MAX_UPLOAD_BYTES) {
+      if (
+        input.bytes.byteLength === 0 ||
+        input.bytes.byteLength > MAX_UPLOAD_BYTES
+      ) {
         throw new Error("Fichier vide ou supérieur à 5 Mo.");
       }
 
@@ -241,13 +383,11 @@ export function createHrImportService(deps: {
       let storageKey: string | null = null;
       if (deps.storage) {
         const key = `imports/private/${batchId}/${input.fileName.replace(/[^\w.\-]+/g, "_")}`;
-        await deps.storage.putObject(
-          key,
-          input.bytes,
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        );
+        await deps.storage.putObject(key, input.bytes, XLSX_TYPE);
         storageKey = key;
       }
+      await putHrImportWorkbook(batchId, input.bytes);
+      parseCache().parsed.set(batchId, parsed);
 
       const headersBySheet = Object.fromEntries(
         parsed.worksheets.map((s) => [s.name, s.headers]),
@@ -263,6 +403,8 @@ export function createHrImportService(deps: {
       const batch: HrImportBatch = {
         id: batchId,
         status: "uploaded",
+        importType: HR_IMPORT_TYPE_EMPLOYEES_BALANCES,
+        templateVersion: HR_IMPORT_TEMPLATE_VERSION,
         fileName: input.fileName,
         storageKey,
         createdByEmployeeId: session.employee.id,
@@ -277,15 +419,26 @@ export function createHrImportService(deps: {
         executionReport: null,
         worksheetNames: parsed.worksheets.map((s) => s.name),
         headersBySheet,
+        totalRows: 0,
+        validRows: 0,
+        warningRows: 0,
+        rejectedRows: 0,
+        employeesCreated: 0,
+        employeesUpdated: 0,
+        balancesImported: 0,
+        accountsCreated: 0,
+        accountsExisting: 0,
+        accountsPending: 0,
+        accountsFailed: 0,
+        failureSummary: null,
         errorMessage: null,
         createdAt: now,
         updatedAt: now,
+        validatedAt: null,
+        executionStartedAt: null,
         executedAt: null,
       };
-      memory().batches.unshift(batch);
-      memory().buffers.set(batchId, input.bytes);
-      memory().parsed.set(batchId, parsed);
-      return batch;
+      return saveHrImportBatch(batch);
     },
 
     async validateBatch(
@@ -299,13 +452,19 @@ export function createHrImportService(deps: {
       },
     ): Promise<HrImportBatch> {
       assertCanExecute(session);
-      const batch = memory().batches.find((b) => b.id === input.batchId);
-      if (!batch) throw new AuthError("Lot d'import introuvable.", 404);
-      if (batch.status === "completed" || batch.status === "executing") {
+      const existing = await getHrImportBatch(input.batchId);
+      if (!existing) throw new AuthError("Lot d'import introuvable.", 404);
+      if (isTerminalImportStatus(existing.status) || existing.status === "executing") {
         throw new Error("Ce lot est déjà exécuté ou en cours.");
       }
-      const parsed = memory().parsed.get(batch.id);
-      if (!parsed) throw new Error("Fichier source indisponible — réimportez le classeur.");
+
+      let batch = await saveHrImportBatch({
+        ...existing,
+        status: "validating",
+        errorMessage: null,
+      });
+
+      const parsed = await loadParsed(batch);
 
       if (input.updateExistingEmployees != null) {
         batch.updateExistingEmployees = input.updateExistingEmployees;
@@ -314,9 +473,7 @@ export function createHrImportService(deps: {
       if (input.departmentMapping) {
         batch.departmentMappingJson = input.departmentMapping;
       }
-      if (input.siteMapping) {
-        batch.siteMappingJson = input.siteMapping;
-      }
+      if (input.siteMapping) batch.siteMappingJson = input.siteMapping;
 
       const [departments, employees] = await Promise.all([
         deps.hr.listDepartments(),
@@ -349,13 +506,46 @@ export function createHrImportService(deps: {
           })
         : [];
 
-      batch.employeeDrafts = employeeDrafts;
-      batch.balanceDrafts = balanceDrafts;
-      batch.previewSummary = buildPreviewSummary(employeeDrafts, balanceDrafts);
-      batch.status = "awaiting_confirmation";
-      batch.updatedAt = new Date().toISOString();
-      batch.errorMessage = null;
-      return batch;
+      const previewSummary = buildPreviewSummary(employeeDrafts, balanceDrafts);
+      const now = new Date().toISOString();
+      batch = {
+        ...batch,
+        employeeDrafts,
+        balanceDrafts,
+        previewSummary,
+        status: "awaiting_confirmation",
+        validatedAt: now,
+        updatedAt: now,
+        errorMessage: null,
+        failureSummary: null,
+      };
+      return saveHrImportBatch(batch);
+    },
+
+    /**
+     * Interrompu (executing) → failed pour inspection / retry sûr.
+     * Aucun retry automatique d'écritures ledger.
+     */
+    async recoverInterruptedBatch(
+      session: AuthSession,
+      batchId: string,
+    ): Promise<HrImportBatch> {
+      assertCanExecute(session);
+      const batch = await getHrImportBatch(batchId);
+      if (!batch) throw new AuthError("Lot d'import introuvable.", 404);
+      if (batch.status !== "executing") {
+        throw new Error("Seuls les lots en cours (executing) peuvent être récupérés.");
+      }
+      const now = new Date().toISOString();
+      return saveHrImportBatch({
+        ...batch,
+        status: "failed",
+        failureSummary:
+          "Import interrompu — marqué failed pour reprise manuelle contrôlée.",
+        errorMessage:
+          "Exécution interrompue. Relancez après inspection (idempotence ledger / comptes).",
+        updatedAt: now,
+      });
     },
 
     async confirmAndExecute(
@@ -363,46 +553,83 @@ export function createHrImportService(deps: {
       input: { batchId: string; confirmationPhrase: string },
     ): Promise<HrImportBatch> {
       assertCanExecute(session);
-      const batch = memory().batches.find((b) => b.id === input.batchId);
-      if (!batch) throw new AuthError("Lot d'import introuvable.", 404);
-      if (batch.status === "completed") {
+      const existing = await getHrImportBatch(input.batchId);
+      if (!existing) throw new AuthError("Lot d'import introuvable.", 404);
+      if (isTerminalImportStatus(existing.status)) {
         throw new Error("Lot déjà exécuté — réexécution refusée (idempotence).");
       }
-      if (batch.status === "executing") {
-        throw new Error("Exécution déjà en cours.");
+      if (existing.status === "executing") {
+        throw new Error(
+          "Exécution déjà en cours — utilisez la récupération si le lot est bloqué.",
+        );
       }
-      if (batch.status !== "awaiting_confirmation") {
+      if (!canRetryImportExecution(existing.status)) {
         throw new Error("Validez d'abord le lot (prévisualisation).");
       }
       if (input.confirmationPhrase.trim().toUpperCase() !== "IMPORTER") {
-        throw new Error('Confirmation requise : saisissez exactement « IMPORTER ».');
+        throw new Error(
+          'Confirmation requise : saisissez exactement « IMPORTER ».',
+        );
       }
       if (
-        batch.employeeDrafts.some((e) => e.severity === "error") ||
-        batch.balanceDrafts.some((b) => b.severity === "error")
+        existing.employeeDrafts.some((e) => e.severity === "error") ||
+        existing.balanceDrafts.some((b) => b.severity === "error")
       ) {
         throw new Error(
           "Des lignes invalides restent présentes — corrigez le fichier ou retirez-les.",
         );
       }
 
-      batch.status = "executing";
-      batch.updatedAt = new Date().toISOString();
+      const claimed = await claimHrImportBatchExecution(existing.id, [
+        "awaiting_confirmation",
+        "failed",
+      ]);
+      if (!claimed) {
+        throw new Error(
+          "Impossible de démarrer l'exécution (concurrence ou statut incompatible).",
+        );
+      }
 
       try {
-        const report = await this.executeBatch(session, batch);
-        batch.executionReport = report;
-        batch.status = "completed";
-        batch.confirmedByEmployeeId = session.employee.id;
-        batch.executedAt = report.executedAt;
-        batch.updatedAt = report.executedAt;
-        memory().buffers.delete(batch.id);
-        return batch;
+        const report = await this.executeBatch(session, claimed);
+        const hasProvisioningFailures = report.accountsFailed > 0;
+        const hasManual = report.manualIntervention.length > 0;
+        const status =
+          hasProvisioningFailures || hasManual
+            ? "completed_with_errors"
+            : "completed";
+        const done = await saveHrImportBatch({
+          ...claimed,
+          executionReport: report,
+          status,
+          confirmedByEmployeeId: session.employee.id,
+          executedAt: report.executedAt,
+          updatedAt: report.executedAt,
+          employeesCreated: report.employeesCreated,
+          employeesUpdated: report.employeesUpdated,
+          balancesImported: report.balancesImported,
+          accountsCreated: report.accountsCreated,
+          accountsExisting: report.accountsExisting,
+          accountsPending: report.accountsPending,
+          accountsFailed: report.accountsFailed,
+          failureSummary: hasManual
+            ? report.manualIntervention.slice(0, 20).join(" | ")
+            : null,
+          errorMessage: null,
+        });
+        parseCache().parsed.delete(done.id);
+        await deleteHrImportWorkbook(done.id);
+        return done;
       } catch (err) {
-        batch.status = "failed";
-        batch.errorMessage =
+        const message =
           err instanceof Error ? err.message : "Échec d'exécution.";
-        batch.updatedAt = new Date().toISOString();
+        await saveHrImportBatch({
+          ...claimed,
+          status: "failed",
+          errorMessage: message,
+          failureSummary: message,
+          updatedAt: new Date().toISOString(),
+        });
         throw err;
       }
     },
@@ -416,11 +643,27 @@ export function createHrImportService(deps: {
       let balancesImported = 0;
       const manual: string[] = [];
       const createdIds = new Set<string>();
+      const provisioningResults: HrImportProvisioningResult[] = [];
 
-      // Pass 1 — create / update employees (without manager links needing new IDs)
       for (const draft of batch.employeeDrafts) {
         if (draft.severity === "error") continue;
         if (draft.action === "create") {
+          const existing = await deps.hr.getEmployee(draft.matricule);
+          if (existing) {
+            createdIds.add(draft.matricule);
+            manual.push(
+              `Collaborateur ${draft.matricule} déjà présent — création ignorée (reprise).`,
+            );
+            const prov = await provisionAccountForImport({
+              session,
+              employeeId: draft.matricule,
+              email: draft.email,
+              firstName: draft.firstName,
+              emailMissing: draft.emailMissing,
+            });
+            provisioningResults.push(prov);
+            continue;
+          }
           const initials = `${draft.firstName[0] ?? ""}${draft.lastName[0] ?? ""}`
             .toUpperCase()
             .slice(0, 2);
@@ -448,11 +691,22 @@ export function createHrImportService(deps: {
           });
           created += 1;
           createdIds.add(draft.matricule);
+          provisioningResults.push(
+            await provisionAccountForImport({
+              session,
+              employeeId: draft.matricule,
+              email: draft.email,
+              firstName: draft.firstName,
+              emailMissing: draft.emailMissing,
+            }),
+          );
         } else if (draft.action === "update" && draft.existingEmployeeId) {
           await deps.hr.updateEmployee(draft.existingEmployeeId, {
             firstName: draft.firstName,
             lastName: draft.lastName,
-            email: draft.email,
+            email: draft.emailMissing
+              ? undefined
+              : draft.email,
             jobTitle: draft.jobTitle,
             departmentId: draft.departmentId ?? undefined,
             site: draft.site,
@@ -461,10 +715,17 @@ export function createHrImportService(deps: {
             employmentStatus: draft.employmentStatus as EmploymentStatus,
           });
           updated += 1;
+          provisioningResults.push({
+            matricule: draft.matricule,
+            employeeId: draft.existingEmployeeId,
+            email: draft.emailMissing ? null : draft.email,
+            status: "skipped",
+            message:
+              "Mise à jour fiche uniquement — credentials de compte non modifiés.",
+          });
         }
       }
 
-      // Pass 2 — manager links
       for (const draft of batch.employeeDrafts) {
         if (draft.severity === "error") continue;
         if (!draft.managerMatricule) continue;
@@ -473,11 +734,7 @@ export function createHrImportService(deps: {
             ? draft.existingEmployeeId
             : draft.matricule;
         if (!targetId) continue;
-        const mgr =
-          (await deps.hr.getEmployee(draft.managerMatricule)) ??
-          (createdIds.has(draft.managerMatricule)
-            ? await deps.hr.getEmployee(draft.managerMatricule)
-            : null);
+        const mgr = await deps.hr.getEmployee(draft.managerMatricule);
         if (!mgr) {
           manual.push(
             `Manager ${draft.managerMatricule} non lié pour ${draft.matricule}.`,
@@ -495,7 +752,9 @@ export function createHrImportService(deps: {
         }
         const employee = await deps.hr.getEmployee(bal.matricule);
         if (!employee) {
-          manual.push(`Solde ignoré — ${bal.matricule} introuvable à l'exécution.`);
+          manual.push(
+            `Solde ignoré — ${bal.matricule} introuvable à l'exécution.`,
+          );
           continue;
         }
         const year = Number(bal.effectiveDate.slice(0, 4)) || 2026;
@@ -580,6 +839,19 @@ export function createHrImportService(deps: {
       }
 
       const summary = batch.previewSummary ?? emptySummary();
+      const accountsCreated = provisioningResults.filter(
+        (p) => p.status === "created",
+      ).length;
+      const accountsExisting = provisioningResults.filter(
+        (p) => p.status === "already_existing",
+      ).length;
+      const accountsPending = provisioningResults.filter(
+        (p) => p.status === "pending",
+      ).length;
+      const accountsFailed = provisioningResults.filter(
+        (p) => p.status === "failed",
+      ).length;
+
       return {
         batchId: batch.id,
         executedAt: new Date().toISOString(),
@@ -594,8 +866,79 @@ export function createHrImportService(deps: {
         openingCpTotal: summary.openingCpTotal,
         openingRttTotal: summary.openingRttTotal,
         openingRecoveryDaysTotal: summary.openingRecoveryDaysTotal,
+        accountsCreated,
+        accountsExisting,
+        accountsPending,
+        accountsFailed,
+        provisioningResults,
         manualIntervention: manual,
         reconciliation,
+      };
+    },
+
+    /**
+     * Reprovisioning / reset explicite hors import (délègue au store comptes).
+     * N'est jamais déclenché automatiquement par un ré-import.
+     */
+    async reprovisionImportedAccount(
+      session: AuthSession,
+      employeeId: string,
+    ) {
+      assertCanExecute(session);
+      if (!canProvisionEmployees(session.role)) {
+        throw new AuthError("Reprovisioning réservé aux Ressources humaines.", 403);
+      }
+      const employee = await deps.hr.getEmployee(employeeId);
+      if (!employee) throw new AuthError("Collaborateur introuvable.", 404);
+      if (isPendingImportEmail(employee.email)) {
+        throw new Error(
+          "E-mail professionnel manquant — renseignez l'adresse avant de provisionner.",
+        );
+      }
+      const temporaryPassword = generateTemporaryPassword();
+      const passwordHash = await hashPassword(temporaryPassword);
+      let account = await findAccountByEmployeeId(employeeId);
+      if (!account) {
+        account = await createUserAccount({
+          email: employee.email,
+          passwordHash,
+          authProvider: "credentials",
+          role: "collaborateur",
+          employeeId,
+          isActive: true,
+          mustChangePassword: true,
+        });
+      } else {
+        if (account.role !== "collaborateur") {
+          throw new AuthError(
+            "Refus : le reset import ne s'applique qu'aux comptes collaborateur.",
+            403,
+          );
+        }
+        account = await updateUserAccount(account.id, {
+          passwordHash,
+          mustChangePassword: true,
+        });
+      }
+      await deps.hr.addRoleChangeAudit({
+        targetAccountId: account.id,
+        previousRole: account.role,
+        newRole: "collaborateur",
+        actorEmployeeId: session.employee.id,
+      });
+      if (deps.email) {
+        await deps.email.send({
+          to: employee.email,
+          subject: "[ASTER] Mot de passe temporaire régénéré",
+          body: `Bonjour ${employee.firstName},\n\nUn mot de passe temporaire a été régénéré par les RH.\nIdentifiant : ${employee.email}\nMot de passe temporaire : ${temporaryPassword}\n\nChangez-le à la prochaine connexion.`,
+        });
+      }
+      return {
+        employeeId,
+        accountId: account.id,
+        mustChangePassword: true,
+        // plaintext only returned to authenticated RH caller for one-time display
+        temporaryPassword,
       };
     },
   };
@@ -604,5 +947,6 @@ export function createHrImportService(deps: {
 export type HrImportService = ReturnType<typeof createHrImportService>;
 
 export function resetHrImportMemoryForTests(): void {
-  globalThis.__asterHrImportMemory = undefined;
+  globalThis.__asterHrImportParseCache = undefined;
+  resetHrImportWorkbookCacheForTests();
 }

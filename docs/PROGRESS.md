@@ -1,63 +1,66 @@
 # ASTER — Rapport d'avancement
 
 **Date :** 11 novembre 2026  
-**Phase :** Import Excel collaborateurs & soldes d'ouverture (Maroc)
+**Phase :** Lots d'import RH durables + provisioning comptes collaborateurs
 
 ## Fonctionnalités livrées
 
-- Section **Administration → Import des collaborateurs** (`/administration/import-collaborateurs`).
-- Permissions serveur : `hr.import.view` (RH + Chef), `hr.import.execute` (RH uniquement).
-- Modèles Excel A (collaborateurs), B (soldes d'ouverture), C (historique optionnel non exécuté).
-- Workflow : upload → parse → mapping → validation → prévisualisation → confirmation `IMPORTER` → exécution lot → rapport de réconciliation téléchargeable.
-- Soldes importés en écritures ledger append-only (`opening_balance` / `hr_excel_import_opening`), idempotentes par `sourceId` lot+matricule+compte.
-- Pas de recalcul d'acquisition historique, pas d'écrasement silencieux de soldes, pas d'invention d'e-mails/credentials.
-- Guide : `docs/EMPLOYEE_IMPORT_GUIDE.md`.
+- Persistance durable des lots `HrImportBatch` (Prisma PostgreSQL + store démo mémoire).
+- Cycle de vie : `uploaded` → `validating` → `awaiting_confirmation` → `executing` → `completed` | `completed_with_errors` | `failed`.
+- Claim atomique d'exécution (anti-concurrence / anti-double run).
+- Récupération manuelle des lots interrompus (`recoverInterruptedBatch`) — **aucun** retry background.
+- Reprise après `failed` avec idempotence ledger (`hr_excel_import_opening`) et non-écrasement des credentials.
+- Compteurs et rapport de réconciliation persistés (plus dépendants du process memory).
+- Stockage privé des classeurs + `getObject` pour rehydratation après redémarrage.
+- Provisioning de comptes à l'import : rôle `collaborateur` uniquement, `mustChangePassword`, mot de passe temporaire hors rapport (e-mail seulement).
+- E-mail pro absent → fiche importable, compte `pending`.
+- Reprovisioning / reset explicite RH (`reprovisionImportedAccount`).
+- Guide mis à jour : `docs/EMPLOYEE_IMPORT_GUIDE.md`.
 
 ## Fichiers modifiés / ajoutés
 
 - `src/domain/types/hr-import.ts`
-- `src/domain/rules/hr-import/{templates,parse,validate}.ts` + `validate.test.ts`
-- `src/application/services/hr-import-service.ts` + `hr-import-service.test.ts`
-- `src/app/actions/hr-import.ts`
-- `src/components/modules/hr-import-wizard.tsx`
-- `src/app/(app)/administration/import-collaborateurs/page.tsx`
-- `src/lib/navigation.ts`, `src/app/(app)/administration/page.tsx`
-- `src/domain/rules/permissions.ts` (+ tests)
-- `prisma/schema.prisma` + migration `20261111180000_hr_import_batches`
+- `src/domain/rules/hr-import/validate.ts`
+- `src/infrastructure/persistence/hr-import-batch-store.ts` (nouveau)
+- `src/infrastructure/persistence/demo-store.ts`
+- `src/infrastructure/storage/{types,mock-storage,supabase-storage}.ts`
+- `src/application/services/hr-import-service.ts` (+ tests)
+- `src/app/actions/hr-import.ts`, page import, wizard
+- `prisma/schema.prisma`
+- `prisma/migrations/20261111190000_hr_import_batches_durable/`
 - `docs/EMPLOYEE_IMPORT_GUIDE.md`, `docs/PROGRESS.md` (remplacé)
-- Ajustements tests congés/calendrier (RTT→CP, jours fériés, timeout bcrypt)
 
-## Changements base de données
+## Base de données
 
-- Table additive `HrImportBatch` (statuts, mappings JSON, drafts, rapport d'exécution).
-- Lots runtime encore en mémoire process (table Prisma prête pour persistance durable).
-- Ouvertures ledger via `LeaveLedgerEntry` existant (pas de rewrite historique).
+Migration forward-only additive `20261111190000_hr_import_batches_durable` :
+
+- Colonnes : `importType`, `templateVersion`, compteurs, `provisioningResultsJson`, `failureSummary`, `validatedAt`, `executionStartedAt`
+- Index `executedAt`
+- Aucune réécriture ledger / seed Production
 
 ## Tests et validation
 
 | Contrôle | Résultat |
 |----------|----------|
-| `npm test` | 297 passed, 1 skipped |
+| `npm test` | 301 passed, 1 skipped |
 | `npm run typecheck` | OK |
-| `npm run lint` | OK |
-| `npm run build` | OK (route import présente) |
+| `npm run lint` | (à confirmer après correctifs hooks) |
+| `npm run build` | OK |
 
-Couverture import : validation (doublons, négatifs, matricules inconnus), service (droits, import soldes idempotent, Chef sans exécution), permissions.
+Couverture ajoutée : persistance après reset cache, concurrence, reprise interrupted, e-mail manquant, non-écrasement credentials, droits Chef/Collab.
 
 ## Problèmes connus
 
-- Persistance des lots d'import encore en mémoire (redémarrage process = perte des lots ; table Prisma non branchée en écriture).
-- Échec partiel mid-exécution peut laisser des collaborateurs déjà créés (réessai via nouveau lot / mode mise à jour explicite).
-- Template C historique non exécutable (volontaire).
-- Mapping colonnes avancé UI limité (auto-détection + option mise à jour existants).
+- Mode mémoire : lots dans le demo-store process (pas multi-instance) ; Prisma requis en prod.
+- Mot de passe temporaire visible une seule fois via e-mail (ou retour API reprovisioning RH) — pas d'historique plaintext.
+- Template C historique toujours non exécuté.
 
 ## Travail restant
 
-- Brancher `HrImportBatch` Prisma pour lots durables multi-instance.
-- UI de mapping colonne / département / site plus fine.
-- Exécuteur historique (template C) si le métier le demande.
-- Tests d'intégration Prisma import (avec `DATABASE_URL`).
+- UI dédiée « récupérer lot interrompu » / historique multi-lots.
+- Écran RH de provisioning différé pour les fiches `pending` (saisie e-mail puis compte).
+- Tests d'intégration Prisma import sur vraie `DATABASE_URL`.
 
 ## Prochaine étape exacte
 
-Persister les lots d'import via l'adaptateur Prisma (`HrImportBatch`) et conserver le buffer source uniquement en stockage privé, pour un retry fiable hors mémoire process.
+Ajouter dans l'assistant d'import une action RH « Marquer failed / reprendre » pour les lots `executing` bloqués, branchée sur `recoverInterruptedBatch`.

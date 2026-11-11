@@ -21,8 +21,9 @@ export default async function ImportCollaborateursPage() {
   const importService = createHrImportService({
     hr: container.hr,
     storage: container.storage,
+    email: container.email,
   });
-  const batches = importService.listBatches(session);
+  const batches = await importService.listBatches(session);
   const latest = batches[0] ?? null;
   const canExecute = canExecuteHrImport(session.role);
 

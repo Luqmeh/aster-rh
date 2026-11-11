@@ -838,30 +838,48 @@ model AccrualLine {
 
 /// Lot d'import Excel collaborateurs / soldes d'ouverture (département Maroc).
 model HrImportBatch {
-  id                      String   @id
+  id                      String    @id
   status                  String
+  importType              String    @default("employees_balances")
+  templateVersion         String    @default("1")
   fileName                String
   storageKey              String?
   createdByEmployeeId     String
   confirmedByEmployeeId   String?
-  updateExistingEmployees Boolean  @default(false)
-  columnMappingJson       Json     @default("{}")
-  departmentMappingJson   Json     @default("{}")
-  siteMappingJson         Json     @default("{}")
+  updateExistingEmployees Boolean   @default(false)
+  columnMappingJson       Json      @default("{}")
+  departmentMappingJson   Json      @default("{}")
+  siteMappingJson         Json      @default("{}")
   previewSummaryJson      Json?
   executionReportJson     Json?
-  worksheetNamesJson      Json     @default("[]")
-  headersBySheetJson      Json     @default("{}")
-  employeeDraftsJson      Json     @default("[]")
-  balanceDraftsJson       Json     @default("[]")
+  worksheetNamesJson      Json      @default("[]")
+  headersBySheetJson      Json      @default("{}")
+  employeeDraftsJson      Json      @default("[]")
+  balanceDraftsJson       Json      @default("[]")
+  provisioningResultsJson Json      @default("[]")
+  totalRows               Int       @default(0)
+  validRows               Int       @default(0)
+  warningRows             Int       @default(0)
+  rejectedRows            Int       @default(0)
+  employeesCreated        Int       @default(0)
+  employeesUpdated        Int       @default(0)
+  balancesImported        Int       @default(0)
+  accountsCreated         Int       @default(0)
+  accountsExisting        Int       @default(0)
+  accountsPending         Int       @default(0)
+  accountsFailed          Int       @default(0)
+  failureSummary          String?
   errorMessage            String?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  validatedAt             DateTime?
+  executionStartedAt      DateTime?
   executedAt              DateTime?
 
   @@index([status])
   @@index([createdAt])
   @@index([createdByEmployeeId])
+  @@index([executedAt])
 }
 
 /// Demande de report CP (plafond 5 j ; exceptions partenaire / RRH — guide p.38–48).

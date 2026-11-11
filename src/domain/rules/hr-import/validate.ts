@@ -4,7 +4,9 @@ import type {
   HrImportEmployeeDraft,
   HrImportPreviewSummary,
 } from "@/domain/types/hr-import";
+import { pendingImportEmail } from "@/domain/types/hr-import";
 import type { ContractType, Employee, EmploymentStatus, OrganizationUnit } from "@/domain/types/hr";
+import { isValidEmployeeEmail } from "@/domain/rules/lifecycle";
 
 const CONTRACTS = new Set<ContractType>(["cdi", "cdd", "alternance", "stage"]);
 const STATUSES = new Set<EmploymentStatus>(["actif", "inactif", "parti"]);
@@ -127,7 +129,9 @@ export function validateEmployeeRows(input: {
     const matricule = (cells.matricule ?? "").trim();
     const firstName = (cells.firstName ?? "").trim();
     const lastName = (cells.lastName ?? "").trim();
-    const email = (cells.email ?? "").trim().toLowerCase();
+    const rawEmail = (cells.email ?? "").trim().toLowerCase();
+    const emailMissing = !rawEmail;
+    let email = rawEmail;
     const departmentRaw = (cells.department ?? "").trim();
     const jobTitle = (cells.jobTitle ?? "").trim();
     const site = (cells.site ?? "").trim();
@@ -158,8 +162,14 @@ export function validateEmployeeRows(input: {
       messages.push("Nom manquant.");
       severity = "error";
     }
-    if (!email || !email.includes("@")) {
-      messages.push("E-mail professionnel invalide ou manquant.");
+    if (emailMissing) {
+      email = matricule ? pendingImportEmail(matricule) : "";
+      messages.push(
+        "E-mail professionnel absent — fiche importable, compte ASTER en attente.",
+      );
+      if (severity === "ok") severity = "warning";
+    } else if (!isValidEmployeeEmail(email)) {
+      messages.push("E-mail professionnel invalide.");
       severity = "error";
     } else if (seenEmails.has(email)) {
       messages.push(
@@ -278,6 +288,7 @@ export function validateEmployeeRows(input: {
       firstName,
       lastName,
       email,
+      emailMissing,
       departmentRaw,
       departmentId,
       jobTitle,

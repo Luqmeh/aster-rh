@@ -317,9 +317,40 @@ export function HrImportWizard({
                   {batch.executionReport.balancesImported}
                 </p>
                 <p>
+                  Comptes : créés {batch.executionReport.accountsCreated} ·
+                  existants {batch.executionReport.accountsExisting} · en attente{" "}
+                  {batch.executionReport.accountsPending} · échecs{" "}
+                  {batch.executionReport.accountsFailed}
+                </p>
+                <p>
                   Rejets : {batch.executionReport.rejectedRows} · Avertissements :{" "}
                   {batch.executionReport.warningRows}
                 </p>
+                {batch.executionReport.provisioningResults.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <p className="mb-1 font-medium">Provisioning comptes</p>
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="py-1 pr-2">Matricule</th>
+                          <th className="py-1 pr-2">Statut</th>
+                          <th className="py-1">Détail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batch.executionReport.provisioningResults.map((p) => (
+                          <tr key={`${p.matricule}-${p.status}`} className="border-b">
+                            <td className="py-1 pr-2 font-mono">{p.matricule}</td>
+                            <td className="py-1 pr-2">{p.status}</td>
+                            <td className="py-1 text-[var(--aster-muted)]">
+                              {p.message}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"

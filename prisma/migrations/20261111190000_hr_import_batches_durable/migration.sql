@@ -1,0 +1,22 @@
+-- Harden HrImportBatch for durable lifecycle, counts and provisioning summaries.
+-- Forward-only additive migration — no data rewrite.
+
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "importType" TEXT NOT NULL DEFAULT 'employees_balances';
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "templateVersion" TEXT NOT NULL DEFAULT '1';
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "provisioningResultsJson" JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "totalRows" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "validRows" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "warningRows" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "rejectedRows" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "employeesCreated" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "employeesUpdated" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "balancesImported" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "accountsCreated" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "accountsExisting" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "accountsPending" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "accountsFailed" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "failureSummary" TEXT;
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "validatedAt" TIMESTAMP(3);
+ALTER TABLE "HrImportBatch" ADD COLUMN IF NOT EXISTS "executionStartedAt" TIMESTAMP(3);
+
+CREATE INDEX IF NOT EXISTS "HrImportBatch_executedAt_idx" ON "HrImportBatch"("executedAt");
