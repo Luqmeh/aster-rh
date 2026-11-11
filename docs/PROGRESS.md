@@ -3,7 +3,7 @@
 **Date / heure :** 11 novembre 2026 ~22:15 UTC  
 **Branche :** `main`  
 **Sujet :** Diagnostic et correctif « Minified React error #441 » sur l’import RH  
-**État :** cause racine identifiée, correctif implémenté et rejoué localement (Vitest + Playwright). Commit/push à enchaîner pour Production.
+**État :** cause racine identifiée, correctif poussé — commit `6154533` sur `origin/main` (déploiement Vercel à attendre).
 
 ---
 
@@ -88,4 +88,4 @@ Happy-path E2E import officiel : toujours **passé**.
 
 ## Prochaine étape recommandée
 
-Commit + push sur `origin/main` pour déployer le correctif en Production, puis rejouer le scénario « fichier invalide » sur `aster-rh.vercel.app` (message FR, pas #441).
+Après déploiement Vercel de `6154533`, rejouer sur `aster-rh.vercel.app` : upload fichier invalide → message FR / statut `validated`, pas de #441 ; puis un import valide → `IMPORTER` OK.
