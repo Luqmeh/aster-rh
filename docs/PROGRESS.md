@@ -1,68 +1,66 @@
 # ASTER — Rapport de progression
 
-**Date / heure :** 11 novembre 2026 ~22:25 UTC  
+**Date / heure :** 11 novembre 2026 ~22:52 UTC  
 **Branche :** `main`  
-**Sujet :** Abandonner l'import Excel (cancel batch non exécuté)  
-**État :** implémenté, tests OK ; commit/push à enchaîner.
+**Sujet :** Modèle Excel d'import RH strictement auto-validant (listes déroulantes)  
+**État :** terminé localement (tests / typecheck / lint / build OK) — commit/push à enchaîner.
 
 ---
 
-## Fonctionnalités implémentées
+## Ce qui a changé
 
-- Action RH **Abandonner l'import** avec dialogue de confirmation (distinct de Confirmer).
-- Service `cancelBatch` : statut `cancelled` (terminal), purge classeur (cache + storage best-effort), brouillons nominatifs vidés, résumé conservé pour audit.
-- Idempotent si déjà `cancelled`.
-- Refus serveur pour `executing` / `completed` / `completed_with_errors`.
-- Authz : `admin_rh` seul (`hr.import.execute`) ; chef / collaborateur 403.
-- UI : prévisualisation = lot **actif** non terminal ; historique des lots (dont `cancelled`) ; **Remplacer le fichier** pour un nouvel upload.
-- Guide import mis à jour.
+- Feuille `Listes` alignée sur l'importateur : plus de `Autre` / `À préciser` ; ajout de `Alternance`.
+- Listes déroulantes + messages FR pour départements, sites, contrats, statuts, types de solde, unités, vérification RH, historique.
+- Validations Excel date (embauche, sortie, effet) et décimal ≥ 0 (soldes / quantités).
+- `Nom*` / `Prénom*` restent en saisie libre (aucun dropdown).
+- Source de vérité TS : `accepted-values.ts` ; régénération : `npm run build:hr-import-template`.
+- Asset canonique régénéré (SHA-256 `e0b2bcb8…42ccd`) — téléchargement UI inchangé (lit l'asset).
+- Validation serveur inchangée (toujours rejet des valeurs hors contrat).
 
-## Fichiers créés / modifiés
+## Fichiers
 
-| Fichier | Rôle |
-|---------|------|
-| `src/application/services/hr-import-service.ts` | `cancelBatch` |
-| `src/domain/types/hr-import.ts` | `canCancelImportBatch` |
-| `src/app/actions/hr-import.ts` | `cancelHrImportAction` |
-| `src/app/actions/hr-import.test.ts` | régression action cancel |
-| `src/application/services/hr-import-service.test.ts` | cancel + droits + no writes |
-| `src/components/modules/hr-import-wizard.tsx` | UI abandon / remplacer / historique |
-| `src/app/(app)/administration/import-collaborateurs/page.tsx` | activeBatch + recentBatches |
-| `docs/EMPLOYEE_IMPORT_GUIDE.md` | workflow abandon |
-| `vitest.config.ts` | `testTimeout: 20_000` (bcrypt sous charge) |
-| `docs/PROGRESS.md` | ce rapport (précédent supprimé) |
+| Fichier | Action |
+|---------|--------|
+| `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx` | régénéré |
+| `src/domain/rules/hr-import/accepted-values.ts` | créé |
+| `scripts/build-hr-import-template.ts` | créé |
+| `src/domain/rules/hr-import/template-self-validation.test.ts` | créé |
+| `src/domain/rules/hr-import/official-workbook.parse.test.ts` | hash |
+| `src/application/services/hr-import-service.test.ts` | hash |
+| `e2e/hr-import-official.spec.ts` | hash |
+| `docs/EMPLOYEE_IMPORT_GUIDE.md` | champs / listes |
+| `package.json` | script `build:hr-import-template` |
+| `docs/PROGRESS.md` | rapport frais |
 
 ## Dépendances
 
-- Aucune nouvelle.
+- Aucune nouvelle dépendance npm.
 
-## Migrations / schéma
+## Migrations / seed
 
-- Aucun (statut `cancelled` déjà prévu).
+- Aucun. Aucun seed Production.
 
-## Résultats QA
+## Tests / QA
 
 | Contrôle | Résultat |
 |----------|----------|
-| Vitest | **310 passed**, 1 skipped |
-| `npm run typecheck` | **OK** (run précédent session) |
+| Vitest | **316 passed**, 1 skipped (60 files) |
+| `npm run typecheck` | **OK** |
 | `npm run lint` | **OK** |
 | `npm run build` | **OK** |
 
-### Preuves tests cancel
+## Limites connues
 
-- RH annule lot `awaiting_confirmation` → `cancelled`, pas d'employé / compte / ledger.
-- Double cancel idempotent.
-- Confirm après cancel refusé.
-- Lot cancelled listé dans l'historique.
-- Chef / collaborateur 403.
-- Completed / executing non abandonnables.
+1. Listes département / site basées sur le **seed démo** (template statique) ; un nouveau site hors liste est possible avec style Excel `warning`.
+2. Excel ne peut pas exiger facilement « obligatoire seulement si la ligne est remplie » — les lignes vides restent `allowBlank` ; le serveur valide les lignes non vides.
+3. Pas de civilité / genre dans le contrat d'import actuel — non inventés.
 
-## Problèmes connus
+## Travail restant
 
-1. Remplacer le fichier crée un **nouveau** lot sans auto-cancel de l'ancien (message UI : abandonner l'ancien si besoin).
-2. Purge storage `deleteObject` best-effort si le provider échoue.
+1. Commit + push `origin/main`.
+2. Vérifier dans Excel desktop / LibreOffice : dropdowns Collaborateurs + Soldes.
+3. (Optionnel) Playwright rejoué pour le hash de téléchargement.
 
-## Prochaine étape recommandée
+## Prochaine étape exacte
 
-Commit + push, puis vérifier sur Production : upload → Abandonner → historique `cancelled` → nouvel import.
+Committer et pousser, puis ouvrir le modèle téléchargé depuis `/administration/import-collaborateurs` et contrôler les listes `Type de contrat` / `Statut*` / `Département`.

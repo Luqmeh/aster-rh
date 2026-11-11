@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "build:hr-import-template": "tsx scripts/build-hr-import-template.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "tsx scripts/with-prisma-env.ts migrate deploy",

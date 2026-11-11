@@ -19,7 +19,9 @@ Contrôles serveur : `hr.import.view` / `hr.import.execute` (+ `employee.provisi
 ASTER ne propose **qu'un seul** fichier téléchargeable :
 
 `ASTER_Modele_Import_RH_Maroc.xlsx`  
-(asset repo : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`, SHA-256 `dbc617d2bc3899f6e6a2509efbbd4a9b8559962ffa8a4ddee4518f8a80ccacc9`)
+(asset repo : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`, SHA-256 `e0b2bcb8137ab3c0c584d5cb1cd243546bd1a645996805831110be1a92f42ccd`)
+
+Régénération des listes / validations Excel : `npm run build:hr-import-template` (source de vérité : `src/domain/rules/hr-import/accepted-values.ts`).
 
 Ne pas renommer les feuilles ni les en-têtes. Taille max : **5 Mo** (`.xlsx`).
 
@@ -31,27 +33,48 @@ Ne pas renommer les feuilles ni les en-têtes. Taille max : **5 Mo** (`.xlsx`).
 | `Collaborateurs` | Fiches collaborateurs |
 | `Soldes initiaux` | Soldes d'ouverture (format **long**) |
 | `Historique optionnel` | Structure future — **non exécuté** |
-| `Listes` | Listes de validation Excel (feuille **masquée**, ignorée) |
+| `Listes` | Sources des listes déroulantes Excel (feuille **masquée**, ignorée à l'import) |
 
-Les en-têtes de données sont en **ligne 4** ; les premières lignes de données commencent à la ligne 5.
+Les en-têtes de données sont en **ligne 4** ; les premières lignes de données commencent à la ligne 5 (plage validée jusqu'à la ligne 204). Les lignes vides restent autorisées (`allowBlank`).
+
+### Contrôles Excel (prévention UX)
+
+La validation Excel **ne remplace pas** la validation serveur.
+
+| Champ | Saisie | Contrôle Excel |
+|-------|--------|----------------|
+| `Nom*`, `Prénom*` | **texte libre** | aucun dropdown |
+| `Matricule*`, `E-mail`, `Poste / fonction`, `Matricule du responsable`, `Remarques*` | texte libre | — |
+| `Département` | liste | `DIR`, `RH`, `AUD`, `CNS`, `EXP`, `SI` |
+| `Site` | liste (avertissement si hors liste) | sites seed démo |
+| `Type de contrat` | liste | `CDI`, `CDD`, `Alternance`, `Stage` |
+| `Statut*` | liste | `Actif`, `Suspendu`, `Sorti` |
+| `Date d'embauche*`, `Date de sortie` | date Excel | type date |
+| `Type de solde*` | liste | `CP`, `RTT`, `RECUPERATION_HEURES` |
+| `Solde restant*` | nombre | décimal ≥ 0 |
+| `Unité` | liste | `Jours`, `Heures` |
+| `Date d'effet*` | date Excel | type date |
+| `Vérification RH` | liste | `À vérifier`, `Vérifié par RH` |
+
+**Retirés des listes** (refusés par l'importateur) : `Autre`, `À préciser` pour le type de contrat.
 
 ### Collaborateurs — colonnes
 
 | Colonne (en-tête modèle) | Obligatoire | Format / valeurs |
 |--------------------------|-------------|------------------|
-| `Matricule*` | oui | Identifiant unique ASTER |
-| `Nom*` | oui | texte |
-| `Prénom*` | oui | texte |
+| `Matricule*` | oui | Identifiant unique ASTER (texte) |
+| `Nom*` | oui | **texte libre** |
+| `Prénom*` | oui | **texte libre** |
 | `E-mail professionnel` | recommandé | e-mail réel ; **absent** → fiche OK, compte en attente |
-| `Département` | oui | code (`AUD`, `RH`…) ou libellé ; mappable |
-| `Poste / fonction` | oui | texte |
-| `Site` | oui | texte ; mappable ; site inconnu → avertissement |
-| `Date d'embauche*` | oui | `AAAA-MM-JJ` ou `JJ/MM/AAAA` |
-| `Type de contrat` | oui | `CDI`, `CDD`, `Alternance`, `Stage` (casse souple) |
+| `Département` | oui | code liste (`AUD`, `RH`…) ou libellé mappable |
+| `Poste / fonction` | oui | texte libre |
+| `Site` | oui | liste + nouveaux sites possibles (avertissement serveur) |
+| `Date d'embauche*` | oui | date Excel / `AAAA-MM-JJ` / `JJ/MM/AAAA` |
+| `Type de contrat` | oui | `CDI`, `CDD`, `Alternance`, `Stage` |
 | `Statut*` | oui | `Actif`, `Suspendu`, `Sorti` (→ actif / inactif / parti) |
 | `Matricule du responsable` | non | matricule existant ou présent dans le lot |
-| `Date de sortie` | non | date |
-| `Remarques RH` | non | texte |
+| `Date de sortie` | non | date Excel |
+| `Remarques RH` | non | texte libre |
 
 Sans e-mail, ASTER pose un marqueur technique `@no-mailbox.aster-rh.local` (pas de boîte mail, pas de compte).
 
@@ -65,10 +88,10 @@ Une ligne = un couple `(matricule, type de solde)`.
 | `Type de solde*` | oui | `CP`, `RTT`, `RECUPERATION_HEURES` |
 | `Solde restant*` | oui | décimal ≥ 0 (virgule ou point) |
 | `Unité` | oui | `Jours` pour CP/RTT ; `Heures` pour `RECUPERATION_HEURES` |
-| `Date d'effet*` | oui | date |
-| `Source / fichier RH` | recommandé | audit |
-| `Référence source / onglet` | non | audit |
-| `Vérification RH` | recommandé | ex. `Vérifié par RH` |
+| `Date d'effet*` | oui | date Excel |
+| `Source / fichier RH` | recommandé | audit (texte) |
+| `Référence source / onglet` | non | audit (texte) |
+| `Vérification RH` | recommandé | `À vérifier` / `Vérifié par RH` |
 | `Remarques` | non | texte |
 
 **Important :** `RECUPERATION_HEURES` est stockée en **heures** dans le ledger (`unit: "hours"`). Aucune conversion silencieuse en jours.
