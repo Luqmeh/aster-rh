@@ -165,9 +165,10 @@ describe("hr-import validation", () => {
       existingEmployees: [emp("emp-lea", "lea@demo.aster-rh.local")],
     });
     expect(balances[0]?.severity).toBe("ok");
-    expect(balances[0]?.recoveryDays).toBe(1);
+    expect(balances[0]?.recoveryHours).toBe(7);
+    expect(balances[0]?.recoveryDays).toBeNull();
     const summary = buildPreviewSummary([], balances);
     expect(summary.openingCpTotal).toBe(10);
-    expect(summary.openingRecoveryDaysTotal).toBe(1);
+    expect(summary.openingRecoveryDaysTotal).toBe(7);
   });
 });

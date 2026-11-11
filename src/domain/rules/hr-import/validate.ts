@@ -65,18 +65,64 @@ export function resolveDepartmentId(
 }
 
 export function normalizeContractType(raw: string): ContractType | null {
-  const t = raw.trim().toLowerCase();
+  const t = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
   if (!t) return null;
   if (CONTRACTS.has(t as ContractType)) return t as ContractType;
+  if (t === "autre" || t === "a preciser" || t === "à préciser") {
+    // Valeurs liste officielle — non inventées : mapper vers stage générique interdit.
+    return null;
+  }
   return null;
 }
 
 export function normalizeEmploymentStatus(raw: string): EmploymentStatus | null {
-  const t = raw.trim().toLowerCase();
+  const t = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
   if (!t) return "actif";
   if (STATUSES.has(t as EmploymentStatus)) return t as EmploymentStatus;
-  if (t === "active") return "actif";
-  if (t === "inactive") return "inactif";
+  if (t === "active" || t === "actif") return "actif";
+  if (t === "inactive" || t === "inactif" || t === "suspendu") return "inactif";
+  if (t === "parti" || t === "sorti") return "parti";
+  return null;
+}
+
+export function normalizeBalanceType(
+  raw: string,
+): "CP" | "RTT" | "RECUPERATION_HEURES" | null {
+  const t = raw
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, "_");
+  if (t === "CP" || t === "CONGES_PAYES" || t === "CONGE_PAYE") return "CP";
+  if (t === "RTT") return "RTT";
+  if (
+    t === "RECUPERATION_HEURES" ||
+    t === "RECUPERATION" ||
+    t === "RECOVERY_HOURS"
+  ) {
+    return "RECUPERATION_HEURES";
+  }
+  return null;
+}
+
+export function normalizeBalanceUnit(raw: string): "jours" | "heures" | null {
+  const t = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  if (!t) return null;
+  if (t.startsWith("jour")) return "jours";
+  if (t.startsWith("heur")) return "heures";
   return null;
 }
 
@@ -181,20 +227,21 @@ export function validateEmployeeRows(input: {
     }
 
     if (!jobTitle) {
-      messages.push("Poste manquant.");
-      severity = "error";
+      messages.push("Poste / fonction non renseigné.");
+      if (severity === "ok") severity = "warning";
     }
     const knownSites = input.knownSites ?? [];
     const resolvedSite = resolveSite(
-      site,
+      site || "Non renseigné",
       knownSites,
       input.siteMapping ?? {},
     );
-    if (!resolvedSite) {
-      messages.push("Site manquant.");
-      severity = "error";
+    if (!site) {
+      messages.push("Site non renseigné — valeur « Non renseigné ».");
+      if (severity === "ok") severity = "warning";
     } else if (
       knownSites.length > 0 &&
+      resolvedSite &&
       !knownSites.some((s) => s.toLowerCase() === resolvedSite.toLowerCase()) &&
       !(input.siteMapping ?? {})[site] &&
       !(input.siteMapping ?? {})[site.toLowerCase()]
@@ -208,12 +255,23 @@ export function validateEmployeeRows(input: {
       messages.push("Date d'embauche invalide (attendu AAAA-MM-JJ ou JJ/MM/AAAA).");
       severity = "error";
     }
-    if (!contractType) {
-      messages.push("Type de contrat invalide (cdi, cdd, alternance, stage).");
+    let resolvedContract = contractType;
+    if ((cells.contractType ?? "").trim() && !contractType) {
+      messages.push(
+        "Type de contrat non reconnu (cdi, cdd, alternance, stage) — laisser vide ou corriger.",
+      );
       severity = "error";
+    } else if (!resolvedContract) {
+      resolvedContract = "cdi";
+      messages.push(
+        "Type de contrat absent — fiche créée en CDI technique (champ optionnel du modèle).",
+      );
+      if (severity === "ok") severity = "warning";
     }
     if (!employmentStatus) {
-      messages.push("Statut d'emploi invalide (actif, inactif, parti).");
+      messages.push(
+        "Statut invalide (Actif, Suspendu/Inactif, Sorti/Parti).",
+      );
       severity = "error";
     }
 
@@ -223,12 +281,17 @@ export function validateEmployeeRows(input: {
       input.departmentMapping,
     );
     if (!departmentId) {
-      messages.push(
-        departmentRaw
-          ? `Département inconnu « ${departmentRaw} » — mapper ou créer l'unité.`
-          : "Département manquant.",
-      );
-      severity = "error";
+      if (departmentRaw) {
+        messages.push(
+          `Département inconnu « ${departmentRaw} » — mapper ou créer l'unité.`,
+        );
+        severity = "error";
+      } else {
+        messages.push(
+          "Département non renseigné — attribution impossible sans unité.",
+        );
+        severity = "error";
+      }
     }
 
     const existingById = matricule ? byId.get(matricule) : undefined;
@@ -294,7 +357,7 @@ export function validateEmployeeRows(input: {
       jobTitle,
       site: resolvedSite ?? site,
       hireDate,
-      contractType,
+      contractType: resolvedContract,
       employmentStatus,
       managerMatricule,
       managerId,
@@ -324,26 +387,80 @@ export function validateBalanceRows(input: {
     const messages: string[] = [];
     let severity: HrImportBalanceDraft["severity"] = "ok";
     const matricule = (cells.matricule ?? "").trim();
-    const cpDays = parseDecimalFr(cells.cpDays ?? "");
-    const rttDays = parseDecimalFr(cells.rttDays ?? "");
-    const recoveryHours = parseDecimalFr(cells.recoveryHours ?? "");
+
+    // Format officiel (long) : Type de solde + Solde restant + Unité
+    const balanceType = normalizeBalanceType(cells.balanceType ?? "");
+    const balanceAmount = parseDecimalFr(cells.balanceAmount ?? "");
+    const balanceUnit = normalizeBalanceUnit(cells.balanceUnit ?? "");
+
+    // Format legacy (large) : colonnes CP / RTT / récupération
+    let cpDays = parseDecimalFr(cells.cpDays ?? "");
+    let rttDays = parseDecimalFr(cells.rttDays ?? "");
+    let recoveryHours = parseDecimalFr(cells.recoveryHours ?? "");
+
+    if (balanceType) {
+      if (balanceAmount == null) {
+        messages.push("Solde restant manquant ou invalide.");
+        severity = "error";
+      } else if (balanceAmount < 0) {
+        messages.push("Solde négatif refusé.");
+        severity = "error";
+      }
+      if (balanceType === "CP") {
+        if (balanceUnit && balanceUnit !== "jours") {
+          messages.push("CP doit être en jours (unité incorrecte).");
+          severity = "error";
+        }
+        cpDays = balanceAmount;
+        rttDays = null;
+        recoveryHours = null;
+      } else if (balanceType === "RTT") {
+        if (balanceUnit && balanceUnit !== "jours") {
+          messages.push("RTT doit être en jours (unité incorrecte).");
+          severity = "error";
+        }
+        rttDays = balanceAmount;
+        cpDays = null;
+        recoveryHours = null;
+      } else {
+        if (balanceUnit && balanceUnit !== "heures") {
+          messages.push(
+            "RECUPERATION_HEURES doit être en heures — pas de conversion silencieuse en jours.",
+          );
+          severity = "error";
+        }
+        recoveryHours = balanceAmount;
+        cpDays = null;
+        rttDays = null;
+      }
+    }
+
     const effectiveDate = parseIsoDate(cells.effectiveDate ?? "");
-    const sourceReference = (cells.sourceReference ?? "").trim();
+    const sourceReference = [
+      (cells.sourceReference ?? "").trim(),
+      (cells.sourceTabReference ?? "").trim(),
+    ]
+      .filter(Boolean)
+      .join(" / ");
     const verificationStatus = (
-      cells.verificationStatus ?? "a_verifier"
+      cells.verificationStatus ?? "À vérifier"
     ).trim();
     const notes = (cells.notes ?? "").trim() || null;
+
+    const dedupeKey = balanceType
+      ? `${matricule}::${balanceType}`
+      : matricule;
 
     if (!matricule) {
       messages.push("Matricule manquant.");
       severity = "error";
-    } else if (seen.has(matricule)) {
+    } else if (seen.has(dedupeKey)) {
       messages.push(
-        `Ligne de solde en double pour ${matricule} (déjà ligne ${seen.get(matricule)}).`,
+        `Ligne de solde en double pour ${dedupeKey} (déjà ligne ${seen.get(dedupeKey)}).`,
       );
       severity = "error";
     } else {
-      seen.set(matricule, row.rowNumber);
+      seen.set(dedupeKey, row.rowNumber);
     }
 
     if (matricule && !knownIds.has(matricule)) {
@@ -353,8 +470,21 @@ export function validateBalanceRows(input: {
       severity = "error";
     }
 
-    if (cpDays == null && rttDays == null && recoveryHours == null) {
-      messages.push("Aucun solde renseigné (CP, RTT ou récupération).");
+    if (
+      !balanceType &&
+      cpDays == null &&
+      rttDays == null &&
+      recoveryHours == null
+    ) {
+      messages.push(
+        "Aucun solde renseigné (type officiel CP/RTT/RECUPERATION_HEURES ou colonnes legacy).",
+      );
+      severity = "error";
+    }
+    if (cells.balanceType && !balanceType) {
+      messages.push(
+        "Type de solde inconnu (attendu CP, RTT, RECUPERATION_HEURES).",
+      );
       severity = "error";
     }
     if (cpDays != null && cpDays < 0) {
@@ -377,28 +507,34 @@ export function validateBalanceRows(input: {
       messages.push("Référence source recommandée pour l'audit.");
       if (severity === "ok") severity = "warning";
     }
-    if (verificationStatus.toLowerCase() !== "verifie" &&
-      verificationStatus.toLowerCase() !== "vérifié" &&
-      verificationStatus.toLowerCase() !== "verified") {
+    const verifNorm = verificationStatus
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "");
+    if (
+      verifNorm !== "verifie" &&
+      verifNorm !== "verifie par rh" &&
+      verifNorm !== "verified"
+    ) {
       messages.push(
         "Statut de vérification RH non confirmé — à contrôler avant exécution.",
       );
       if (severity === "ok") severity = "warning";
     }
 
-    const recoveryDays =
-      recoveryHours == null
-        ? null
-        : hoursToRecoveryDays(recoveryHours, input.standardDailyHours ?? 7);
-
     return {
       rowNumber: row.rowNumber,
       matricule,
       employeeId: matricule && knownIds.has(matricule) ? matricule : null,
+      balanceType,
+      balanceAmount,
+      balanceUnit:
+        balanceUnit ??
+        (recoveryHours != null ? "heures" : cpDays != null || rttDays != null ? "jours" : null),
       cpDays,
       rttDays,
       recoveryHours,
-      recoveryDays,
+      recoveryDays: null,
       effectiveDate,
       sourceReference,
       verificationStatus,
@@ -434,8 +570,9 @@ export function buildPreviewSummary(
     invalidBalanceRows: invalidBal.length,
     openingCpTotal: validBal.reduce((s, b) => s + (b.cpDays ?? 0), 0),
     openingRttTotal: validBal.reduce((s, b) => s + (b.rttDays ?? 0), 0),
+    // Totaux récupération exprimés en heures (modèle officiel) — pas de conversion jours.
     openingRecoveryDaysTotal: validBal.reduce(
-      (s, b) => s + (b.recoveryDays ?? 0),
+      (s, b) => s + (b.recoveryHours ?? b.recoveryDays ?? 0),
       0,
     ),
   };

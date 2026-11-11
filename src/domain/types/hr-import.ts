@@ -41,13 +41,20 @@ export type HrImportEmployeeDraft = {
   messages: string[];
 };
 
+export type HrImportBalanceKind = "CP" | "RTT" | "RECUPERATION_HEURES";
+
 export type HrImportBalanceDraft = {
   rowNumber: number;
   matricule: string;
   employeeId: string | null;
+  /** Format officiel : une ligne = un type. */
+  balanceType: HrImportBalanceKind | null;
+  balanceAmount: number | null;
+  balanceUnit: "jours" | "heures" | null;
   cpDays: number | null;
   rttDays: number | null;
   recoveryHours: number | null;
+  /** Conservé pour compat legacy uniquement — ne plus convertir silencieusement. */
   recoveryDays: number | null;
   effectiveDate: string | null;
   sourceReference: string;

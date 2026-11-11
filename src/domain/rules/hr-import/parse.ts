@@ -1,4 +1,8 @@
-import ExcelJS from "exceljs";
+import {
+  detectHeaderRow,
+  loadOoxmlWorkbook,
+  type OoxmlSheet,
+} from "@/domain/rules/hr-import/ooxml-workbook";
 import {
   resolveCanonicalHeader,
   type BalanceFieldKey,
@@ -7,7 +11,9 @@ import {
 
 export type ParsedSheet = {
   name: string;
+  state: "visible" | "hidden" | "veryHidden";
   headers: string[];
+  headerRowNumber: number;
   /** Lignes 1-indexées (numéro Excel). */
   rows: Array<{ rowNumber: number; cells: Record<string, string> }>;
 };
@@ -16,71 +22,80 @@ export type ParsedWorkbook = {
   worksheets: ParsedSheet[];
 };
 
-function cellToString(value: ExcelJS.CellValue): string {
-  if (value == null || value === "") return "";
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (value instanceof Date) {
-    const y = value.getUTCFullYear();
-    const m = String(value.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(value.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+function looksLikeHeaderRow(values: string[]): boolean {
+  const normalized = values.filter(Boolean).map((v) =>
+    v
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/\*/g, ""),
+  );
+  if (normalized.length < 2) return false;
+  // En-tête de colonne « Matricule » (pas un paragraphe d'instructions).
+  const hasMatriculeCol = normalized.some(
+    (v) => v === "matricule" || v.startsWith("matricule "),
+  );
+  if (!hasMatriculeCol) return false;
+  const hasPerson =
+    normalized.some((v) => v === "prenom" || v.startsWith("prenom")) ||
+    normalized.some((v) => v === "nom" || v.startsWith("nom ")) ||
+    normalized.some((v) => v.includes("mail"));
+  const hasBalance = normalized.some(
+    (v) =>
+      v.includes("type de solde") ||
+      v.includes("solde restant") ||
+      v.includes("solde_cp") ||
+      v.includes("type d'operation") ||
+      v.includes("type doperation") ||
+      v === "cp" ||
+      v === "rtt",
+  );
+  return hasPerson || hasBalance;
+}
+
+function sheetToParsed(sheet: OoxmlSheet): ParsedSheet {
+  const headerRowNumber = detectHeaderRow(sheet, looksLikeHeaderRow);
+  const headerCells = sheet.cells.get(headerRowNumber) ?? new Map();
+  const maxCol = Math.max(sheet.maxCol, ...headerCells.keys(), 1);
+  const headers: string[] = [];
+  for (let c = 1; c <= maxCol; c += 1) {
+    const h = (headerCells.get(c) ?? "").trim();
+    if (h) headers[c - 1] = h;
   }
-  if (typeof value === "object") {
-    const v = value as { text?: string; result?: unknown; richText?: Array<{ text: string }> };
-    if (typeof v.text === "string") return v.text.trim();
-    if (typeof v.result === "string" || typeof v.result === "number") {
-      return String(v.result).trim();
+  const canonical = headers.map((h) => (h ? resolveCanonicalHeader(h) ?? h : ""));
+  const rows: ParsedSheet["rows"] = [];
+  for (let r = headerRowNumber + 1; r <= sheet.maxRow; r += 1) {
+    const row = sheet.cells.get(r);
+    if (!row) continue;
+    const cells: Record<string, string> = {};
+    let any = false;
+    for (let c = 1; c <= headers.length; c += 1) {
+      const key = canonical[c - 1];
+      if (!key) continue;
+      const raw = (row.get(c) ?? "").trim();
+      if (raw) any = true;
+      cells[key] = raw;
     }
-    if (Array.isArray(v.richText)) {
-      return v.richText.map((t) => t.text).join("").trim();
-    }
+    if (!any) continue;
+    rows.push({ rowNumber: r, cells });
   }
-  return String(value).trim();
+  return {
+    name: sheet.name,
+    state: sheet.state,
+    headers: headers.filter(Boolean),
+    headerRowNumber,
+    rows,
+  };
 }
 
 export async function parseExcelWorkbook(
   data: ArrayBuffer | Buffer | Uint8Array,
 ): Promise<ParsedWorkbook> {
-  const workbook = new ExcelJS.Workbook();
-  // ExcelJS typings accept Buffer / ArrayBuffer via read
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await workbook.xlsx.load(data as any);
-  const worksheets: ParsedSheet[] = [];
-
-  workbook.eachSheet((sheet) => {
-    const headerRow = sheet.getRow(1);
-    const headers: string[] = [];
-    const maxCol = Math.max(headerRow.cellCount, 1);
-    for (let c = 1; c <= maxCol; c += 1) {
-      const h = cellToString(headerRow.getCell(c).value);
-      if (h) headers[c - 1] = h;
-    }
-    const canonical = headers.map((h) => resolveCanonicalHeader(h) ?? h);
-    const rows: ParsedSheet["rows"] = [];
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      const cells: Record<string, string> = {};
-      let any = false;
-      for (let c = 1; c <= headers.length; c += 1) {
-        const key = canonical[c - 1];
-        if (!key) continue;
-        const raw = cellToString(row.getCell(c).value);
-        if (raw) any = true;
-        cells[key] = raw;
-      }
-      if (!any) return;
-      rows.push({ rowNumber, cells });
-    });
-    worksheets.push({
-      name: sheet.name,
-      headers: headers.filter(Boolean),
-      rows,
-    });
-  });
-
-  return { worksheets };
+  const sheets = await loadOoxmlWorkbook(data);
+  return {
+    worksheets: sheets.map(sheetToParsed),
+  };
 }
 
 export function autoDetectColumnMapping(
@@ -108,7 +123,6 @@ export function applyColumnMapping(
     const fromHeader = cells[sourceHeader];
     if (fromHeader != null) out[field] = fromHeader;
   }
-  // Also keep already-canonical keys from parse
   for (const [k, v] of Object.entries(cells)) {
     if (out[k] == null) out[k] = v;
   }
@@ -118,7 +132,13 @@ export function applyColumnMapping(
 function sheetHasBalanceHeaders(sheet: ParsedSheet): boolean {
   return sheet.headers.some((h) => {
     const c = resolveCanonicalHeader(h);
-    return c === "cpDays" || c === "rttDays" || c === "recoveryHours";
+    return (
+      c === "cpDays" ||
+      c === "rttDays" ||
+      c === "recoveryHours" ||
+      c === "balanceType" ||
+      c === "balanceAmount"
+    );
   });
 }
 
@@ -126,34 +146,48 @@ function sheetHasEmployeeHeaders(sheet: ParsedSheet): boolean {
   const keys = new Set(
     sheet.headers.map((h) => resolveCanonicalHeader(h)).filter(Boolean),
   );
-  return keys.has("email") || (keys.has("firstName") && keys.has("lastName"));
+  return (
+    keys.has("email") ||
+    (keys.has("firstName") && keys.has("lastName")) ||
+    (keys.has("matricule") && keys.has("lastName"))
+  );
+}
+
+function sheetHasHistoryHeaders(sheet: ParsedSheet): boolean {
+  return sheet.headers.some((h) => resolveCanonicalHeader(h) === "eventType");
 }
 
 export function pickEmployeeSheet(worksheets: ParsedSheet[]): ParsedSheet | null {
-  const byName = worksheets.find(
+  const visible = worksheets.filter((s) => s.state === "visible");
+  const byName = visible.find(
     (s) =>
-      /collab|employ|personnel|effectif/i.test(s.name) &&
-      !sheetHasBalanceHeaders(s),
+      /^collaborateurs$/i.test(s.name.trim()) ||
+      (/collab|employ|personnel|effectif/i.test(s.name) &&
+        !/solde|historique|lisez|listes/i.test(s.name)),
   );
+  if (byName && sheetHasEmployeeHeaders(byName)) return byName;
   if (byName) return byName;
-  const byHeaders = worksheets.find(
-    (s) => sheetHasEmployeeHeaders(s) && !sheetHasBalanceHeaders(s),
+  return (
+    visible.find(
+      (s) => sheetHasEmployeeHeaders(s) && !sheetHasBalanceHeaders(s),
+    ) ?? null
   );
-  if (byHeaders) return byHeaders;
-  // Feuille unique mixte (collaborateurs + soldes) — rare
-  const mixed = worksheets.find(
-    (s) => sheetHasEmployeeHeaders(s) && sheetHasBalanceHeaders(s),
-  );
-  return mixed ?? null;
 }
 
 export function pickBalanceSheet(worksheets: ParsedSheet[]): ParsedSheet | null {
-  const byName = worksheets.find((s) =>
-    /solde|balance|ouverture/i.test(s.name),
+  const visible = worksheets.filter((s) => s.state === "visible");
+  const byName = visible.find((s) =>
+    /solde|balance|ouverture|initiaux/i.test(s.name),
   );
-  if (byName && sheetHasBalanceHeaders(byName)) return byName;
   if (byName) return byName;
-  return worksheets.find((s) => sheetHasBalanceHeaders(s)) ?? null;
+  return visible.find((s) => sheetHasBalanceHeaders(s)) ?? null;
+}
+
+export function pickHistorySheet(worksheets: ParsedSheet[]): ParsedSheet | null {
+  const visible = worksheets.filter((s) => s.state === "visible");
+  const byName = visible.find((s) => /historique/i.test(s.name));
+  if (byName) return byName;
+  return visible.find((s) => sheetHasHistoryHeaders(s)) ?? null;
 }
 
 export type { EmployeeFieldKey, BalanceFieldKey };

@@ -86,6 +86,10 @@ export async function findAccountByEmail(
     if (!row) return null;
     return mapAccount(row);
   }
+  const { ensureMemoryDemoCredentialAccounts } = await import(
+    "@/infrastructure/auth/memory-seed-accounts"
+  );
+  await ensureMemoryDemoCredentialAccounts();
   return fromMemoryByEmail(normalized);
 }
 

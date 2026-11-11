@@ -1,43 +1,56 @@
 import type { SheetColumn } from "@/infrastructure/reporting/excel-workbook";
+import { readFileSync } from "fs";
+import { join } from "path";
 
-/** Colonnes Template A — Collaborateurs. */
+/** Chemin du modèle officiel unique (byte-for-byte). */
+export const OFFICIAL_HR_IMPORT_TEMPLATE_RELATIVE_PATH =
+  "assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx";
+
+export function loadOfficialHrImportTemplateBytes(): Buffer {
+  return readFileSync(
+    join(process.cwd(), OFFICIAL_HR_IMPORT_TEMPLATE_RELATIVE_PATH),
+  );
+}
+
+/** Colonnes legacy (tests / exports) — le téléchargement UI sert le modèle officiel. */
 export const EMPLOYEE_TEMPLATE_COLUMNS: SheetColumn[] = [
-  { header: "matricule", key: "matricule", width: 16 },
-  { header: "prenom", key: "firstName", width: 16 },
-  { header: "nom", key: "lastName", width: 16 },
-  { header: "email_professionnel", key: "email", width: 28 },
-  { header: "departement", key: "department", width: 22 },
-  { header: "poste", key: "jobTitle", width: 22 },
-  { header: "site", key: "site", width: 18 },
-  { header: "date_embauche", key: "hireDate", width: 14 },
-  { header: "type_contrat", key: "contractType", width: 14 },
-  { header: "statut_emploi", key: "employmentStatus", width: 14 },
-  { header: "matricule_manager", key: "managerMatricule", width: 16 },
+  { header: "Matricule*", key: "matricule", width: 16 },
+  { header: "Nom*", key: "lastName", width: 16 },
+  { header: "Prénom*", key: "firstName", width: 16 },
+  { header: "E-mail professionnel", key: "email", width: 28 },
+  { header: "Département", key: "department", width: 22 },
+  { header: "Poste / fonction", key: "jobTitle", width: 22 },
+  { header: "Site", key: "site", width: 18 },
+  { header: "Date d'embauche*", key: "hireDate", width: 14 },
+  { header: "Type de contrat", key: "contractType", width: 14 },
+  { header: "Statut*", key: "employmentStatus", width: 14 },
+  { header: "Matricule du responsable", key: "managerMatricule", width: 16 },
+  { header: "Date de sortie", key: "departureDate", width: 14 },
+  { header: "Remarques RH", key: "notes", width: 28 },
 ];
 
-/** Colonnes Template B — Soldes d'ouverture. */
 export const BALANCE_TEMPLATE_COLUMNS: SheetColumn[] = [
-  { header: "matricule", key: "matricule", width: 16 },
-  { header: "solde_cp_jours", key: "cpDays", width: 14 },
-  { header: "solde_rtt_jours", key: "rttDays", width: 14 },
-  { header: "solde_recuperation_heures", key: "recoveryHours", width: 20 },
-  { header: "date_effet", key: "effectiveDate", width: 14 },
-  { header: "reference_source", key: "sourceReference", width: 22 },
-  { header: "statut_verification_rh", key: "verificationStatus", width: 18 },
-  { header: "notes", key: "notes", width: 28 },
+  { header: "Matricule*", key: "matricule", width: 16 },
+  { header: "Type de solde*", key: "balanceType", width: 18 },
+  { header: "Solde restant*", key: "balanceAmount", width: 14 },
+  { header: "Unité", key: "balanceUnit", width: 10 },
+  { header: "Date d'effet*", key: "effectiveDate", width: 14 },
+  { header: "Source / fichier RH", key: "sourceReference", width: 22 },
+  { header: "Référence source / onglet", key: "sourceTabReference", width: 22 },
+  { header: "Vérification RH", key: "verificationStatus", width: 18 },
+  { header: "Remarques", key: "notes", width: 28 },
 ];
 
-/** Template C — Historique optionnel (structure future, import non activé). */
 export const HISTORY_TEMPLATE_COLUMNS: SheetColumn[] = [
-  { header: "matricule", key: "matricule", width: 16 },
-  { header: "type_evenement", key: "eventType", width: 18 },
-  { header: "date_debut", key: "startDate", width: 14 },
-  { header: "date_fin", key: "endDate", width: 14 },
-  { header: "quantite", key: "quantity", width: 12 },
-  { header: "unite", key: "unit", width: 10 },
-  { header: "statut", key: "status", width: 14 },
-  { header: "reference", key: "reference", width: 20 },
-  { header: "notes", key: "notes", width: 28 },
+  { header: "Matricule*", key: "matricule", width: 16 },
+  { header: "Type d'opération*", key: "eventType", width: 18 },
+  { header: "Date de début", key: "startDate", width: 14 },
+  { header: "Date de fin", key: "endDate", width: 14 },
+  { header: "Quantité", key: "quantity", width: 12 },
+  { header: "Unité", key: "unit", width: 10 },
+  { header: "Statut", key: "status", width: 14 },
+  { header: "Référence source", key: "reference", width: 20 },
+  { header: "Remarques", key: "notes", width: 28 },
 ];
 
 export const EMPLOYEE_FIELD_KEYS = [
@@ -52,15 +65,21 @@ export const EMPLOYEE_FIELD_KEYS = [
   "contractType",
   "employmentStatus",
   "managerMatricule",
+  "departureDate",
+  "notes",
 ] as const;
 
 export const BALANCE_FIELD_KEYS = [
   "matricule",
+  "balanceType",
+  "balanceAmount",
+  "balanceUnit",
   "cpDays",
   "rttDays",
   "recoveryHours",
   "effectiveDate",
   "sourceReference",
+  "sourceTabReference",
   "verificationStatus",
   "notes",
 ] as const;
@@ -68,43 +87,64 @@ export const BALANCE_FIELD_KEYS = [
 export type EmployeeFieldKey = (typeof EMPLOYEE_FIELD_KEYS)[number];
 export type BalanceFieldKey = (typeof BALANCE_FIELD_KEYS)[number];
 
-/** Alias FR courants → clé canonique. */
+/** Alias FR courants / modèle officiel → clé canonique. */
 export const HEADER_ALIASES: Record<string, string> = {
   matricule: "matricule",
+  "matricule*": "matricule",
   id: "matricule",
   identifiant: "matricule",
   employee_id: "matricule",
   prenom: "firstName",
+  "prenom*": "firstName",
   "prénom": "firstName",
+  "prénom*": "firstName",
   first_name: "firstName",
   firstname: "firstName",
   nom: "lastName",
+  "nom*": "lastName",
   last_name: "lastName",
   lastname: "lastName",
   email: "email",
   email_professionnel: "email",
-  "e-mail": "email",
+  e_mail: "email",
+  e_mail_professionnel: "email",
   mail: "email",
   departement: "department",
   "département": "department",
   department: "department",
   poste: "jobTitle",
+  "poste_/_fonction": "jobTitle",
+  poste_fonction: "jobTitle",
   job_title: "jobTitle",
   titre: "jobTitle",
+  fonction: "jobTitle",
   site: "site",
   localisation: "site",
   date_embauche: "hireDate",
+  "date_dembauche": "hireDate",
+  "date_d_embauche": "hireDate",
+  "date_d'embauche": "hireDate",
+  "date_d'embauche*": "hireDate",
   hire_date: "hireDate",
   embauche: "hireDate",
   type_contrat: "contractType",
+  type_de_contrat: "contractType",
   contrat: "contractType",
   contract_type: "contractType",
   statut_emploi: "employmentStatus",
   statut: "employmentStatus",
+  "statut*": "employmentStatus",
   employment_status: "employmentStatus",
   matricule_manager: "managerMatricule",
+  matricule_du_responsable: "managerMatricule",
   manager: "managerMatricule",
   manager_id: "managerMatricule",
+  date_de_sortie: "departureDate",
+  date_sortie: "departureDate",
+  remarques_rh: "notes",
+  remarques: "notes",
+  notes: "notes",
+  commentaire: "notes",
   solde_cp_jours: "cpDays",
   cp: "cpDays",
   solde_cp: "cpDays",
@@ -115,14 +155,43 @@ export const HEADER_ALIASES: Record<string, string> = {
   solde_recuperation_heures: "recoveryHours",
   recuperation_heures: "recoveryHours",
   recovery_hours: "recoveryHours",
+  type_de_solde: "balanceType",
+  "type_de_solde*": "balanceType",
+  balance_type: "balanceType",
+  solde_restant: "balanceAmount",
+  "solde_restant*": "balanceAmount",
+  balance_amount: "balanceAmount",
+  unite: "balanceUnit",
+  "unité": "balanceUnit",
+  balance_unit: "balanceUnit",
   date_effet: "effectiveDate",
+  "date_deffet": "effectiveDate",
+  "date_d_effet": "effectiveDate",
+  "date_d'effet": "effectiveDate",
+  "date_d'effet*": "effectiveDate",
   effective_date: "effectiveDate",
   reference_source: "sourceReference",
+  "source_/_fichier_rh": "sourceReference",
+  source_fichier_rh: "sourceReference",
   source: "sourceReference",
+  "reference_source_/_onglet": "sourceTabReference",
+  reference_source_onglet: "sourceTabReference",
   statut_verification_rh: "verificationStatus",
+  verification_rh: "verificationStatus",
   verification: "verificationStatus",
-  notes: "notes",
-  commentaire: "notes",
+  type_evenement: "eventType",
+  type_doperation: "eventType",
+  type_d_operation: "eventType",
+  type_operation: "eventType",
+  event_type: "eventType",
+  date_debut: "startDate",
+  "date_de_debut": "startDate",
+  "date_de_début": "startDate",
+  date_fin: "endDate",
+  "date_de_fin": "endDate",
+  quantite: "quantity",
+  "quantité": "quantity",
+  reference: "reference",
 };
 
 export function normalizeHeader(raw: string): string {
@@ -131,14 +200,26 @@ export function normalizeHeader(raw: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
+    .replace(/\*/g, "")
+    .replace(/['’ʼ]/g, "")
+    .replace(/-/g, "_")
     .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_]/g, "");
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 export function resolveCanonicalHeader(raw: string): string | null {
   const n = normalizeHeader(raw);
-  return HEADER_ALIASES[n] ?? (EMPLOYEE_FIELD_KEYS.includes(n as EmployeeFieldKey) ||
-  BALANCE_FIELD_KEYS.includes(n as BalanceFieldKey)
-    ? n
-    : null);
+  if (HEADER_ALIASES[n]) return HEADER_ALIASES[n];
+  // also try without trailing star already stripped
+  const starred = normalizeHeader(`${raw}*`);
+  if (HEADER_ALIASES[starred]) return HEADER_ALIASES[starred];
+  if (
+    EMPLOYEE_FIELD_KEYS.includes(n as EmployeeFieldKey) ||
+    BALANCE_FIELD_KEYS.includes(n as BalanceFieldKey)
+  ) {
+    return n;
+  }
+  return null;
 }

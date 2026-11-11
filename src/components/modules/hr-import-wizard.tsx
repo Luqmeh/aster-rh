@@ -61,31 +61,29 @@ export function HrImportWizard({
         <CardHeader>
           <CardTitle className="text-base">1. Modèles Excel</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {(
-            [
-              ["employees", "Collaborateurs"],
-              ["balances", "Soldes d'ouverture"],
-              ["history", "Historique (optionnel)"],
-            ] as const
-          ).map(([kind, label]) => (
-            <Button
-              key={kind}
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  const res = await downloadHrImportTemplateAction(kind);
-                  downloadBase64(res.fileName, res.base64);
-                  setMessage(`Modèle « ${label} » téléchargé.`);
-                })
-              }
-            >
-              Télécharger — {label}
-            </Button>
-          ))}
+        <CardContent className="space-y-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={pending}
+            onClick={() =>
+              run(async () => {
+                const res = await downloadHrImportTemplateAction();
+                downloadBase64(res.fileName, res.base64);
+                setMessage(
+                  "Modèle officiel ASTER_Modele_Import_RH_Maroc.xlsx téléchargé.",
+                );
+              })
+            }
+          >
+            Télécharger le modèle officiel Excel
+          </Button>
+          <p className="text-xs text-[var(--aster-muted)]">
+            Fichier unique : Collaborateurs, Soldes initiaux, Historique
+            optionnel, Lisez-moi et Listes. Ne renommez pas les feuilles ni les
+            colonnes.
+          </p>
         </CardContent>
       </Card>
 
@@ -173,7 +171,7 @@ export function HrImportWizard({
                     value={String(batch.previewSummary.openingRttTotal)}
                   />
                   <Stat
-                    label="Récup. (j)"
+                    label="Récup. (h)"
                     value={String(
                       batch.previewSummary.openingRecoveryDaysTotal,
                     )}
@@ -239,7 +237,8 @@ export function HrImportWizard({
                         <th className="py-1 pr-2">Matricule</th>
                         <th className="py-1 pr-2">CP</th>
                         <th className="py-1 pr-2">RTT</th>
-                        <th className="py-1 pr-2">Récup. j</th>
+                        <th className="py-1 pr-2">Type</th>
+                        <th className="py-1 pr-2">Récup. h</th>
                         <th className="py-1">Messages</th>
                       </tr>
                     </thead>
@@ -250,7 +249,8 @@ export function HrImportWizard({
                           <td className="py-1 pr-2 font-mono">{r.matricule}</td>
                           <td className="py-1 pr-2">{r.cpDays ?? "—"}</td>
                           <td className="py-1 pr-2">{r.rttDays ?? "—"}</td>
-                          <td className="py-1 pr-2">{r.recoveryDays ?? "—"}</td>
+                          <td className="py-1 pr-2">{r.balanceType ?? "—"}</td>
+                          <td className="py-1 pr-2">{r.recoveryHours ?? "—"}</td>
                           <td className="py-1 text-[var(--aster-muted)]">
                             {r.severity} · {r.messages.join(" · ")}
                           </td>
@@ -385,8 +385,11 @@ export function HrImportWizard({
                       </tr>
                     </thead>
                     <tbody>
-                      {batch.executionReport.reconciliation.map((r) => (
-                        <tr key={r.matricule} className="border-b">
+                      {batch.executionReport.reconciliation.map((r, idx) => (
+                        <tr
+                          key={`${r.matricule}-recon-${idx}`}
+                          className="border-b"
+                        >
                           <td className="py-1 pr-2 font-mono">{r.matricule}</td>
                           <td className="py-1 pr-2">{r.excelCp ?? "—"}</td>
                           <td className="py-1 pr-2">{r.asterCp ?? "—"}</td>

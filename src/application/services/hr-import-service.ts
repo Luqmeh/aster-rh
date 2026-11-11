@@ -7,11 +7,7 @@ import {
   pickEmployeeSheet,
   type ParsedWorkbook,
 } from "@/domain/rules/hr-import/parse";
-import {
-  BALANCE_TEMPLATE_COLUMNS,
-  EMPLOYEE_TEMPLATE_COLUMNS,
-  HISTORY_TEMPLATE_COLUMNS,
-} from "@/domain/rules/hr-import/templates";
+import { loadOfficialHrImportTemplateBytes } from "@/domain/rules/hr-import/templates";
 import {
   buildPreviewSummary,
   validateBalanceRows,
@@ -241,67 +237,14 @@ export function createHrImportService(deps: {
   }
 
   return {
-    async downloadTemplate(
-      session: AuthSession,
-      kind: "employees" | "balances" | "history",
-    ) {
+    async downloadTemplate(session: AuthSession) {
       assertCanView(session);
-      const columns =
-        kind === "employees"
-          ? EMPLOYEE_TEMPLATE_COLUMNS
-          : kind === "balances"
-            ? BALANCE_TEMPLATE_COLUMNS
-            : HISTORY_TEMPLATE_COLUMNS;
-      const sheetName =
-        kind === "employees"
-          ? "Collaborateurs"
-          : kind === "balances"
-            ? "Soldes_ouverture"
-            : "Historique_optionnel";
-      const sample =
-        kind === "employees"
-          ? [
-              {
-                matricule: "emp-exemple",
-                firstName: "Imane",
-                lastName: "Exemple",
-                email: "imane.exemple@demo.aster-rh.local",
-                department: "AUD",
-                jobTitle: "Consultante",
-                site: "Casablanca (démo)",
-                hireDate: "2024-01-15",
-                contractType: "cdi",
-                employmentStatus: "actif",
-                managerMatricule: "",
-              },
-            ]
-          : kind === "balances"
-            ? [
-                {
-                  matricule: "emp-exemple",
-                  cpDays: 12,
-                  rttDays: 0,
-                  recoveryHours: 7,
-                  effectiveDate: "2026-01-01",
-                  sourceReference: "Inventaire RH 2026",
-                  verificationStatus: "verifie",
-                  notes: "",
-                },
-              ]
-            : [
-                {
-                  matricule: "emp-exemple",
-                  eventType: "conge_approuve",
-                  startDate: "2025-08-01",
-                  endDate: "2025-08-05",
-                  quantity: 5,
-                  unit: "jours",
-                  status: "approuvee",
-                  reference: "HIST-001",
-                  notes: "Import historique — non activé dans cette version",
-                },
-              ];
-      return createStyledWorkbook(sheetName, columns, sample);
+      const buffer = loadOfficialHrImportTemplateBytes();
+      return {
+        buffer,
+        rowCount: 0,
+        fileName: "ASTER_Modele_Import_RH_Maroc.xlsx",
+      };
     },
 
     async downloadExecutionReport(session: AuthSession, batchId: string) {
@@ -761,18 +704,30 @@ export function createHrImportService(deps: {
         const accounts: Array<{
           account: "conges_payes" | "rtt" | "recuperation";
           qty: number;
+          unit: "days" | "hours";
         }> = [];
         if (bal.cpDays != null && bal.cpDays !== 0) {
-          accounts.push({ account: "conges_payes", qty: bal.cpDays });
+          accounts.push({ account: "conges_payes", qty: bal.cpDays, unit: "days" });
         }
         if (bal.rttDays != null && bal.rttDays !== 0) {
-          accounts.push({ account: "rtt", qty: bal.rttDays });
+          accounts.push({ account: "rtt", qty: bal.rttDays, unit: "days" });
         }
-        if (bal.recoveryDays != null && bal.recoveryDays !== 0) {
-          accounts.push({ account: "recuperation", qty: bal.recoveryDays });
+        if (bal.recoveryHours != null && bal.recoveryHours !== 0) {
+          // Modèle officiel : heures exactes, sans conversion silencieuse en jours.
+          accounts.push({
+            account: "recuperation",
+            qty: bal.recoveryHours,
+            unit: "hours",
+          });
+        } else if (bal.recoveryDays != null && bal.recoveryDays !== 0) {
+          accounts.push({
+            account: "recuperation",
+            qty: bal.recoveryDays,
+            unit: "days",
+          });
         }
 
-        for (const { account, qty } of accounts) {
+        for (const { account, qty, unit } of accounts) {
           const sourceId = importOpeningSourceId(
             batch.id,
             bal.matricule,
@@ -784,7 +739,7 @@ export function createHrImportService(deps: {
               account,
               transactionType: "opening_balance",
               quantity: qty,
-              unit: "days",
+              unit,
               year,
               effectiveDate: bal.effectiveDate,
               sourceKind: HR_IMPORT_OPENING_SOURCE_KIND,
@@ -794,6 +749,8 @@ export function createHrImportService(deps: {
               metadataJson: {
                 importBatchId: batch.id,
                 matricule: bal.matricule,
+                balanceType: bal.balanceType,
+                balanceUnit: bal.balanceUnit ?? unit,
                 verificationStatus: bal.verificationStatus,
                 notes: bal.notes,
                 recoveryHours: bal.recoveryHours,
@@ -826,16 +783,35 @@ export function createHrImportService(deps: {
           "recuperation",
           year,
         );
-        reconciliation.push({
-          matricule: bal.matricule,
-          employeeId: employee.id,
-          excelCp: bal.cpDays,
-          excelRtt: bal.rttDays,
-          excelRecoveryDays: bal.recoveryDays,
-          asterCp: snap?.ledgerBalance ?? null,
-          asterRtt: rtt?.ledgerBalance ?? null,
-          asterRecoveryDays: rec?.ledgerBalance ?? null,
-        });
+        // Format long : une ligne Excel par type — agréger la réconciliation par matricule.
+        const existingRecon = reconciliation.find(
+          (r) => r.matricule === bal.matricule,
+        );
+        if (existingRecon) {
+          if (bal.cpDays != null) existingRecon.excelCp = bal.cpDays;
+          if (bal.rttDays != null) existingRecon.excelRtt = bal.rttDays;
+          if (bal.recoveryDays != null) {
+            existingRecon.excelRecoveryDays = bal.recoveryDays;
+          }
+          if (bal.recoveryHours != null) {
+            existingRecon.excelRecoveryDays = bal.recoveryHours;
+          }
+          existingRecon.asterCp = snap?.ledgerBalance ?? existingRecon.asterCp;
+          existingRecon.asterRtt = rtt?.ledgerBalance ?? existingRecon.asterRtt;
+          existingRecon.asterRecoveryDays =
+            rec?.ledgerBalance ?? existingRecon.asterRecoveryDays;
+        } else {
+          reconciliation.push({
+            matricule: bal.matricule,
+            employeeId: employee.id,
+            excelCp: bal.cpDays,
+            excelRtt: bal.rttDays,
+            excelRecoveryDays: bal.recoveryHours ?? bal.recoveryDays,
+            asterCp: snap?.ledgerBalance ?? null,
+            asterRtt: rtt?.ledgerBalance ?? null,
+            asterRecoveryDays: rec?.ledgerBalance ?? null,
+          });
+        }
       }
 
       const summary = batch.previewSummary ?? emptySummary();

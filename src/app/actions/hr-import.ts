@@ -20,13 +20,11 @@ async function sessionOrThrow() {
   return { session, importService: service() };
 }
 
-export async function downloadHrImportTemplateAction(kind: string) {
+export async function downloadHrImportTemplateAction() {
   const { session, importService } = await sessionOrThrow();
-  const k =
-    kind === "balances" ? "balances" : kind === "history" ? "history" : "employees";
-  const { buffer } = await importService.downloadTemplate(session, k);
+  const { buffer, fileName } = await importService.downloadTemplate(session);
   return {
-    fileName: `aster-modele-${k}.xlsx`,
+    fileName,
     base64: Buffer.from(buffer).toString("base64"),
   };
 }
