@@ -68,4 +68,4 @@ Faire valider par RH/juridique Maroc le barème de congé annuel (articles + anc
 
 ## Git
 
-- Hash / push : renseignés après commit.
+- Hash : `efcbc1743b6718a7e20d4a300be82848bbb14f33` — push : tentative suivante.
