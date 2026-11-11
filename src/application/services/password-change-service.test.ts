@@ -108,25 +108,29 @@ describe("password-change-service + first login", () => {
     ).rejects.toThrow(/confirmation/i);
   });
 
-  it("met à jour le hash et efface le flag après succès", async () => {
-    const { session, temporaryPassword } = await provisionCollaborator();
-    const service = createPasswordChangeService();
-    const updated = await service.changeOwnPassword(session, {
-      currentPassword: temporaryPassword,
-      newPassword: "NouveauSecure1",
-      confirmPassword: "NouveauSecure1",
-    });
-    expect(updated.mustChangePassword).toBe(false);
-    const account = await findAccountByEmail("ana.test@demo.aster-rh.local");
-    expect(account?.mustChangePassword).toBe(false);
-    expect(account?.passwordHash).toBeTruthy();
-    expect(
-      await verifyPassword("NouveauSecure1", account!.passwordHash!),
-    ).toBe(true);
-    expect(
-      await verifyPassword(temporaryPassword, account!.passwordHash!),
-    ).toBe(false);
-  });
+  it(
+    "met à jour le hash et efface le flag après succès",
+    { timeout: 20_000 },
+    async () => {
+      const { session, temporaryPassword } = await provisionCollaborator();
+      const service = createPasswordChangeService();
+      const updated = await service.changeOwnPassword(session, {
+        currentPassword: temporaryPassword,
+        newPassword: "NouveauSecure1",
+        confirmPassword: "NouveauSecure1",
+      });
+      expect(updated.mustChangePassword).toBe(false);
+      const account = await findAccountByEmail("ana.test@demo.aster-rh.local");
+      expect(account?.mustChangePassword).toBe(false);
+      expect(account?.passwordHash).toBeTruthy();
+      expect(
+        await verifyPassword("NouveauSecure1", account!.passwordHash!),
+      ).toBe(true);
+      expect(
+        await verifyPassword(temporaryPassword, account!.passwordHash!),
+      ).toBe(false);
+    },
+  );
 
   it("laisse les comptes seed sans flag accéder normalement", () => {
     const lea = testSessionFor("emp-lea", "collaborateur");

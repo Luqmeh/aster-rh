@@ -1,52 +1,63 @@
-# ASTER — Progress Report
+# ASTER — Rapport d'avancement
 
 **Date :** 11 novembre 2026  
-**Branche :** `main`  
-**Phase :** Ré-audit fidélité présentation Conseil (`ASTER_Presentation_Conseil_FR_v2.pptx`)
+**Phase :** Import Excel collaborateurs & soldes d'ouverture (Maroc)
 
-> Rapport généré à neuf (ancien fichier supprimé). Aucune modification des moteurs d’acquisition / légaux dans cette passe.
+## Fonctionnalités livrées
 
-## 1. Implemented changes
+- Section **Administration → Import des collaborateurs** (`/administration/import-collaborateurs`).
+- Permissions serveur : `hr.import.view` (RH + Chef), `hr.import.execute` (RH uniquement).
+- Modèles Excel A (collaborateurs), B (soldes d'ouverture), C (historique optionnel non exécuté).
+- Workflow : upload → parse → mapping → validation → prévisualisation → confirmation `IMPORTER` → exécution lot → rapport de réconciliation téléchargeable.
+- Soldes importés en écritures ledger append-only (`opening_balance` / `hr_excel_import_opening`), idempotentes par `sourceId` lot+matricule+compte.
+- Pas de recalcul d'acquisition historique, pas d'écrasement silencieux de soldes, pas d'invention d'e-mails/credentials.
+- Guide : `docs/EMPLOYEE_IMPORT_GUIDE.md`.
 
-Fidélité produit uniquement :
+## Fichiers modifiés / ajoutés
 
-- Dashboard : raccourcis séparés « Demander un congé » vs « Déclarer une absence » ; télétravail 2/12 et documents (demande / dispo / historique).
-- `/absences` : titre et description alignés sur la déclaration PPT (dates, catégorie, commentaire ; médicaux RH).
-- Administration RH : **historique récent** congés/télétravail décidés ; copy récupération fériée = règle produit présentation Conseil.
-- Rappel justificatifs sans formulation « paie ».
-- Matrice slide-à-slide actualisée : `docs/PRESENTATION_ALIGNMENT.md`.
+- `src/domain/types/hr-import.ts`
+- `src/domain/rules/hr-import/{templates,parse,validate}.ts` + `validate.test.ts`
+- `src/application/services/hr-import-service.ts` + `hr-import-service.test.ts`
+- `src/app/actions/hr-import.ts`
+- `src/components/modules/hr-import-wizard.tsx`
+- `src/app/(app)/administration/import-collaborateurs/page.tsx`
+- `src/lib/navigation.ts`, `src/app/(app)/administration/page.tsx`
+- `src/domain/rules/permissions.ts` (+ tests)
+- `prisma/schema.prisma` + migration `20261111180000_hr_import_batches`
+- `docs/EMPLOYEE_IMPORT_GUIDE.md`, `docs/PROGRESS.md` (remplacé)
+- Ajustements tests congés/calendrier (RTT→CP, jours fériés, timeout bcrypt)
 
-**Non modifié :** politiques CAP/RTT, ledger, migrations, accruals, télétravail 2/12 (déjà conformes).
+## Changements base de données
 
-## 2. Files modified
+- Table additive `HrImportBatch` (statuts, mappings JSON, drafts, rapport d'exécution).
+- Lots runtime encore en mémoire process (table Prisma prête pour persistance durable).
+- Ouvertures ledger via `LeaveLedgerEntry` existant (pas de rewrite historique).
 
-- `src/app/(app)/tableau-de-bord/page.tsx`
-- `src/app/(app)/absences/page.tsx`
-- `src/app/(app)/administration/page.tsx`
-- `src/domain/rules/work-absence.ts`
-- `docs/PRESENTATION_ALIGNMENT.md`
-- ce rapport
+## Tests et validation
 
-## 3. Tests and validation results
+| Contrôle | Résultat |
+|----------|----------|
+| `npm test` | 297 passed, 1 skipped |
+| `npm run typecheck` | OK |
+| `npm run lint` | OK |
+| `npm run build` | OK (route import présente) |
 
-| Check | Result |
-|-------|--------|
-| Vitest focused (permissions, approvals, work-absence, telework) — 33 | **PASS** |
-| `tsc --noEmit` | **PASS** |
-| `npm run lint` | **PASS** |
-| `npm run build` (offline) | **PASS** |
+Couverture import : validation (doublons, négatifs, matricules inconnus), service (droits, import soldes idempotent, Chef sans exécution), permissions.
 
-## 4. Known issues
+## Problèmes connus
 
-- Captures PPT (sites FR / Cadre) vs données démo Maroc.
-- Recrutement live vs « BIENTÔT » sur certaines captures.
-- Plafonds télétravail configurables via env, pas via écran RH.
-- « Droits à congés » hors script slides Conseil.
+- Persistance des lots d'import encore en mémoire (redémarrage process = perte des lots ; table Prisma non branchée en écriture).
+- Échec partiel mid-exécution peut laisser des collaborateurs déjà créés (réessai via nouveau lot / mode mise à jour explicite).
+- Template C historique non exécutable (volontaire).
+- Mapping colonnes avancé UI limité (auto-détection + option mise à jour existants).
 
-## 5. Outstanding policy decisions
+## Travail restant
 
-Hors fidélité PPT — voir `docs/CALCULATION_POLICY_MATRIX.md` (CAP entreprise 2 j/mois, RTT, art. 235/239, régime légal férié).
+- Brancher `HrImportBatch` Prisma pour lots durables multi-instance.
+- UI de mapping colonne / département / site plus fine.
+- Exécuteur historique (template C) si le métier le demande.
+- Tests d'intégration Prisma import (avec `DATABASE_URL`).
 
-## 6. Exact recommended next step
+## Prochaine étape exacte
 
-Exécuter le script de démo Conseil (Léa → Camille → Julien) sur l’instance déployée en suivant `docs/PRESENTATION_ALIGNMENT.md`, puis reprendre la confirmation RH des lignes « À valider » de la matrice de calcul — sans bulk accrual Production.
+Persister les lots d'import via l'adaptateur Prisma (`HrImportBatch`) et conserver le buffer source uniquement en stockage privé, pour un retry fiable hors mémoire process.

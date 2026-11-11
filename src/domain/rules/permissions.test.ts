@@ -3,10 +3,12 @@ import {
   canAccessHrReporting,
   canApproveRequests,
   canBrowseDirectory,
+  canExecuteHrImport,
   canManageEmployees,
   canManageWorkAbsences,
   canViewAllRequests,
   canViewAllWorkAbsences,
+  canViewHrImport,
   canViewWorkAbsenceMedicalDocs,
   hasPermission,
   roleLabel,
@@ -23,6 +25,8 @@ describe("permissions hierarchy", () => {
     expect(canViewAllWorkAbsences("chef_de_projet")).toBe(true);
     expect(canManageWorkAbsences("chef_de_projet")).toBe(false);
     expect(canViewWorkAbsenceMedicalDocs("chef_de_projet")).toBe(false);
+    expect(canViewHrImport("chef_de_projet")).toBe(true);
+    expect(canExecuteHrImport("chef_de_projet")).toBe(false);
   });
 
   it("donne à la RH la gestion sans validation", () => {
@@ -34,6 +38,8 @@ describe("permissions hierarchy", () => {
     expect(canAccessHrReporting("admin_rh")).toBe(true);
     expect(canManageWorkAbsences("admin_rh")).toBe(true);
     expect(canViewWorkAbsenceMedicalDocs("admin_rh")).toBe(true);
+    expect(canViewHrImport("admin_rh")).toBe(true);
+    expect(canExecuteHrImport("admin_rh")).toBe(true);
   });
 
   it("limite le collaborateur au libre-service", () => {
@@ -45,6 +51,8 @@ describe("permissions hierarchy", () => {
     expect(canAccessHrReporting("collaborateur")).toBe(false);
     expect(canViewAllWorkAbsences("collaborateur")).toBe(false);
     expect(hasPermission("collaborateur", "work_absence.submit")).toBe(true);
+    expect(canViewHrImport("collaborateur")).toBe(false);
+    expect(canExecuteHrImport("collaborateur")).toBe(false);
   });
 
   it("expose les libellés français officiels", () => {

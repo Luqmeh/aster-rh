@@ -140,6 +140,12 @@ export const navigationGroups: NavGroup[] = [
         icon: ClipboardList,
         roles: ["chef_de_projet", "admin_rh"],
       },
+      {
+        href: "/administration/import-collaborateurs",
+        label: "Import des collaborateurs",
+        icon: Users,
+        roles: ["chef_de_projet", "admin_rh"],
+      },
       { href: "/parametres", label: "Paramètres", icon: Settings },
     ],
   },

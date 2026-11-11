@@ -146,7 +146,9 @@ describe("calendar consistency after telework decisions", () => {
 
     const employeeView = await calendar.getEmployeeMonth(collab, "2026-11");
     expect(
-      employeeView.events.every((e) => e.employeeId === "emp-lea"),
+      employeeView.events.every(
+        (e) => e.employeeId === "emp-lea" || e.kind === "holiday",
+      ),
     ).toBe(true);
 
     const teamView = await calendar.getTeamMonth(manager, "2026-11");

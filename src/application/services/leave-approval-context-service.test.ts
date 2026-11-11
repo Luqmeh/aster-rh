@@ -44,7 +44,7 @@ describe("leave-approval-context-service", () => {
     const hr = testSessionFor("emp-camille", "admin_rh");
 
     const created = await leave.submit(lea, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2026-10-05",
       endDate: "2026-10-05",
       halfDayStart: false,
@@ -52,7 +52,7 @@ describe("leave-approval-context-service", () => {
     });
     const map = await ctx.getLeaveRequestContexts(hr, [created]);
     expect(map[created.id]?.canDecide).toBe(false);
-    expect(map[created.id]?.balance.leaveType).toBe("rtt");
+    expect(map[created.id]?.balance.leaveType).toBe("conges_payes");
   });
 
   it("refuse au collaborateur l'accès au contexte d'un tiers", async () => {

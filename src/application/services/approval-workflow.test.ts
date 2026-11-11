@@ -26,7 +26,7 @@ describe("approval workflow — congés", () => {
     const chef = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2026-11-24",
       endDate: "2026-11-24",
       halfDayStart: false,
@@ -60,7 +60,7 @@ describe("approval workflow — congés", () => {
     const chef = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2026-11-25",
       endDate: "2026-11-25",
       halfDayStart: false,

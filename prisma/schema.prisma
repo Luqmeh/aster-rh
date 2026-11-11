@@ -836,6 +836,34 @@ model AccrualLine {
   @@index([calculationStatus])
 }
 
+/// Lot d'import Excel collaborateurs / soldes d'ouverture (département Maroc).
+model HrImportBatch {
+  id                      String   @id
+  status                  String
+  fileName                String
+  storageKey              String?
+  createdByEmployeeId     String
+  confirmedByEmployeeId   String?
+  updateExistingEmployees Boolean  @default(false)
+  columnMappingJson       Json     @default("{}")
+  departmentMappingJson   Json     @default("{}")
+  siteMappingJson         Json     @default("{}")
+  previewSummaryJson      Json?
+  executionReportJson     Json?
+  worksheetNamesJson      Json     @default("[]")
+  headersBySheetJson      Json     @default("{}")
+  employeeDraftsJson      Json     @default("[]")
+  balanceDraftsJson       Json     @default("[]")
+  errorMessage            String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  executedAt              DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdByEmployeeId])
+}
+
 /// Demande de report CP (plafond 5 j ; exceptions partenaire / RRH — guide p.38–48).
 model CarryoverRequest {
   id                    String                 @id @default(cuid())

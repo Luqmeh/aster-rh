@@ -22,7 +22,7 @@ describe("leave + calendar regressions", () => {
     const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2027-03-02",
       endDate: "2027-03-02",
       halfDayStart: false,
@@ -47,7 +47,7 @@ describe("leave + calendar regressions", () => {
     const manager = testSessionFor("emp-julien", "chef_de_projet");
 
     const created = await leave.submit(collab, {
-      type: "rtt",
+      type: "conges_payes",
       startDate: "2027-04-06",
       endDate: "2027-04-07",
       halfDayStart: false,

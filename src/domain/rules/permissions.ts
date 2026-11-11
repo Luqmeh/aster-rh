@@ -42,6 +42,8 @@ export type Permission =
   | "work_on_holiday.approve"
   | "holiday.manage"
   | "hr.reporting"
+  | "hr.import.view"
+  | "hr.import.execute"
   | "work_absence.submit"
   | "work_absence.view_own"
   | "work_absence.view_all"
@@ -85,6 +87,8 @@ const CHEF: Permission[] = [
   "work_on_holiday.approve",
   "holiday.manage",
   "hr.reporting",
+  "hr.import.view",
+  // Chef : inspection des lots — pas d'exécution d'import
   "work_absence.submit",
   "work_absence.view_own",
   "work_absence.view_all",
@@ -121,6 +125,8 @@ const HR: Permission[] = [
   "work_on_holiday.view_all",
   "holiday.manage",
   "hr.reporting",
+  "hr.import.view",
+  "hr.import.execute",
   "work_absence.submit",
   "work_absence.view_own",
   "work_absence.view_all",
@@ -173,6 +179,16 @@ export function canManageEmployees(role: DemoRole): boolean {
 
 export function canAccessHrAdministration(role: DemoRole): boolean {
   return hasPermission(role, "hr.administration");
+}
+
+/** Consultation des lots d'import Excel (RH + Chef). */
+export function canViewHrImport(role: DemoRole): boolean {
+  return hasPermission(role, "hr.import.view");
+}
+
+/** Exécution d'import Excel — RH uniquement. */
+export function canExecuteHrImport(role: DemoRole): boolean {
+  return hasPermission(role, "hr.import.execute");
 }
 
 export function canViewAllRequests(role: DemoRole): boolean {

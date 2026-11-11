@@ -123,6 +123,12 @@ export default async function AdministrationPage() {
                 Droits à congés
               </Link>
             </Button>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/administration/import-collaborateurs">
+                <Users className="mr-1.5 h-4 w-4" />
+                Import collaborateurs
+              </Link>
+            </Button>
           </div>
         }
       />
