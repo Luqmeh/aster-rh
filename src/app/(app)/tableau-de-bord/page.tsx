@@ -6,7 +6,6 @@ import {
   ClipboardList,
   FolderOpen,
   Plane,
-  UserRound,
   Users,
 } from "lucide-react";
 import { createCalendarService } from "@/application/services/calendar-service";
@@ -205,26 +204,26 @@ export default async function TableauDeBordPage() {
         <QuickAction
           href="/conges"
           label="Demander un congé"
-          description="Soumettre une absence"
+          description="CP, RTT, récupération — demi-journées"
           icon={Plane}
+        />
+        <QuickAction
+          href="/absences"
+          label="Déclarer une absence"
+          description="Arrêt ou absence spéciale"
+          icon={ClipboardList}
         />
         <QuickAction
           href="/teletravail"
           label="Planifier mon télétravail"
-          description="Sélection mensuelle"
+          description="Jusqu’à 2 j/sem. et 12 j/mois"
           icon={CalendarDays}
         />
         <QuickAction
           href="/documents"
           label="Mes documents"
-          description="Demandes et pièces RH publiées"
+          description="Demande, disponibilité, historique"
           icon={FolderOpen}
-        />
-        <QuickAction
-          href="/profil"
-          label="Mettre à jour mon profil"
-          description="Coordonnées et infos"
-          icon={UserRound}
         />
       </div>
 

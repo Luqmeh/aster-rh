@@ -2,67 +2,51 @@
 
 **Date :** 11 novembre 2026  
 **Branche :** `main`  
-**Phase :** Audit & implémentation des calculs RH Maroc (post-alignement présentation `fb8101f`)
+**Phase :** Ré-audit fidélité présentation Conseil (`ASTER_Presentation_Conseil_FR_v2.pptx`)
 
-> Rapport généré à neuf (ancien fichier supprimé). Matrice détaillée : `docs/CALCULATION_POLICY_MATRIX.md`.
+> Rapport généré à neuf (ancien fichier supprimé). Aucune modification des moteurs d’acquisition / légaux dans cette passe.
 
-## 1. Implemented calculations
+## 1. Implemented changes
 
-- **CAP dual-rate** : statutaire art. 231 (1,5 / 2) **et** entreprise **2 j/mois total** (non cumulés) ; ancienneté art. 232 sur la base applicable ; plafond 30.
-- **Politiques** : `MA_ANNUAL_LEAVE_STATUTORY` (référence) + `MA_ANNUAL_LEAVE_COMPANY` (`requires_hr_decision`) ; priorité entreprise en preview.
-- **Posting auto** : uniquement `validationStatus === hr_configured` (plus de posting via `guide_documented`).
-- **Jours de congé** : `countBusinessDays` exclut fériés Maroc + overrides entreprise ; demi-journées conservées.
-- **Soldes UI** : CP / RTT / récupération = `availableAfterReservations` (pending réserve, approval consomme 1× via ledger).
-- **Télétravail** : limites 2/12 centralisées et configurables (`ASTER_TELEWORK_MAX_DAYS_PER_*`).
-- **Récupération fériée** : règle produit 1 h = 1 h documentée ; distincte du régime légal à valider.
+Fidélité produit uniquement :
 
-## 2. Modified files
+- Dashboard : raccourcis séparés « Demander un congé » vs « Déclarer une absence » ; télétravail 2/12 et documents (demande / dispo / historique).
+- `/absences` : titre et description alignés sur la déclaration PPT (dates, catégorie, commentaire ; médicaux RH).
+- Administration RH : **historique récent** congés/télétravail décidés ; copy récupération fériée = règle produit présentation Conseil.
+- Rappel justificatifs sans formulation « paie ».
+- Matrice slide-à-slide actualisée : `docs/PRESENTATION_ALIGNMENT.md`.
 
-- `src/domain/rules/morocco-annual-leave.ts` (+ tests)
-- `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts` (+ tests)
-- `src/domain/rules/leave.ts` (+ tests), `work-on-holiday.ts`, `telework-monthly.ts`
-- `src/domain/config/telework-limits.ts` (+ tests)
-- `src/application/services/leave-service.ts`, `entitlement-service.ts` (+ tests)
-- `src/domain/types/entitlement.ts` (`policyCode` sur lignes de lot)
-- `src/app/(app)/administration/droits-conges/page.tsx`
-- `docs/CALCULATION_POLICY_MATRIX.md`, `MOROCCO_HR_POLICY.md`, ce rapport
-- `.env.example`
+**Non modifié :** politiques CAP/RTT, ledger, migrations, accruals, télétravail 2/12 (déjà conformes).
 
-## 3. Database changes and migrations
+## 2. Files modified
 
-**Aucune migration** dans cette phase. Aucun rewrite ledger. Aucun bulk accrual Production.
+- `src/app/(app)/tableau-de-bord/page.tsx`
+- `src/app/(app)/absences/page.tsx`
+- `src/app/(app)/administration/page.tsx`
+- `src/domain/rules/work-absence.ts`
+- `docs/PRESENTATION_ALIGNMENT.md`
+- ce rapport
 
-## 4. Tests and validation results
+## 3. Tests and validation results
 
 | Check | Result |
 |-------|--------|
-| Vitest focused (54 tests, 8 files) | **PASS** |
+| Vitest focused (permissions, approvals, work-absence, telework) — 33 | **PASS** |
 | `tsc --noEmit` | **PASS** |
 | `npm run lint` | **PASS** |
 | `npm run build` (offline) | **PASS** |
 
-## 5. Known issues
+## 4. Known issues
 
-- Week-end réel par site (ven–sam) non branché.
-- Art. 235 (extension congé si férié pendant absence) non implémenté.
-- Art. 239 assimilations absences non branchées.
-- Projection cache `LeaveBalance` reste nette ledger (sans pending) ; l’UI self-service utilise désormais les snapshots avec réservations.
+- Captures PPT (sites FR / Cadre) vs données démo Maroc.
+- Recrutement live vs « BIENTÔT » sur certaines captures.
+- Plafonds télétravail configurables via env, pas via écran RH.
+- « Droits à congés » hors script slides Conseil.
 
-## 6. Unverified policies
+## 5. Outstanding policy decisions
 
-- Confirmation formelle du **2 j/mois entreprise** + passage `hr_configured`.
-- Interaction définitive ancienneté art. 232 sur base 24 j.
-- RTT Maroc (avantage employeur ?).
-- Plafonds congés spéciaux.
-- Régime légal complet du travail un jour férié (au-delà de 1 h = 1 h produit).
+Hors fidélité PPT — voir `docs/CALCULATION_POLICY_MATRIX.md` (CAP entreprise 2 j/mois, RTT, art. 235/239, régime légal férié).
 
-## 7. Remaining work
+## 6. Exact recommended next step
 
-1. RH confirme politique entreprise → `hr_configured`.
-2. Pilote preview/post contrôlé (pas de bulk).
-3. Brancher timesheet pour TP / art. 238-2.
-4. Art. 235 / 239 si validés.
-
-## 8. Exact next recommended step
-
-Faire valider par RH le document `docs/CALCULATION_POLICY_MATRIX.md` (ligne CAP entreprise 2 j/mois), puis basculer `MA_ANNUAL_LEAVE_COMPANY.validationStatus` à `hr_configured` **uniquement** après confirmation écrite — sans lancer d’accrual Production automatique.
+Exécuter le script de démo Conseil (Léa → Camille → Julien) sur l’instance déployée en suivant `docs/PRESENTATION_ALIGNMENT.md`, puis reprendre la confirmation RH des lignes « À valider » de la matrice de calcul — sans bulk accrual Production.

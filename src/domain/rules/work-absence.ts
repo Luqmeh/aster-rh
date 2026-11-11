@@ -371,6 +371,6 @@ export function reminderBannerTexts(today = moroccoToday()): {
       "Rappel guide : informer l'employeur dans les 24 h suivant le début de l'absence.",
     docs48h:
       "Rappel guide : transmettre le justificatif dans les 48 h suivant le début de l'absence.",
-    payrollCutoff: `Rappel guide : justificatifs reçus jusqu'au ${PAYROLL_CUTOFF_DAY} inclus traités sur le mois en cours ; au-delà, mois suivant (pas de calcul de paie dans ASTER).`,
+    payrollCutoff: `Rappel administratif : justificatifs reçus jusqu'au ${PAYROLL_CUTOFF_DAY} inclus suivis sur le mois en cours ; au-delà, mois suivant. ASTER n’effectue aucune paie ni CNSS.`,
   };
 }

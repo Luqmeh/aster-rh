@@ -34,8 +34,8 @@ export default async function AbsencesPage() {
   return (
     <div className="aster-fade-up space-y-6">
       <PageHeader
-        title="Mes absences"
-        description="Déclarations d'arrêts et congés spéciaux — hors demandes de CP / RTT."
+        title="Arrêts & absences spéciales"
+        description="Déclaration d’absence : dates, catégorie et commentaire. Justificatifs médicaux réservés RH."
       />
 
       <div className="rounded-xl border border-[var(--aster-border)] bg-white p-4 text-[13px] text-[var(--aster-muted)] shadow-sm">

@@ -36,20 +36,55 @@ export default async function AdministrationPage() {
   const contextService = createLeaveApprovalContextService(container);
   const teleworkService = createTeleworkService(container);
   const wohService = createWorkOnHolidayService(container);
-  const [employees, departments, pendingLeaves, pendingTw, wohRequests] =
-    await Promise.all([
-      container.hr.listEmployees(),
-      container.hr.listDepartments(),
-      leaveService.listTeamPending(session),
-      teleworkService.listTeamPending(session),
-      wohService.listVisible(session),
-    ]);
+  const [
+    employees,
+    departments,
+    pendingLeaves,
+    pendingTw,
+    wohRequests,
+    allLeaves,
+    allTelework,
+  ] = await Promise.all([
+    container.hr.listEmployees(),
+    container.hr.listDepartments(),
+    leaveService.listTeamPending(session),
+    teleworkService.listTeamPending(session),
+    wohService.listVisible(session),
+    leaveService.listVisible(session),
+    teleworkService.listVisible(session),
+  ]);
   const pendingLeaveContexts = await contextService.getLeaveRequestContexts(
     session,
     pendingLeaves,
   );
   const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
   const pendingTotal = pendingLeaves.length + pendingTw.length;
+  const recentDecided = [
+    ...allLeaves
+      .filter((r) => r.status === "approuvee" || r.status === "refusee")
+      .map((r) => ({
+        id: r.id,
+        kind: "Congé" as const,
+        employeeId: r.employeeId,
+        detail: `${formatDateFr(r.startDate)} → ${formatDateFr(r.endDate)}`,
+        status: r.status,
+        sortKey: r.updatedAt ?? r.createdAt,
+      })),
+    ...allTelework
+      .filter((r) => r.status === "approuvee" || r.status === "refusee")
+      .map((r) => ({
+        id: r.id,
+        kind: "Télétravail" as const,
+        employeeId: r.employeeId,
+        detail: r.month
+          ? formatMonthYearFr(r.month)
+          : r.days.map(formatDateFr).join(", "),
+        status: r.status,
+        sortKey: r.updatedAt ?? r.createdAt,
+      })),
+  ]
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+    .slice(0, 8);
   const wohUpcoming = wohRequests.filter((r) => r.status === "en_attente");
   const wohApproved = wohRequests.filter((r) => r.status === "approuvee");
   const wohAwaitingConfirm = wohRequests.filter(
@@ -210,8 +245,8 @@ export default async function AdministrationPage() {
         <CardContent className="space-y-3 text-sm">
           <p className="text-[var(--aster-muted)]">
             Vue de rapprochement — les RH consultent sans pouvoir approuver ni
-            confirmer (réservé au Chef de projet). Règle produit ASTER : 1 h
-            confirmée = 1 h de récupération (hors guide PKF).
+            confirmer (réservé au Chef de projet). Règle produit (présentation
+            Conseil) : 1 h confirmée = 1 h de récupération.
           </p>
           <div className="grid gap-2 sm:grid-cols-4">
             <Stat label="En attente" value={String(wohUpcoming.length)} />
@@ -252,6 +287,57 @@ export default async function AdministrationPage() {
                           ? ` · ${r.plannedHours} h planifiées`
                           : ""}
                     </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique récent (congés &amp; télétravail)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="text-[var(--aster-muted)]">
+            Consultation RH / Chef — décisions déjà rendues. Détail complet et
+            exports :{" "}
+            <Link href="/administration/rapports" className="underline">
+              Reporting RH
+            </Link>
+            .
+          </p>
+          {recentDecided.length === 0 ? (
+            <EmptyState
+              compact
+              icon={ClipboardList}
+              title="Aucun historique récent"
+              description="Les demandes approuvées ou refusées apparaîtront ici."
+            />
+          ) : (
+            <ul className="divide-y divide-[var(--aster-border)]">
+              {recentDecided.map((row) => {
+                const emp = byId[row.employeeId];
+                return (
+                  <li
+                    key={`${row.kind}-${row.id}`}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <div>
+                      <p className="font-medium text-[var(--aster-ink)]">
+                        {emp
+                          ? fullName(emp.firstName, emp.lastName)
+                          : row.employeeId}{" "}
+                        <span className="font-normal text-[var(--aster-muted)]">
+                          · {row.kind}
+                        </span>
+                      </p>
+                      <p className="text-xs text-[var(--aster-muted)]">
+                        {row.detail}
+                      </p>
+                    </div>
+                    <StatusBadge status={row.status} />
                   </li>
                 );
               })}
