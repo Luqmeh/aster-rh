@@ -74,7 +74,7 @@ export default async function TeletravailPage({
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Télétravail"
-        description="Planification mensuelle : plafond 12 j/mois (guide RH p.106) et limite produit 2 j/semaine. Validations Chef de projet."
+        description="Planification mensuelle — règles produit : jusqu’à 2 jours par semaine et 12 jours par mois (paramétrables selon le cadre retenu). Validations Chef de projet."
       />
 
       {editError ? (

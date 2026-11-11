@@ -161,7 +161,7 @@ export function ReportingFiltersForm({
             <option value="">Tous</option>
             <option value="soumise">Soumise</option>
             <option value="en_attente_manager">En attente manager</option>
-            <option value="en_attente_rh">En attente RH</option>
+            <option value="en_attente_rh">En attente de validation</option>
             <option value="approuvee">Approuvée</option>
             <option value="refusee">Refusée</option>
             <option value="annulee">Annulée</option>

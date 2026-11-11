@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { submitLeaveAction } from "@/app/actions/leave";
 import {
@@ -18,15 +19,14 @@ import { Textarea } from "@/components/ui/textarea";
 import type { LeaveType } from "@/domain/types/hr";
 
 const TYPES: { value: LeaveType; label: string }[] = [
-  { value: "conges_payes", label: "Congé annuel" },
-  { value: "rtt", label: "RTT (historique / avantage employeur)" },
+  { value: "conges_payes", label: "Congés payés" },
+  { value: "rtt", label: "RTT" },
   {
     value: "recuperation",
     label: "Récupération (jour férié travaillé)",
   },
   { value: "sans_solde", label: "Congé sans solde" },
   { value: "exceptionnel", label: "Congé exceptionnel" },
-  { value: "maladie", label: "Absence maladie" },
   { value: "parental", label: "Congé parental" },
 ];
 
@@ -127,6 +127,13 @@ export function LeaveForm() {
           Demi-journée à la fin
         </label>
       </div>
+      <p className="text-xs text-[var(--aster-muted)]">
+        Arrêt maladie et absences spéciales : utiliser{" "}
+        <Link href="/absences" className="underline">
+          Arrêts &amp; absences spéciales
+        </Link>
+        .
+      </p>
       <div className="space-y-2">
         <Label htmlFor="comment">Commentaire</Label>
         <Textarea id="comment" name="comment" placeholder="Optionnel" />

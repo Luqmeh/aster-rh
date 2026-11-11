@@ -86,7 +86,7 @@ export function MonthlyTeleworkPlanner({
         setFeedback(
           resolveSubmissionUi({
             kind: "validation",
-            message: `Maximum ${MAX_TELEWORK_DAYS_PER_MONTH} jours par mois (guide RH p.106).`,
+            message: `Maximum ${MAX_TELEWORK_DAYS_PER_MONTH} jours par mois (règle produit).`,
           }).feedback,
         );
         return prev;
@@ -151,7 +151,7 @@ export function MonthlyTeleworkPlanner({
     return (
       <div className="rounded-xl border border-[var(--aster-warning)]/30 bg-[var(--aster-warning-bg)] px-4 py-3 text-sm text-[var(--aster-warning)]">
         {eligibilityMessage ??
-          "Profil non éligible au télétravail selon le guide RH (p.106)."}
+          "Profil non éligible au télétravail (politique produit)."}
       </div>
     );
   }
@@ -209,8 +209,9 @@ export function MonthlyTeleworkPlanner({
       </div>
 
       <p className="text-sm text-[var(--aster-muted)]">
-        Limite produit : {MAX_TELEWORK_DAYS_PER_WEEK} j/semaine · Plafond guide
-        RH (p.106) : {MAX_TELEWORK_DAYS_PER_MONTH} j/mois. Sélection :{" "}
+        Règles produit : jusqu’à {MAX_TELEWORK_DAYS_PER_WEEK} j/semaine et{" "}
+        {MAX_TELEWORK_DAYS_PER_MONTH} j/mois (paramétrables selon le cadre
+        retenu). Sélection :{" "}
         <strong className="text-[var(--aster-ink)]">{selected.length}</strong>{" "}
         jour(s).
       </p>

@@ -100,9 +100,15 @@ export default async function AdministrationPage() {
 
       {!canDecide ? (
         <p className="rounded-[10px] border border-[var(--aster-border)] bg-[var(--aster-surface-2)] px-4 py-3 text-sm text-[var(--aster-muted)]">
-          Les ressources humaines voient les demandes et historiques, mais ne
-          peuvent pas les approuver ni les refuser. Seul le Chef de projet
-          dispose de l&apos;autorité de décision.
+          Les ressources humaines consultent et suivent les demandes sans les
+          approuver ni les refuser. Historiques et indicateurs :{" "}
+          <Link
+            href="/administration/rapports"
+            className="font-medium text-[var(--aster-ink)] underline"
+          >
+            Reporting RH
+          </Link>
+          . Seul le Chef de projet dispose de l&apos;autorité de décision.
         </p>
       ) : null}
 

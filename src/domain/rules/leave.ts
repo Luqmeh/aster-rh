@@ -125,8 +125,8 @@ export function canSubmitLeave(employee: Employee): boolean {
 
 export function leaveTypeLabel(type: LeaveType): string {
   const labels: Record<LeaveType, string> = {
-    conges_payes: "Congé annuel",
-    rtt: "RTT (historique / avantage employeur)",
+    conges_payes: "Congés payés",
+    rtt: "RTT",
     recuperation: "Récupération (jour férié travaillé)",
     sans_solde: "Congé sans solde",
     maladie: "Absence maladie",

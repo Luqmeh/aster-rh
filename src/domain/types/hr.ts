@@ -95,13 +95,13 @@ export interface Employee {
   phoneInternal: string | null;
   avatarInitials: string;
   /**
-   * Éligibilité télétravail (guide RH p.106 : tâches compatibles + continuité de service).
+   * Éligibilité télétravail (politique produit paramétrable).
    * false = restriction clairement affichée en démo.
    */
   teleworkEligible: boolean;
   /**
    * Capacité hebdomadaire indicative du profil (démo).
-   * Le plafond planification mensuelle reste 2 j/semaine (p.106 / règle produit).
+   * Capacité hebdomadaire indicative ; plafond produit planification : 2 j/semaine.
    */
   teleworkDaysPerWeek: number;
   /**

@@ -49,7 +49,7 @@ export const navigationGroups: NavGroup[] = [
     id: "temps",
     label: "Gestion du temps",
     items: [
-      { href: "/conges", label: "Congés", icon: CalendarDays },
+      { href: "/conges", label: "Congés et absences", icon: CalendarDays },
       {
         href: "/absences",
         label: "Arrêts & absences spéciales",
@@ -83,7 +83,7 @@ export const navigationGroups: NavGroup[] = [
       },
       {
         href: "/entretiens",
-        label: "Recrutement",
+        label: "Recrutement / entretiens",
         icon: ClipboardList,
       },
       {

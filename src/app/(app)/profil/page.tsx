@@ -42,9 +42,12 @@ export default async function ProfilPage() {
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Badge variant="accent">{roleLabel(role)}</Badge>
-                <Badge variant="secondary">
-                  {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
-                </Badge>
+                {employee.category === "cadre" ||
+                employee.category === "non_cadre" ? (
+                  <Badge variant="secondary">
+                    {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
+                  </Badge>
+                ) : null}
                 {employee.isActive ? (
                   <Badge variant="success">Actif</Badge>
                 ) : (
@@ -104,7 +107,7 @@ export default async function ProfilPage() {
               label="Éligibilité télétravail"
               value={
                 employee.teleworkEligible
-                  ? "Éligible (guide RH p.106)"
+                  ? "Éligible (politique produit télétravail)"
                   : "Non éligible"
               }
             />

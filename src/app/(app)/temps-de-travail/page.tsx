@@ -4,11 +4,11 @@ export default function TempsDeTravailPage() {
   return (
     <PlannedModulePage
       title="Temps de travail"
-      description="Suivi du temps, distinction cadre / non-cadre."
+      description="Module non opérationnel — suivi du temps de travail."
       bullets={[
-        "Saisie et consultation des temps pour les non-cadres.",
-        "Visibilité forfait jours pour les cadres (selon guide RH).",
-        "Exports pour contrôle de gestion / paie (intégration future).",
+        "Saisie et consultation du temps — à construire.",
+        "Le suivi du travail un jour férié et de la récupération est déjà disponible via Calendrier RH / Administration.",
+        "Pas d’intégration paie / CNSS dans ASTER.",
       ]}
     />
   );

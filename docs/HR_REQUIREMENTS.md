@@ -61,7 +61,7 @@ Code : `telework-monthly.ts`, `telework-service.ts`.
 |-----------|-----------|
 | Collaborateur | Consultation + demandes personnelles |
 | Chef de projet | Validations globales + administration RH |
-| Administrateur RH | Vue transverse + validations de démo |
+| Administrateur RH | Vue transverse / administration — sans validation managériale |
 
 Le mapping vers les groupes Microsoft Entra ID reste à définir (`docs/INTEGRATIONS.md`).
 

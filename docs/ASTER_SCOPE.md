@@ -1,6 +1,7 @@
 # Périmètre produit ASTER (Maroc)
 
-Source produit : présentation Conseil `ASTER_Presentation_Conseil_FR_v2.pptx` (nov. 2026) + architecture existante.
+Source produit : présentation Conseil `ASTER_Presentation_Conseil_FR_v2.pptx` (nov. 2026) + architecture existante.  
+Matrice d’alignement : `docs/PRESENTATION_ALIGNMENT.md`.
 
 ## Opérationnel (démontré)
 

@@ -144,7 +144,8 @@ export function statusLabel(status: RequestStatus): string {
     brouillon: "Brouillon",
     soumise: "Soumise",
     en_attente_manager: "En attente de validation",
-    en_attente_rh: "En attente RH",
+    // Libellé produit (présentation Conseil) — distinct du rôle RH qui ne décide pas.
+    en_attente_rh: "En attente de validation",
     approuvee: "Approuvée",
     refusee: "Refusée",
     annulee: "Annulée",
