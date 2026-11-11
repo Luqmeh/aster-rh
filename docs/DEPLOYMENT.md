@@ -68,6 +68,8 @@ Sur chaque déploiement **Production** (`main` → Vercel) :
 
 **Interdit** contre la base board : `migrate dev`, `migrate reset`, `db push`.
 
+**Sécurité métadonnées Prisma :** `public._prisma_migrations` reste dans `public` (requis Prisma) mais les rôles Data API `anon` / `authenticated` n’y ont aucun privilège — voir `docs/SECURITY.md` et la migration `20261111200000_lock_prisma_migrations_api_roles`. Vérification : `npx tsx scripts/verify-prisma-migrations-grants.ts`.
+
 ## Seed démo (one-shot Production, sans credentials locales)
 
 Le seed CLI (`resetMutable: false`) crée les enregistrements manquants et **préserve** les lignes déjà présentes (`update: {}`) — aucun `DELETE` / `DROP` / `TRUNCATE`.
