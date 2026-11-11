@@ -181,6 +181,50 @@ describe("hr import service — official workbook", () => {
     expect(persisted?.executionReport?.balancesImported).toBe(3);
   });
 
+  it("keeps invalid batches in validated (no IMPORTER) and blocks confirm", async () => {
+    const session = testSessionFor("emp-camille", "admin_rh");
+    const bytes = await buildFilledOfficialWorkbook({
+      employees: [
+        [
+          "",
+          "X",
+          "Y",
+          "bad-email",
+          "UNKNOWN_DEPT",
+          "Poste",
+          "Site",
+          "not-a-date",
+          "XXX",
+          "Nope",
+          "",
+          "",
+          "",
+        ],
+      ],
+      balances: [
+        ["missing-emp", "CP", "-1", "Jours", "bad", "", "", "", ""],
+      ],
+    });
+    const batch = await svc().uploadWorkbook(session, {
+      fileName: "bad.xlsx",
+      bytes,
+    });
+    const validated = await svc().validateBatch(session, { batchId: batch.id });
+    expect(validated.status).toBe("validated");
+    expect(validated.errorMessage).toMatch(/lignes invalides/i);
+    expect(
+      validated.employeeDrafts.some((d) => d.severity === "error") ||
+        validated.balanceDrafts.some((d) => d.severity === "error"),
+    ).toBe(true);
+
+    await expect(
+      svc().confirmAndExecute(session, {
+        batchId: batch.id,
+        confirmationPhrase: "IMPORTER",
+      }),
+    ).rejects.toThrow(/lignes invalides/);
+  });
+
   it("refuses collaborateur and blocks chef execution", async () => {
     await expect(
       svc().uploadWorkbook(testSessionFor("emp-lea", "collaborateur"), {

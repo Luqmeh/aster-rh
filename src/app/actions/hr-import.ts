@@ -1,9 +1,18 @@
 "use server";
 
 import { createHrImportService } from "@/application/services/hr-import-service";
-import { requireSession } from "@/infrastructure/auth/authorization";
+import { AuthError, requireSession } from "@/infrastructure/auth/authorization";
 import { getContainer } from "@/infrastructure/container";
 import { revalidatePath } from "next/cache";
+
+type ActionOk = {
+  ok: true;
+  batchId?: string;
+  fileName?: string;
+  base64?: string;
+};
+type ActionFail = { ok: false; message: string };
+export type HrImportActionResult = ActionOk | ActionFail;
 
 function service() {
   const container = getContainer();
@@ -20,61 +29,116 @@ async function sessionOrThrow() {
   return { session, importService: service() };
 }
 
-export async function downloadHrImportTemplateAction() {
-  const { session, importService } = await sessionOrThrow();
-  const { buffer, fileName } = await importService.downloadTemplate(session);
-  return {
-    fileName,
-    base64: Buffer.from(buffer).toString("base64"),
-  };
+function toError(error: unknown, fallback: string): ActionFail {
+  if (error instanceof AuthError) {
+    return { ok: false, message: error.message };
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return { ok: false, message: error.message };
+  }
+  return { ok: false, message: fallback };
 }
 
-export async function downloadHrImportReportAction(batchId: string) {
-  const { session, importService } = await sessionOrThrow();
-  const { buffer, fileName } = await importService.downloadExecutionReport(
-    session,
-    batchId,
-  );
-  return {
-    fileName,
-    base64: Buffer.from(buffer).toString("base64"),
-  };
-}
-
-export async function uploadHrImportAction(formData: FormData) {
-  const { session, importService } = await sessionOrThrow();
-  const file = formData.get("file");
-  if (!(file instanceof File)) throw new Error("Fichier manquant.");
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const batch = await importService.uploadWorkbook(session, {
-    fileName: file.name,
-    bytes,
-  });
-  await importService.validateBatch(session, { batchId: batch.id });
-  revalidatePath("/administration/import-collaborateurs");
-  return { batchId: batch.id };
-}
-
-export async function validateHrImportAction(formData: FormData) {
-  const { session, importService } = await sessionOrThrow();
-  const batchId = String(formData.get("batchId") ?? "");
-  const updateExisting =
-    String(formData.get("updateExisting") ?? "") === "true";
-  await importService.validateBatch(session, {
-    batchId,
-    updateExistingEmployees: updateExisting,
-  });
+function revalidateImport() {
   revalidatePath("/administration/import-collaborateurs");
 }
 
-export async function executeHrImportAction(formData: FormData) {
-  const { session, importService } = await sessionOrThrow();
-  const batchId = String(formData.get("batchId") ?? "");
-  const confirmationPhrase = String(formData.get("confirmationPhrase") ?? "");
-  await importService.confirmAndExecute(session, {
-    batchId,
-    confirmationPhrase,
-  });
-  revalidatePath("/administration/import-collaborateurs");
-  revalidatePath("/annuaire");
+/**
+ * Les erreurs métier sont renvoyées en `{ ok: false }` (pas de throw) pour
+ * éviter le masquage production « Minified React error #441 ».
+ */
+export async function downloadHrImportTemplateAction(): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const { buffer, fileName } = await importService.downloadTemplate(session);
+    return {
+      ok: true,
+      fileName,
+      base64: Buffer.from(buffer).toString("base64"),
+    };
+  } catch (error) {
+    return toError(error, "Téléchargement du modèle impossible.");
+  }
+}
+
+export async function downloadHrImportReportAction(
+  batchId: string,
+): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const { buffer, fileName } = await importService.downloadExecutionReport(
+      session,
+      batchId,
+    );
+    return {
+      ok: true,
+      fileName,
+      base64: Buffer.from(buffer).toString("base64"),
+    };
+  } catch (error) {
+    return toError(error, "Téléchargement du rapport impossible.");
+  }
+}
+
+export async function uploadHrImportAction(
+  formData: FormData,
+): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { ok: false, message: "Fichier manquant." };
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const batch = await importService.uploadWorkbook(session, {
+      fileName: file.name,
+      bytes,
+    });
+    await importService.validateBatch(session, { batchId: batch.id });
+    revalidateImport();
+    return { ok: true, batchId: batch.id };
+  } catch (error) {
+    return toError(error, "Analyse du classeur impossible.");
+  }
+}
+
+export async function validateHrImportAction(
+  formData: FormData,
+): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const batchId = String(formData.get("batchId") ?? "");
+    const updateExisting =
+      String(formData.get("updateExisting") ?? "") === "true";
+    await importService.validateBatch(session, {
+      batchId,
+      updateExistingEmployees: updateExisting,
+    });
+    revalidateImport();
+    return { ok: true, batchId };
+  } catch (error) {
+    return toError(error, "Recalcul de prévisualisation impossible.");
+  }
+}
+
+export async function executeHrImportAction(
+  formData: FormData,
+): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const batchId = String(formData.get("batchId") ?? "");
+    const confirmationPhrase = String(formData.get("confirmationPhrase") ?? "");
+    await importService.confirmAndExecute(session, {
+      batchId,
+      confirmationPhrase,
+    });
+    revalidateImport();
+    revalidatePath("/annuaire");
+    return { ok: true, batchId };
+  } catch (error) {
+    return toError(
+      error,
+      "Exécution de l'import impossible.",
+    );
+  }
 }

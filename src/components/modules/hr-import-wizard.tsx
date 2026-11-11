@@ -7,6 +7,7 @@ import {
   executeHrImportAction,
   uploadHrImportAction,
   validateHrImportAction,
+  type HrImportActionResult,
 } from "@/app/actions/hr-import";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,15 @@ function downloadBase64(fileName: string, base64: string) {
   URL.revokeObjectURL(url);
 }
 
+function assertOk(res: HrImportActionResult): asserts res is Extract<
+  HrImportActionResult,
+  { ok: true }
+> {
+  if (!res.ok) {
+    throw new Error(res.message);
+  }
+}
+
 export function HrImportWizard({
   canExecute,
   latestBatch,
@@ -41,6 +51,10 @@ export function HrImportWizard({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const batch = latestBatch;
+  const canRecalculate =
+    canExecute &&
+    (batch?.status === "awaiting_confirmation" || batch?.status === "validated");
+  const canConfirm = canExecute && batch?.status === "awaiting_confirmation";
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -70,7 +84,8 @@ export function HrImportWizard({
             onClick={() =>
               run(async () => {
                 const res = await downloadHrImportTemplateAction();
-                downloadBase64(res.fileName, res.base64);
+                assertOk(res);
+                downloadBase64(res.fileName!, res.base64!);
                 setMessage(
                   "Modèle officiel ASTER_Modele_Import_RH_Maroc.xlsx téléchargé.",
                 );
@@ -110,7 +125,10 @@ export function HrImportWizard({
                   const fd = new FormData();
                   fd.set("file", file);
                   const res = await uploadHrImportAction(fd);
-                  setMessage(`Lot ${res.batchId} analysé — prévisualisation prête.`);
+                  assertOk(res);
+                  setMessage(
+                    `Lot ${res.batchId} analysé — prévisualisation prête.`,
+                  );
                 })
               }
             >
@@ -179,12 +197,13 @@ export function HrImportWizard({
                 </div>
               ) : null}
 
-              {canExecute && batch.status === "awaiting_confirmation" ? (
+              {canRecalculate ? (
                 <form
                   className="flex flex-wrap items-end gap-2"
                   action={(fd) =>
                     run(async () => {
-                      await validateHrImportAction(fd);
+                      const res = await validateHrImportAction(fd);
+                      assertOk(res);
                       setMessage("Prévisualisation recalculée.");
                     })
                   }
@@ -198,6 +217,14 @@ export function HrImportWizard({
                     Recalculer
                   </Button>
                 </form>
+              ) : null}
+
+              {batch.status === "validated" ? (
+                <p className="text-sm text-[var(--aster-danger)]" role="status">
+                  Confirmation bloquée tant que des lignes invalides restent
+                  présentes. Corrigez le fichier puis re-téléversez ou
+                  recalculez.
+                </p>
               ) : null}
 
               <div className="overflow-x-auto">
@@ -263,7 +290,7 @@ export function HrImportWizard({
             </CardContent>
           </Card>
 
-          {canExecute && batch.status === "awaiting_confirmation" ? (
+          {canConfirm ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">4. Confirmation RH</CardTitle>
@@ -273,7 +300,8 @@ export function HrImportWizard({
                   className="space-y-3"
                   action={(fd) =>
                     run(async () => {
-                      await executeHrImportAction(fd);
+                      const res = await executeHrImportAction(fd);
+                      assertOk(res);
                       setMessage("Import exécuté — voir le rapport ci-dessous.");
                     })
                   }
@@ -359,7 +387,8 @@ export function HrImportWizard({
                   onClick={() =>
                     run(async () => {
                       const res = await downloadHrImportReportAction(batch.id);
-                      downloadBase64(res.fileName, res.base64);
+                      assertOk(res);
+                      downloadBase64(res.fileName!, res.base64!);
                       setMessage("Rapport de réconciliation téléchargé.");
                     })
                   }

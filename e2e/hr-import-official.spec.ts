@@ -11,6 +11,56 @@ const OFFICIAL_SHA256 =
   "dbc617d2bc3899f6e6a2509efbbd4a9b8559962ffa8a4ddee4518f8a80ccacc9";
 
 test.describe("Import RH — modèle officiel (navigateur)", () => {
+  test("lot invalide : statut validated, pas de #441, confirmation bloquée", async ({
+    page,
+  }) => {
+    await page.goto("/connexion");
+    await page.locator("#email").fill(RH_EMAIL);
+    await page.locator("#password").fill(RH_PASSWORD);
+    await Promise.all([
+      page.waitForURL(/\/tableau-de-bord/),
+      page.getByRole("button", { name: "Se connecter" }).click(),
+    ]);
+
+    await page.goto("/administration/import-collaborateurs");
+    const bad = await buildFilledOfficialWorkbook({
+      employees: [
+        [
+          "",
+          "X",
+          "Y",
+          "bad-email",
+          "UNKNOWN_DEPT",
+          "Poste",
+          "Site",
+          "not-a-date",
+          "XXX",
+          "Nope",
+          "",
+          "",
+          "",
+        ],
+      ],
+      balances: [["missing-emp", "CP", "-1", "Jours", "bad", "", "", "", ""]],
+    });
+    const uploadPath = join(tmpdir(), `aster-e2e-bad-${Date.now()}.xlsx`);
+    writeFileSync(uploadPath, bad);
+
+    await page.locator('input[type="file"]').setInputFiles(uploadPath);
+    await page.getByRole("button", { name: "Analyser et prévisualiser" }).click();
+    await expect(page.getByText(/prévisualisation prête/i)).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByText("validated").first()).toBeVisible();
+    await expect(
+      page.getByText(/Des lignes invalides restent présentes/i).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Exécuter l'import contrôlé" }),
+    ).toHaveCount(0);
+    await expect(page.getByText(/Minified React error #441/i)).toHaveCount(0);
+  });
+
   test("login RH → téléchargement → upload → IMPORTER → magasin", async ({
     page,
   }) => {

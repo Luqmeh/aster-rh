@@ -450,16 +450,23 @@ export function createHrImportService(deps: {
         : [];
 
       const previewSummary = buildPreviewSummary(employeeDrafts, balanceDrafts);
+      const hasBlockingErrors =
+        employeeDrafts.some((d) => d.severity === "error") ||
+        balanceDrafts.some((d) => d.severity === "error");
       const now = new Date().toISOString();
       batch = {
         ...batch,
         employeeDrafts,
         balanceDrafts,
         previewSummary,
-        status: "awaiting_confirmation",
+        // Ne pas ouvrir la confirmation tant que des lignes restent en erreur
+        // (sinon l'UI propose IMPORTER puis throw → React #441 en production).
+        status: hasBlockingErrors ? "validated" : "awaiting_confirmation",
         validatedAt: now,
         updatedAt: now,
-        errorMessage: null,
+        errorMessage: hasBlockingErrors
+          ? "Des lignes invalides restent présentes — corrigez le fichier ou retirez-les."
+          : null,
         failureSummary: null,
       };
       return saveHrImportBatch(batch);
@@ -506,20 +513,21 @@ export function createHrImportService(deps: {
           "Exécution déjà en cours — utilisez la récupération si le lot est bloqué.",
         );
       }
+      if (
+        existing.status === "validated" ||
+        existing.employeeDrafts.some((e) => e.severity === "error") ||
+        existing.balanceDrafts.some((b) => b.severity === "error")
+      ) {
+        throw new Error(
+          "Des lignes invalides restent présentes — corrigez le fichier ou retirez-les.",
+        );
+      }
       if (!canRetryImportExecution(existing.status)) {
         throw new Error("Validez d'abord le lot (prévisualisation).");
       }
       if (input.confirmationPhrase.trim().toUpperCase() !== "IMPORTER") {
         throw new Error(
           'Confirmation requise : saisissez exactement « IMPORTER ».',
-        );
-      }
-      if (
-        existing.employeeDrafts.some((e) => e.severity === "error") ||
-        existing.balanceDrafts.some((b) => b.severity === "error")
-      ) {
-        throw new Error(
-          "Des lignes invalides restent présentes — corrigez le fichier ou retirez-les.",
         );
       }
 

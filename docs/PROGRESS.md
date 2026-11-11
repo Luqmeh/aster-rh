@@ -1,91 +1,91 @@
 # ASTER — Rapport de progression
 
-**Date / heure :** 11 novembre 2026 ~21:40 UTC  
+**Date / heure :** 11 novembre 2026 ~22:15 UTC  
 **Branche :** `main`  
-**Phase :** Critical — alignement import Excel sur le modèle officiel `ASTER_Modele_Import_RH_Maroc.xlsx`  
-**État :** **terminée et poussée** — commit `7c71656` sur `origin/main`.
+**Sujet :** Diagnostic et correctif « Minified React error #441 » sur l’import RH  
+**État :** cause racine identifiée, correctif implémenté et rejoué localement (Vitest + Playwright). Commit/push à enchaîner pour Production.
 
 ---
 
-## Fonctionnalités implémentées
+## Cause racine exacte
 
-- Modèle officiel unique téléchargeable (asset + SHA-256 `dbc617d2…ccacc9`).
-- Parseur OOXML (JSZip) — ExcelJS contourné (commentaires / tables).
-- En-têtes ligne 4 ; feuilles officielles ; soldes format long `(matricule, type)`.
-- Statuts Actif/Suspendu/Sorti ; `RECUPERATION_HEURES` en **heures** (pas de conversion jours).
-- Service + actions + wizard : un seul bouton de téléchargement du modèle officiel.
-- Réconciliation agrégée par matricule (format long).
-- Seed credentials mémoire via `ASTER_SEED_PASSWORD` (login démo / Playwright).
-- Endpoint inspect E2E gated (`ASTER_E2E_INSPECT=1`).
-- Playwright E2E navigateur bout-en-bout.
-- Guide import réécrit autour du modèle officiel.
+React **#441** = erreur survenue dans un Server Component / Server Action, message masqué en production.
 
-## Fichiers créés
+**Preuve Production (Vercel logs, déploiement `dpl_BhF3UegMt4YhXC2boLV7BjxU4CpR`) :**
 
-| Fichier | Rôle |
-|---------|------|
-| `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx` | Modèle canonique |
-| `src/domain/rules/hr-import/ooxml-workbook.ts` | Lecture OOXML |
-| `src/domain/rules/hr-import/official-workbook-fixture.ts` | Fixture remplissage tests/E2E |
-| `src/domain/rules/hr-import/official-workbook.parse.test.ts` | Tests parse officiel |
-| `src/infrastructure/auth/memory-seed-accounts.ts` | Seed comptes mémoire |
-| `src/app/api/e2e/hr-import-inspect/route.ts` | Inspect magasin E2E |
-| `e2e/hr-import-official.spec.ts` | Spec Playwright |
-| `playwright.config.ts` | Config E2E (port 3111, mémoire) |
+- Route : `POST /administration/import-collaborateurs`
+- Exception serveur : `Error: Des lignes invalides restent présentes — corrigez le fichier ou retirez-les.`
+- Stack : `confirmAndExecute` → `executeHrImportAction`
+- Digest : **`1668436741`**
 
-## Fichiers modifiés
+**Chaîne :**
 
-- `package.json` / `package-lock.json` — `@playwright/test`, script `test:e2e`
-- `src/app/actions/hr-import.ts`
-- `src/application/services/hr-import-service.ts` (+ `.test.ts`)
-- `src/components/modules/hr-import-wizard.tsx`
-- `src/domain/rules/hr-import/parse.ts`, `templates.ts`, `validate.ts` (+ `.test.ts`)
-- `src/domain/types/hr-import.ts`
-- `src/infrastructure/auth/account-store.ts`
-- `docs/EMPLOYEE_IMPORT_GUIDE.md`, `docs/PROGRESS.md`
+1. Upload / validate d’un classeur avec lignes en `severity: "error"`.
+2. `validateBatch` mettait quand même le lot en `awaiting_confirmation` → l’UI affichait **IMPORTER**.
+3. `executeHrImportAction` **lançait** l’erreur métier (`throw`).
+4. En production, Next/React masque le message → le navigateur affiche **Minified React error #441** (digest `1668436741`).
 
-**Non inclus :** `docs/git ssh.txt` (secrets locaux — ne pas committer).
+Ce n’est **pas** une erreur d’hydratation ni un problème d’auth/DB générique. C’est bien lié au workflow d’import (confirmation avec lignes invalides + throw depuis Server Action).
+
+## Route / action concernées
+
+| Élément | Détail |
+|---------|--------|
+| Page | `/administration/import-collaborateurs` |
+| Action | `executeHrImportAction` (et les autres actions import qui throwaient) |
+| Service | `hr-import-service.confirmAndExecute` / `validateBatch` |
+
+## Correctif
+
+1. **Actions import** renvoient `{ ok: true | false, message? }` — plus de throw métier (aligné absences / recrutement) → plus de #441 pour ce cas.
+2. **`validateBatch`** : statut `validated` + `errorMessage` si lignes invalides ; `awaiting_confirmation` seulement si aucune erreur bloquante.
+3. **UI** : pas de formulaire IMPORTER si `validated` ; message explicite ; recalcul possible.
+
+## Reproduction
+
+**Avant correctif (local, mémoire) :**  
+`status_after_validate= awaiting_confirmation` puis throw `Des lignes invalides…` (identique aux logs Vercel).
+
+**Après correctif :**  
+`status_after_validate= validated` + confirmation refusée ; Playwright « lot invalide » : message FR visible, bouton IMPORTER absent, **aucun** texte `#441`.  
+Happy-path E2E import officiel : toujours **passé**.
+
+**Note `next start` HTTP local :** cookies `__Secure-*` (`NODE_ENV=production`) empêchent le login sur `http://127.0.0.1` — hors sujet du #441 ; Production Vercel est en HTTPS.
+
+## Fichiers modifiés / créés
+
+- `src/app/actions/hr-import.ts` — résultats structurés
+- `src/app/actions/hr-import.test.ts` — **nouveau** (régression #441 / no-throw)
+- `src/application/services/hr-import-service.ts` — gating `validated`
+- `src/application/services/hr-import-service.test.ts` — régression lot invalide
+- `src/components/modules/hr-import-wizard.tsx` — UI / assertOk
+- `e2e/hr-import-official.spec.ts` — scénario lot invalide
+- `docs/PROGRESS.md` — ce rapport (fichier précédent **supprimé** puis réécrit)
 
 ## Dépendances
 
-- **Ajouté :** `@playwright/test` ^1.65.0 (devDependency)
-- Chromium Playwright déjà installé localement
-- Aucune autre dépendance runtime
+- Aucune.
 
-## Migrations / schéma DB
+## Migrations / schéma
 
-- Aucun changement Prisma / migration pour cette phase.
+- Aucun. Aucun seed / reset Production.
 
 ## Résultats QA
 
 | Contrôle | Résultat |
 |----------|----------|
-| Vitest | **303 passed**, 1 skipped (58 files) |
-| Playwright `e2e/hr-import-official.spec.ts` | **1 passed** (~24 s) |
+| Vitest | **306 passed**, 1 skipped (59 files) |
+| Playwright import (dev) | **2 passed** (invalide + happy path) |
 | `npm run typecheck` | **OK** |
 | `npm run lint` | **OK** |
-| `npm run build` (offline) | **OK** |
+| `npm run build` | **OK** |
 
-### E2E — preuves
+## Problèmes connus / incertitudes
 
-- Login RH mémoire `sara.benali@demo.aster-rh.local`
-- Download modèle = hash officiel
-- Upload classeur rempli → prévisualisation → `IMPORTER`
-- Rapport : 2 créés, 3 soldes, 1 compte créé + 1 pending
-- Inspect : ledger `recuperation` `hours=7`, `conges_payes` OK, `mustChangePassword=true`
-
-## Problèmes connus
-
-1. Warning Next.js : convention `middleware` → `proxy` (hors scope).
-2. `docs/git ssh.txt` reste untracked — à laisser hors git.
-3. Champ rapport `excelRecoveryDays` peut contenir des **heures** quand le type officiel est `RECUPERATION_HEURES` (libellé historique ; UI recon montre surtout CP/RTT).
-
-## Tâches restantes
-
-1. (Optionnel) renommer / scinder le champ récupération du rapport Excel pour distinguer jours vs heures.
-2. (Optionnel) migrer `middleware` → `proxy` Next.js 16.
-3. Suivre `docs/ROADMAP.md` pour la suite démo (SSO Entra / polish UI).
+1. Lots Production déjà en `awaiting_confirmation` avec erreurs : IMPORTER peut encore s’afficher jusqu’au recalcul / re-upload ; l’action renvoie alors le message FR (`ok: false`) au lieu de #441.
+2. Contenu exact du classeur uploadé en Production (22:01 UTC) non retenu dans les logs — seulement le message métier.
+3. Login navigateur contre `next start` en HTTP local bloqué par cookies secure (attendu).
 
 ## Prochaine étape recommandée
 
-Enchaîner la roadmap démo (SSO Entra / polish UI) selon `docs/ROADMAP.md`. `docs/git ssh.txt` reste volontairement hors git.
+Commit + push sur `origin/main` pour déployer le correctif en Production, puis rejouer le scénario « fichier invalide » sur `aster-rh.vercel.app` (message FR, pas #441).
