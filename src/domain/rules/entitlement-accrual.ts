@@ -8,6 +8,7 @@ import {
   isPolicyAutoPostable,
   RTT_CADRE_MAX_DAYS,
   RTT_CADRE_MIN_DAYS,
+  selectApplicableCpPolicy,
   selectPolicyVersionsForDate,
 } from "@/domain/rules/entitlement-policies";
 import {
@@ -235,16 +236,13 @@ export function previewMonthlyCpAccrual(input: {
 }): AccrualPreviewLine | null {
   const { employee, period, policies } = input;
   const asOf = period.monthEnd;
-  const active = selectPolicyVersionsForDate(policies, asOf).find(
-    (p) =>
-      p.kind === "conges_payes" && p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY",
-  );
+  const active = selectApplicableCpPolicy(policies, asOf);
 
   const baseKey = accrualIdempotencyKey({
     employeeId: employee.id,
     account: "conges_payes_en_acquisition",
     periodKey: period.periodKey,
-    policyCode: active?.policyCode ?? "MA_ANNUAL_LEAVE_STATUTORY",
+    policyCode: active?.policyCode ?? "MA_ANNUAL_LEAVE_COMPANY",
   });
 
   if (!isCpEligible(employee)) {
@@ -272,7 +270,7 @@ export function previewMonthlyCpAccrual(input: {
       quantity: 0,
       calculationStatus: "missing_policy_configuration",
       explanation:
-        "Aucune politique MA_ANNUAL_LEAVE_STATUTORY active (politiques FR désactivées).",
+        "Aucune politique CAP Maroc active (entreprise ou statutaire).",
       warnings: [],
       idempotencyKey: baseKey,
     };
@@ -293,6 +291,9 @@ export function previewMonthlyCpAccrual(input: {
     };
   }
 
+  const rateMode =
+    active.policyCode === "MA_ANNUAL_LEAVE_STATUTORY" ? "statutory" : "company";
+
   const calc = computeMoroccoAnnualLeaveAccrual({
     employee,
     asOfDate: asOf,
@@ -300,6 +301,7 @@ export function previewMonthlyCpAccrual(input: {
     periodEnd: period.monthEnd,
     publicHolidayDates: input.publicHolidayDates ?? [],
     hoursWorkedInPeriod: input.hoursWorkedInPeriod ?? null,
+    rateMode,
   });
 
   let status = calc.calculationStatus;
@@ -307,7 +309,7 @@ export function previewMonthlyCpAccrual(input: {
   if (!isPolicyAutoPostable(active) && status === "calculated") {
     status = "requires_hr_validation";
     warnings.push(
-      "Politique non postable automatiquement (statut validation ≠ guide_documented/hr_configured).",
+      "Politique non postable automatiquement — confirmation RH (hr_configured) requise avant accrual Production.",
     );
   }
 

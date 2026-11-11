@@ -31,6 +31,18 @@ describe("countBusinessDays", () => {
     expect(countBusinessDays("2026-11-07", "2026-11-08", false, false)).toBe(0);
   });
 
+  it("exclut les jours fériés fournis", () => {
+    // 2026-11-18 = mercredi ; sans férié = 5 j (lun–ven), avec = 4
+    expect(
+      countBusinessDays("2026-11-16", "2026-11-20", false, false, []),
+    ).toBe(5);
+    expect(
+      countBusinessDays("2026-11-16", "2026-11-20", false, false, [
+        "2026-11-18",
+      ]),
+    ).toBe(4);
+  });
+
   it("gère une demi-journée sur un seul jour", () => {
     expect(countBusinessDays("2026-11-10", "2026-11-10", true, false)).toBe(0.5);
   });
@@ -39,7 +51,7 @@ describe("countBusinessDays", () => {
 describe("soldes et catégories", () => {
   it("n'attribue plus de RTT selon cadre/non-cadre", () => {
     expect(defaultAnnualEntitlement("cadre").rtt).toBe(0);
-    expect(defaultAnnualEntitlement("non_cadre").congesPayes).toBe(18);
+    expect(defaultAnnualEntitlement("non_cadre").congesPayes).toBe(24);
     expect(defaultAnnualEntitlement("non_applicable").rtt).toBe(0);
   });
 

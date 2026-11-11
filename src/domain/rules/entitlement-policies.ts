@@ -26,9 +26,17 @@ export const RTT_CADRE_MIN_DAYS = 7;
 export const RTT_CADRE_MAX_DAYS = 11;
 export const RTT_MAX_NEGATIVE_DAYS = 6;
 
-/** Art. 231 adultes — 1,5 j de travail effectif / mois de service. */
-export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED = 1.5;
-export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED = 18;
+/** Art. 231 adultes — 1,5 j de travail effectif / mois de service (minimum statutaire). */
+export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_STATUTORY = 1.5;
+export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_STATUTORY = 18;
+/** Pratique entreprise ASTER : 2 j/mois = total (pas un complément au 1,5). */
+export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_COMPANY = 2;
+export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_COMPANY = 24;
+/** @deprecated alias — préférer STATUTORY / COMPANY. */
+export const MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED =
+  MA_ANNUAL_LEAVE_DAYS_PER_MONTH_STATUTORY;
+export const MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED =
+  MA_ANNUAL_LEAVE_DAYS_PER_YEAR_STATUTORY;
 
 export function defaultCpRoundingMode(): RoundingMode {
   return "none";
@@ -226,13 +234,12 @@ export function seedEntitlementPolicyVersions(
     },
   ] as EntitlementPolicyVersion[]).map(deactivateFr);
 
-  const maAnnual: EntitlementPolicyVersion = {
+  const maStatutory: EntitlementPolicyVersion = {
     id: "epv-ma-annual-v1",
     policyId: "ep-ma-annual",
     policyCode: "MA_ANNUAL_LEAVE_STATUTORY",
     kind: "conges_payes",
     version: 1,
-    // Entrée en vigueur historique du Code (BO 2004) — pas la date du refactor ASTER.
     effectiveFrom: "2004-05-06",
     effectiveTo: null,
     validationStatus: "guide_documented",
@@ -240,7 +247,7 @@ export function seedEntitlementPolicyVersions(
     isActive: true,
     sourceReference: MA_LABOUR_REF,
     notes:
-      "Art. 231–238 : 1,5 j (adulte) / 2 j (<18) par mois de service ; +1,5 j / 5 ans max 30 ; mois = 26 j effectifs ou 191/208 h ; droit après 6 mois de service continu. Temps partiel sans heures → non postable. Art. 240 report par accord uniquement.",
+      "Référence statutaire art. 231–238 : 1,5 j (adulte) / 2 j (<18) / mois de service ; +1,5 j / 5 ans max 30. Non utilisée comme droit applicable ASTER lorsque la politique entreprise est active. Pas de posting auto (hr_configured requis).",
     rules: {
       eligibleContractTypes: ["cdi", "cdd", "alternance"],
       eligibleCategories: null,
@@ -250,8 +257,8 @@ export function seedEntitlementPolicyVersions(
         endMonth: 12,
         endDay: 31,
       },
-      monthlyAccrualDays: MA_ANNUAL_LEAVE_DAYS_PER_MONTH_PROPOSED,
-      annualEntitlementDays: MA_ANNUAL_LEAVE_DAYS_PER_YEAR_PROPOSED,
+      monthlyAccrualDays: MA_ANNUAL_LEAVE_DAYS_PER_MONTH_STATUTORY,
+      annualEntitlementDays: MA_ANNUAL_LEAVE_DAYS_PER_YEAR_STATUTORY,
       ledgerAccount: "conges_payes_en_acquisition",
       unit: "days",
       allowHalfDay: true,
@@ -270,7 +277,65 @@ export function seedEntitlementPolicyVersions(
     createdAt: nowIso,
   };
 
-  return [...frHistorical, maAnnual];
+  const maCompany: EntitlementPolicyVersion = {
+    id: "epv-ma-annual-company-v1",
+    policyId: "ep-ma-annual-company",
+    policyCode: "MA_ANNUAL_LEAVE_COMPANY",
+    kind: "conges_payes",
+    version: 1,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    validationStatus: "requires_hr_decision",
+    jurisdiction: "MA",
+    isActive: true,
+    sourceReference:
+      "Pratique entreprise communiquée pour ASTER (département Maroc) — 2 j/mois total ; source formelle RH à confirmer",
+    notes:
+      "Droit applicable ASTER : 2 j/mois de service (24 j/an de base) = total entreprise, distinct et non cumulé avec 1,5 statutaire. Ancienneté art. 232 (+1,5/5 ans, max 30) appliquée sur cette base tant que RH n’indique pas autrement. Preview autorisée ; posting auto uniquement après hr_configured.",
+    rules: {
+      eligibleContractTypes: ["cdi", "cdd", "alternance"],
+      eligibleCategories: null,
+      acquisitionPeriod: {
+        startMonth: 1,
+        startDay: 1,
+        endMonth: 12,
+        endDay: 31,
+      },
+      monthlyAccrualDays: MA_ANNUAL_LEAVE_DAYS_PER_MONTH_COMPANY,
+      annualEntitlementDays: MA_ANNUAL_LEAVE_DAYS_PER_YEAR_COMPANY,
+      ledgerAccount: "conges_payes_en_acquisition",
+      unit: "days",
+      allowHalfDay: true,
+      rounding: {
+        mode: "none",
+        notes: "Décimales conservées.",
+      },
+      partTimeRequiresHrValidation: true,
+      carryover: {
+        maxDays: 30,
+        cumulative: true,
+        requiresApprovalAboveMax: true,
+      },
+    },
+    createdByEmployeeId: null,
+    createdAt: nowIso,
+  };
+
+  return [...frHistorical, maStatutory, maCompany];
+}
+
+/** Politique CAP applicable : entreprise prioritaire si active. */
+export function selectApplicableCpPolicy(
+  versions: EntitlementPolicyVersion[],
+  asOfDate: string,
+): EntitlementPolicyVersion | undefined {
+  const active = selectActiveMoroccoPolicies(versions, asOfDate).filter(
+    (p) => p.kind === "conges_payes",
+  );
+  return (
+    active.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_COMPANY") ??
+    active.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY")
+  );
 }
 
 /** Politiques actives pour le moteur Maroc (exclut FR et inactives). */
@@ -294,11 +359,14 @@ export function selectPolicyVersionsForDate(
   return selectActiveMoroccoPolicies(versions, asOfDate);
 }
 
+/**
+ * Posting auto Production uniquement après confirmation RH explicite.
+ * `guide_documented` / `requires_hr_decision` → preview seulement.
+ */
 export function isPolicyAutoPostable(v: EntitlementPolicyVersion): boolean {
   return (
     v.isActive &&
     v.jurisdiction === "MA" &&
-    (v.validationStatus === "hr_configured" ||
-      v.validationStatus === "guide_documented")
+    v.validationStatus === "hr_configured"
   );
 }

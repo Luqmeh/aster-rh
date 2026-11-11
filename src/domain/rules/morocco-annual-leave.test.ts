@@ -50,7 +50,7 @@ function emp(partial: Partial<Employee> & Pick<Employee, "id">): Employee {
 }
 
 describe("Loi 65-99 art. 231–238 annual leave", () => {
-  it("art. 231 adult rate 1.5 and minor rate 2", () => {
+  it("art. 231 adult rate 1.5 and minor rate 2 (statutory mode)", () => {
     expect(MA_ADULT_DAYS_PER_SERVICE_MONTH).toBe(1.5);
     expect(MA_MINOR_DAYS_PER_SERVICE_MONTH).toBe(2);
     const adult = computeMoroccoAnnualLeaveAccrual({
@@ -59,6 +59,7 @@ describe("Loi 65-99 art. 231–238 annual leave", () => {
       periodStart: "2026-11-01",
       periodEnd: "2026-11-30",
       publicHolidayDates: [],
+      rateMode: "statutory",
     });
     expect(adult.ratePerServiceMonth).toBe(1.5);
     expect(adult.isMinor).toBe(false);
@@ -69,6 +70,7 @@ describe("Loi 65-99 art. 231–238 annual leave", () => {
       periodStart: "2026-11-01",
       periodEnd: "2026-11-30",
       publicHolidayDates: [],
+      rateMode: "statutory",
     });
     expect(minor.isMinor).toBe(true);
     expect(minor.ratePerServiceMonth).toBe(2);
@@ -116,20 +118,39 @@ describe("Loi 65-99 art. 231–238 annual leave", () => {
     expect(periods).toBeGreaterThanOrEqual(3);
   });
 
-  it("art. 238-2 full-time 44h month ≈ 1 service month → ~1.5 days (+ seniority)", () => {
+  it("company mode uses 2 j/mois total (not 1.5+2) and keeps statutory visible", () => {
     const calc = computeMoroccoAnnualLeaveAccrual({
       employee: emp({ id: "ft", hireDate: "2020-01-01", weeklyContractHours: 44 }),
       asOfDate: "2026-11-30",
       periodStart: "2026-11-01",
       periodEnd: "2026-11-30",
       publicHolidayDates: [],
+      rateMode: "company",
     });
+    expect(calc.statutoryRatePerServiceMonth).toBe(1.5);
+    expect(calc.companyRatePerServiceMonth).toBe(2);
+    expect(calc.ratePerServiceMonth).toBe(2);
     expect(calc.serviceMonthBasis).toBe("full_time_hours_equivalence_art238_2");
     expect(calc.serviceMonthsInPeriod).toBe(1);
     expect(calc.sixMonthEligibilityMet).toBe(true);
     expect(calc.calculationStatus).toBe("calculated");
-    // 1+ five-year periods since 2020 → annual > 18, monthly > 1.5
     expect(calc.periodCreditDays).toBeCloseTo(calc.annualEntitlementDays / 12, 4);
+    expect(calc.annualEntitlementDays).toBeGreaterThanOrEqual(24);
+    expect(calc.statutoryAnnualEntitlementDays).toBeLessThan(
+      calc.annualEntitlementDays,
+    );
+  });
+
+  it("statutory mode keeps adult 1.5 j/mois", () => {
+    const calc = computeMoroccoAnnualLeaveAccrual({
+      employee: emp({ id: "st", hireDate: "2020-01-01", weeklyContractHours: 44 }),
+      asOfDate: "2026-11-30",
+      periodStart: "2026-11-01",
+      periodEnd: "2026-11-30",
+      publicHolidayDates: [],
+      rateMode: "statutory",
+    });
+    expect(calc.ratePerServiceMonth).toBe(1.5);
     expect((44 * 52) / 12).toBeCloseTo(MA_HOURS_PER_SERVICE_MONTH_NON_AGRI, 0);
   });
 

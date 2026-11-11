@@ -46,15 +46,15 @@ export function usesLeaveBalance(type: LeaveType): boolean {
 }
 
 /**
- * Ouvertures démo uniquement — indépendant de cadre/non-cadre (non déterminant MA).
- * Congé annuel baseline proposée 18 j ; RTT = 0 (pas de RTT statutaire Maroc auto).
+ * Ouvertures démo / seed uniquement — indépendant de cadre/non-cadre.
+ * CP = 24 j (pratique entreprise 2 j/mois × 12) — À valider RH ; RTT = 0 (pas d’acquisition MA auto).
  */
 export function defaultAnnualEntitlement(_category?: string): {
   congesPayes: number;
   rtt: number;
 } {
   void _category;
-  return { congesPayes: 18, rtt: 0 };
+  return { congesPayes: 24, rtt: 0 };
 }
 
 export function remainingBalanceForType(
@@ -85,15 +85,17 @@ export function assertSufficientBalance(
 }
 
 /**
- * Calcul simplifié de jours ouvrés (lun–ven) pour la démo.
- * Ne remplace pas un moteur calendaire RH (jours fériés, conventions locales).
+ * Jours ouvrés lun–ven, hors week-end et hors jours exclus (fériés Maroc / corrections entreprise).
+ * Demi-journées début/fin. Week-end site (ven–sam) : À valider RH.
  */
 export function countBusinessDays(
   startDate: string,
   endDate: string,
   halfDayStart: boolean,
   halfDayEnd: boolean,
+  excludedDates: string[] = [],
 ): number {
+  const excluded = new Set(excludedDates);
   const start = parseDateOnly(startDate);
   const end = parseDateOnly(endDate);
   if (end < start) return 0;
@@ -102,7 +104,11 @@ export function countBusinessDays(
   const cursor = new Date(start);
   while (cursor <= end) {
     const dow = cursor.getUTCDay();
-    if (dow !== 0 && dow !== 6) days += 1;
+    const y = cursor.getUTCFullYear();
+    const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getUTCDate()).padStart(2, "0");
+    const iso = `${y}-${m}-${d}`;
+    if (dow !== 0 && dow !== 6 && !excluded.has(iso)) days += 1;
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 

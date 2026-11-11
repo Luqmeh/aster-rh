@@ -45,15 +45,13 @@
 
 ## 3. Modèle de calcul ASTER (implémenté)
 
-1. **Taux** art. 231 : 1,5 (adulte) ou 2 (<18 si `birthDate`).
-2. **Annuel** art. 232 : `min(30, taux×12 + 1,5×⌊années/5⌋)`.
-3. **Mois de service sur la période** art. 238 :
-   - heures saisies / 191 (ou 208 agricole) ; sinon
-   - temps plein non TP avec `weeklyContractHours` dont équivalent mensuel ≥ seuil → **1,0 mois** ; sinon
-   - jours de travail effectif (art. 236) / 26.
-4. **Crédit période** = mois de service × (annuel / 12).
-5. **Posting auto** uniquement si : politique MA `guide_documented`/`hr_configured`, statut `calculated`, **≥ 6 mois** de service continu, quantité > 0.
-6. **Ledger** : compte `conges_payes_en_acquisition`, `transactionType=accrual`, clés d’idempotence inchangées.
+1. **Statutaire** art. 231 : 1,5 (adulte) / 2 (<18) — politique `MA_ANNUAL_LEAVE_STATUTORY` (référence).
+2. **Entreprise** : **2 j/mois** (`MA_ANNUAL_LEAVE_COMPANY`) = **total** applicable ASTER, **non cumulé** avec 1,5. Status `requires_hr_decision`.
+3. **Annuel applicable** art. 232 : `min(30, taux_applicable×12 + 1,5×⌊années/5⌋)`.
+4. **Mois de service** art. 238 : heures / 191|208 ; sinon équivalence temps plein ; sinon jours effectifs / 26.
+5. **Crédit période** = mois de service × (annuel applicable / 12).
+6. **Posting auto** uniquement si politique `hr_configured` + statut `calculated` + ≥ 6 mois — **pas** de bulk Production tant que l’entreprise n’est pas confirmée.
+7. **Ledger** append-only : `conges_payes_en_acquisition` / `accrual`.
 
 ## 4. Autres absences / télétravail / fériés
 

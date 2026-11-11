@@ -14,7 +14,7 @@ describe("entitlement service Phase 3 MA CAP", () => {
     resetEntitlementMemoryForTests();
   });
 
-  it("previews and posts idempotent MA accruals for eligible employees", async () => {
+  it("previews company CAP accruals but refuses auto-post until hr_configured", async () => {
     const leaveLedger = createLeaveLedgerService({ hr: demoHrRepository });
     const svc = createEntitlementService({
       hr: demoHrRepository,
@@ -27,25 +27,24 @@ describe("entitlement service Phase 3 MA CAP", () => {
       month: 10,
     });
     expect(batch.status).toBe("preview");
-    const postable = batch.lines.filter(
-      (l) => l.calculationStatus === "calculated" && l.quantity > 0,
+    const companyLines = batch.lines.filter(
+      (l) =>
+        l.policyCode === "MA_ANNUAL_LEAVE_COMPANY" &&
+        l.quantity > 0 &&
+        l.calculationStatus === "requires_hr_validation",
     );
-    expect(postable.length).toBeGreaterThan(0);
+    expect(companyLines.length).toBeGreaterThan(0);
 
     const first = await svc.postBatch(session, batch.id);
-    expect(first.posted).toBeGreaterThan(0);
-
-    const second = await svc.postBatch(session, batch.id);
-    expect(second.posted).toBe(0);
+    expect(first.posted).toBe(0);
 
     const accruals = (
       await demoHrRepository.listLeaveLedgerEntries({ year: 2026 })
     ).filter((e) => e.transactionType === "accrual");
-    expect(accruals.length).toBe(first.posted);
-    expect(new Set(accruals.map((e) => e.sourceId)).size).toBe(accruals.length);
+    expect(accruals.length).toBe(0);
   });
 
-  it("lists MA policy as guide_documented and FR inactive", () => {
+  it("lists company CAP awaiting HR and FR inactive", () => {
     const leaveLedger = createLeaveLedgerService({ hr: demoHrRepository });
     const svc = createEntitlementService({
       hr: demoHrRepository,
@@ -55,9 +54,12 @@ describe("entitlement service Phase 3 MA CAP", () => {
     expect(
       policies.filter((p) => p.jurisdiction === "FR").every((p) => !p.isActive),
     ).toBe(true);
-    const ma = policies.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY");
-    expect(ma?.validationStatus).toBe("guide_documented");
-    expect(ma?.isActive).toBe(true);
+    const company = policies.find(
+      (p) => p.policyCode === "MA_ANNUAL_LEAVE_COMPANY",
+    );
+    expect(company?.validationStatus).toBe("requires_hr_decision");
+    expect(company?.isActive).toBe(true);
+    expect(company?.rules.monthlyAccrualDays).toBe(2);
   });
 
   it("refuses collaborateur entitlement admin", async () => {

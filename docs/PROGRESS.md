@@ -2,60 +2,67 @@
 
 **Date :** 11 novembre 2026  
 **Branche :** `main`  
-**Phase :** Alignement fidélité présentation Conseil (`ASTER_Presentation_Conseil_FR_v2.pptx`)
+**Phase :** Audit & implémentation des calculs RH Maroc (post-alignement présentation `fb8101f`)
 
-> Rapport généré à neuf (ancien fichier supprimé). Aucune refonte des calculs d’acquisition légaux dans cette phase.
+> Rapport généré à neuf (ancien fichier supprimé). Matrice détaillée : `docs/CALCULATION_POLICY_MATRIX.md`.
 
-## 1. Implemented changes
+## 1. Implemented calculations
 
-Fidélité produit uniquement (terminologie, navigation, séparation des parcours, gouvernance affichée) :
+- **CAP dual-rate** : statutaire art. 231 (1,5 / 2) **et** entreprise **2 j/mois total** (non cumulés) ; ancienneté art. 232 sur la base applicable ; plafond 30.
+- **Politiques** : `MA_ANNUAL_LEAVE_STATUTORY` (référence) + `MA_ANNUAL_LEAVE_COMPANY` (`requires_hr_decision`) ; priorité entreprise en preview.
+- **Posting auto** : uniquement `validationStatus === hr_configured` (plus de posting via `guide_documented`).
+- **Jours de congé** : `countBusinessDays` exclut fériés Maroc + overrides entreprise ; demi-journées conservées.
+- **Soldes UI** : CP / RTT / récupération = `availableAfterReservations` (pending réserve, approval consomme 1× via ledger).
+- **Télétravail** : limites 2/12 centralisées et configurables (`ASTER_TELEWORK_MAX_DAYS_PER_*`).
+- **Récupération fériée** : règle produit 1 h = 1 h documentée ; distincte du régime légal à valider.
 
-- Navigation : « Congés et absences », « Recrutement / entretiens » (libellés PPT).
-- Statuts UI : `en_attente_rh` affiché « En attente de validation » (plus « En attente RH »).
-- Congés : libellés « Congés payés » / « RTT » ; demi-journées conservées ; **maladie retirée** du formulaire → lien vers `/absences`.
-- Compteur « Catégorie cadre » remplacé par **Récupération restants** sur `/conges`.
-- Télétravail : message règles produit **2 j/semaine · 12 j/mois** (paramétrables) sans primauté « guide p.106 ».
-- Profil / annuaire : plus de badge Cadre/Non-cadre forcé si `non_applicable`.
-- Modules non opérationnels : rémunération / temps de travail sans promesse paie ou cadre FR.
-- Administration RH : lien explicite Reporting pour historiques ; RH sans boutons de décision.
-- Docs : `PRESENTATION_ALIGNMENT.md`, `ASTER_SCOPE.md`, correction `HR_REQUIREMENTS.md` (RH sans validation managériale).
+## 2. Modified files
 
-**Non modifié :** moteur CAP Maroc, ledger append-only, accruals, migrations, seed Production.
+- `src/domain/rules/morocco-annual-leave.ts` (+ tests)
+- `src/domain/rules/entitlement-policies.ts`, `entitlement-accrual.ts` (+ tests)
+- `src/domain/rules/leave.ts` (+ tests), `work-on-holiday.ts`, `telework-monthly.ts`
+- `src/domain/config/telework-limits.ts` (+ tests)
+- `src/application/services/leave-service.ts`, `entitlement-service.ts` (+ tests)
+- `src/domain/types/entitlement.ts` (`policyCode` sur lignes de lot)
+- `src/app/(app)/administration/droits-conges/page.tsx`
+- `docs/CALCULATION_POLICY_MATRIX.md`, `MOROCCO_HR_POLICY.md`, ce rapport
+- `.env.example`
 
-## 2. Files modified
+## 3. Database changes and migrations
 
-- `src/lib/navigation.ts`
-- `src/domain/rules/approvals.ts`, `leave.ts`
-- `src/domain/types/hr.ts` (commentaires)
-- `src/components/modules/leave-form.tsx`, `monthly-telework-planner.tsx`, `reporting-filters.tsx`
-- `src/app/(app)/conges/page.tsx`, `teletravail/page.tsx`, `profil/page.tsx`, `annuaire/[id]/page.tsx`, `administration/page.tsx`, `remuneration/page.tsx`, `temps-de-travail/page.tsx`
-- `docs/PRESENTATION_ALIGNMENT.md` (nouveau), `ASTER_SCOPE.md`, `HR_REQUIREMENTS.md`, ce rapport
+**Aucune migration** dans cette phase. Aucun rewrite ledger. Aucun bulk accrual Production.
 
-## 3. Tests and validation results
+## 4. Tests and validation results
 
 | Check | Result |
 |-------|--------|
-| Vitest focused (permissions, approvals, leave, telework-monthly) — 33 tests | **PASS** |
+| Vitest focused (54 tests, 8 files) | **PASS** |
 | `tsc --noEmit` | **PASS** |
 | `npm run lint` | **PASS** |
-| `npm run build` (`ASTER_BUILD_WITHOUT_DB=1`) | **PASS** |
+| `npm run build` (offline) | **PASS** |
 
-## 4. Known issues
+## 5. Known issues
 
-- Captures PPT avec sites FR / badge Cadre vs données démo Maroc actuelles.
-- Recrutement opérationnel alors que certaines captures le marquent « BIENTÔT » (slide 13 ne le classe pas hors périmètre).
-- Pas d’UI de configuration des plafonds télétravail (règles hardcodées 2/12).
-- Historique RH congés/télétravail principalement via Reporting, pas une liste dédiée Administration.
-- Compteur RTT affiché (fidélité PPT) sans règle d’acquisition Maroc spécifiée dans la présentation.
+- Week-end réel par site (ven–sam) non branché.
+- Art. 235 (extension congé si férié pendant absence) non implémenté.
+- Art. 239 assimilations absences non branchées.
+- Projection cache `LeaveBalance` reste nette ledger (sans pending) ; l’UI self-service utilise désormais les snapshots avec réservations.
 
-## 5. Outstanding policy decisions
+## 6. Unverified policies
 
-- Origine / alimentation du solde RTT Maroc (avantage employeur ? historique ?).
-- Paramétrage RH des plafonds télétravail (au-delà des 2/12 démontrés).
-- Liste complète des types « Congés et absences » vs catalogue Arrêts.
-- Traitement des écrans Recrutement dans le script de démo Conseil.
-- Toute règle de calcul non écrite dans le PPT (voir `PRESENTATION_ALIGNMENT.md` §3) — à valider avant phase calcul/légal.
+- Confirmation formelle du **2 j/mois entreprise** + passage `hr_configured`.
+- Interaction définitive ancienneté art. 232 sur base 24 j.
+- RTT Maroc (avantage employeur ?).
+- Plafonds congés spéciaux.
+- Régime légal complet du travail un jour férié (au-delà de 1 h = 1 h produit).
 
-## 6. Exact recommended next step
+## 7. Remaining work
 
-Valider avec le métier le **script de démonstration Conseil** (parcours Léa → Camille → Julien) sur l’instance déployée, en s’appuyant sur `docs/PRESENTATION_ALIGNMENT.md`, puis ouvrir une phase **séparée** de calculs/politiques uniquement pour les écarts de soldes explicitement listés au §3 (RTT, récupération, CAP) avec sources écrites — sans modifier le ledger historique.
+1. RH confirme politique entreprise → `hr_configured`.
+2. Pilote preview/post contrôlé (pas de bulk).
+3. Brancher timesheet pour TP / art. 238-2.
+4. Art. 235 / 239 si validés.
+
+## 8. Exact next recommended step
+
+Faire valider par RH le document `docs/CALCULATION_POLICY_MATRIX.md` (ligne CAP entreprise 2 j/mois), puis basculer `MA_ANNUAL_LEAVE_COMPANY.validationStatus` à `hr_configured` **uniquement** après confirmation écrite — sans lancer d’accrual Production automatique.

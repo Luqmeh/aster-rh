@@ -148,6 +148,7 @@ export type AccrualLine = {
   employeeId: string;
   account: LeaveLedgerAccount;
   policyVersionId: string | null;
+  policyCode: string | null;
   periodKey: string;
   quantity: number;
   calculationStatus: CalculationStatus;

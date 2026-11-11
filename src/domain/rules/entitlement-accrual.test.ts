@@ -48,18 +48,29 @@ describe("Morocco entitlement preview wiring", () => {
     ).toBe(true);
   });
 
-  it("posts MA statutory policy when guide_documented and eligibility met", () => {
-    const ma = policies.find((p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY")!;
-    expect(isPolicyAutoPostable(ma)).toBe(true);
+  it("previews company 2 j/mois CAP without auto-post until hr_configured", () => {
+    const company = policies.find(
+      (p) => p.policyCode === "MA_ANNUAL_LEAVE_COMPANY",
+    )!;
+    expect(company.validationStatus).toBe("requires_hr_decision");
+    expect(isPolicyAutoPostable(company)).toBe(false);
     const line = previewMonthlyCpAccrual({
       employee: emp({ id: "ok" }),
       period: buildMonthlyPeriod(2026, 11),
       policies,
       publicHolidayDates: [],
     });
-    expect(line?.calculationStatus).toBe("calculated");
+    expect(line?.policyCode).toBe("MA_ANNUAL_LEAVE_COMPANY");
+    expect(line?.calculationStatus).toBe("requires_hr_validation");
     expect(line?.quantity).toBeGreaterThan(0);
-    expect(line?.explanation).toMatch(/231|238/);
+    expect(line?.explanation).toMatch(/entreprise 2|company|2 j/i);
+  });
+
+  it("does not auto-post statutory alone (hr_configured required)", () => {
+    const statutory = policies.find(
+      (p) => p.policyCode === "MA_ANNUAL_LEAVE_STATUTORY",
+    )!;
+    expect(isPolicyAutoPostable(statutory)).toBe(false);
   });
 
   it("does not use cadre/non-cadre for entitlement", () => {

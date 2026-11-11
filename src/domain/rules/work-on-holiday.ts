@@ -22,16 +22,22 @@ export function workOnHolidayStatusLabel(status: WorkOnHolidayStatus): string {
 }
 
 /**
- * Conversion heures → jours fractionnaires selon l'horaire journalier du collaborateur.
- * HYPOTHÈSE DÉMO produit ASTER — pas une règle guide PKF.
+ * Règle produit ASTER (présentation Conseil) : 1 h confirmée travaillée
+ * un jour férié = 1 h de récupération, convertie en jours via l'horaire journalier.
+ *
+ * Ce n’est **pas** le régime légal complet du travail un jour férié au Maroc
+ * (majoration / repos — À valider juridiquement). Pas de règles FR.
  */
+export const ASTER_HOLIDAY_WORK_RECOVERY_RATIO_HOURS = 1;
+
 export function hoursToRecoveryDays(
   hours: number,
   standardDailyHours: number,
 ): number {
   if (hours <= 0) return 0;
+  const creditedHours = hours * ASTER_HOLIDAY_WORK_RECOVERY_RATIO_HOURS;
   const daily = standardDailyHours > 0 ? standardDailyHours : 7;
-  return Math.round((hours / daily) * 1000) / 1000;
+  return Math.round((creditedHours / daily) * 1000) / 1000;
 }
 
 export function resolveStandardDailyHours(employee: Employee): number {

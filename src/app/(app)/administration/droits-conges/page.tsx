@@ -51,7 +51,7 @@ export default async function DroitsCongesPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Droits à congés & acquisitions"
-        description="CAP Maroc (Loi 65-99 art. 231–240) — preview avant posting. Politiques FR désactivées. Ledger append-only."
+        description="CAP Maroc : minimum statutaire 1,5 j/mois + politique entreprise 2 j/mois (total, non cumulés). Preview sans posting auto tant que RH n’a pas confirmé (hr_configured). Ledger append-only."
         actions={
           <Button asChild size="sm" variant="secondary">
             <Link href="/administration">Retour administration</Link>

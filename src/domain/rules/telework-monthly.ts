@@ -1,5 +1,17 @@
+/**
+ * Règles télétravail mensuel — politique **produit** paramétrable (présentation Conseil).
+ * Ce ne sont pas des obligations du Code du travail marocain.
+ * Valeurs par défaut : 2 j/semaine, 12 j/mois — surchargables via ASTER_TELEWORK_*.
+ */
+
 import { z } from "zod";
 import {
+  MAX_TELEWORK_DAYS_PER_MONTH as DEFAULT_MAX_MONTH,
+  MAX_TELEWORK_DAYS_PER_WEEK as DEFAULT_MAX_WEEK,
+  type TeleworkLimits,
+} from "@/domain/config/telework-limits";
+import {
+  expandDateRange,
   groupWeekdaysByIsoWeek,
   isDateOnly,
   isMonthKey,
@@ -9,17 +21,9 @@ import {
   monthKeyFromDate,
 } from "@/domain/rules/dates";
 import type { Employee, LeaveRequest, RequestStatus } from "@/domain/types/hr";
-import { expandDateRange } from "@/domain/rules/dates";
 
-/**
- * Règles télétravail mensuel — politique **produit** paramétrable (présentation Conseil).
- * Ce ne sont pas des obligations du Code du travail marocain.
- * Valeurs par défaut alignées sur la démo : 2 j/semaine, 12 j/mois.
- * Confirmation département Maroc requise (docs/MOROCCO_HR_POLICY.md).
- */
-
-export const MAX_TELEWORK_DAYS_PER_WEEK = 2;
-export const MAX_TELEWORK_DAYS_PER_MONTH = 12;
+export const MAX_TELEWORK_DAYS_PER_WEEK = DEFAULT_MAX_WEEK;
+export const MAX_TELEWORK_DAYS_PER_MONTH = DEFAULT_MAX_MONTH;
 
 export const monthlyTeleworkPlanInputSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
@@ -67,7 +71,10 @@ export function validateMonthlyTeleworkPlan(
   month: string,
   days: string[],
   approvedLeave: LeaveRequest[] = [],
+  limits?: Pick<TeleworkLimits, "maxDaysPerWeek" | "maxDaysPerMonth">,
 ): MonthlyPlanValidationOk | MonthlyPlanValidationErr {
+  const maxWeek = limits?.maxDaysPerWeek ?? MAX_TELEWORK_DAYS_PER_WEEK;
+  const maxMonth = limits?.maxDaysPerMonth ?? MAX_TELEWORK_DAYS_PER_MONTH;
   if (!isMonthKey(month)) {
     return { ok: false, message: "Le mois sélectionné est invalide." };
   }
@@ -102,10 +109,10 @@ export function validateMonthlyTeleworkPlan(
     }
   }
 
-  if (unique.length > MAX_TELEWORK_DAYS_PER_MONTH) {
+  if (unique.length > maxMonth) {
     return {
       ok: false,
-      message: `Le plafond est de ${MAX_TELEWORK_DAYS_PER_MONTH} jours de télétravail par mois (politique produit paramétrable).`,
+      message: `Le plafond est de ${maxMonth} jours de télétravail par mois (politique produit paramétrable).`,
     };
   }
 
@@ -115,10 +122,10 @@ export function validateMonthlyTeleworkPlan(
     byWeek[week] = [...(byWeek[week] ?? []), day];
   }
   for (const [week, weekDays] of Object.entries(byWeek)) {
-    if (weekDays.length > MAX_TELEWORK_DAYS_PER_WEEK) {
+    if (weekDays.length > maxWeek) {
       return {
         ok: false,
-        message: `Maximum ${MAX_TELEWORK_DAYS_PER_WEEK} jours de télétravail par semaine (semaine ${week}).`,
+        message: `Maximum ${maxWeek} jours de télétravail par semaine (semaine ${week}).`,
       };
     }
   }

@@ -160,6 +160,7 @@ export function createEntitlementService(deps: {
         periodStart: asOfDate.slice(0, 8) + "01",
         periodEnd: asOfDate,
         publicHolidayDates: [],
+        rateMode: "company",
       });
       statuses.push(sample.calculationStatus);
       warnings.push(...sample.warnings);
@@ -255,6 +256,7 @@ export function createEntitlementService(deps: {
           employeeId: l.employeeId,
           account: l.account,
           policyVersionId: l.policyVersionId,
+          policyCode: l.policyCode,
           periodKey: l.periodKey,
           quantity: l.quantity,
           calculationStatus: l.calculationStatus,

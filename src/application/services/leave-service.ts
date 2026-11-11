@@ -16,10 +16,27 @@ import {
   canApproveRequests,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
+import { mergeHolidaysWithOverrides } from "@/domain/rules/morocco-holidays";
 import { createLeaveLedgerService } from "@/application/services/leave-ledger-service";
 import type { AuthSession } from "@/infrastructure/auth/types";
 import type { EmailPort } from "@/infrastructure/email/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
+
+async function excludedHolidayDatesForRange(
+  hr: HrRepository,
+  startDate: string,
+  endDate: string,
+): Promise<string[]> {
+  const years = [
+    ...new Set([Number(startDate.slice(0, 4)), Number(endDate.slice(0, 4))]),
+  ];
+  const overrides = (
+    await Promise.all(years.map((y) => hr.listHolidayOverrides(y)))
+  ).flat();
+  return mergeHolidaysWithOverrides(years, overrides)
+    .map((h) => h.date)
+    .filter((d) => d >= startDate && d <= endDate);
+}
 
 export function createLeaveService(deps: {
   hr: HrRepository;
@@ -51,32 +68,39 @@ export function createLeaveService(deps: {
     },
 
     async getBalance(session: AuthSession, year = 2026) {
-      const snaps = await ledger.getEmployeeBalances(
-        session,
-        session.employee.id,
-        year,
-      );
+      const [cp, rtt, recovery] = await Promise.all([
+        ledger.getBalanceForLeaveType(
+          session,
+          session.employee.id,
+          "conges_payes",
+          year,
+        ),
+        ledger.getBalanceForLeaveType(
+          session,
+          session.employee.id,
+          "rtt",
+          year,
+        ),
+        ledger.getBalanceForLeaveType(
+          session,
+          session.employee.id,
+          "recuperation",
+          year,
+        ),
+      ]);
       return {
         employeeId: session.employee.id,
         year,
-        congesPayesAcquis:
-          snaps.conges_payes.totalCredited +
-          (snaps.conges_payes_acquis?.totalCredited ?? 0) +
-          (snaps.conges_payes_en_acquisition?.totalCredited ?? 0),
-        congesPayesPris:
-          snaps.conges_payes.totalConsumed +
-          (snaps.conges_payes_acquis?.totalConsumed ?? 0) +
-          (snaps.conges_payes_en_acquisition?.totalConsumed ?? 0),
-        congesPayesRestants:
-          snaps.conges_payes.ledgerBalance +
-          (snaps.conges_payes_acquis?.ledgerBalance ?? 0) +
-          (snaps.conges_payes_en_acquisition?.ledgerBalance ?? 0),
-        rttAcquis: snaps.rtt.totalCredited,
-        rttPris: snaps.rtt.totalConsumed,
-        rttRestants: snaps.rtt.ledgerBalance,
-        recoveryDaysAcquis: snaps.recuperation.totalCredited,
-        recoveryDaysPris: snaps.recuperation.totalConsumed,
-        recoveryDaysRestants: snaps.recuperation.ledgerBalance,
+        congesPayesAcquis: cp?.totalCredited ?? 0,
+        congesPayesPris: cp?.totalConsumed ?? 0,
+        /** Disponible après réservations pending (source unique avec approbation). */
+        congesPayesRestants: cp?.availableAfterReservations ?? 0,
+        rttAcquis: rtt?.totalCredited ?? 0,
+        rttPris: rtt?.totalConsumed ?? 0,
+        rttRestants: rtt?.availableAfterReservations ?? 0,
+        recoveryDaysAcquis: recovery?.totalCredited ?? 0,
+        recoveryDaysPris: recovery?.totalConsumed ?? 0,
+        recoveryDaysRestants: recovery?.availableAfterReservations ?? 0,
       };
     },
 
@@ -85,11 +109,17 @@ export function createLeaveService(deps: {
         throw new Error("Collaborateur inactif — demande impossible.");
       }
       const input = leaveRequestInputSchema.parse(raw);
+      const holidays = await excludedHolidayDatesForRange(
+        deps.hr,
+        input.startDate,
+        input.endDate,
+      );
       const daysCount = countBusinessDays(
         input.startDate,
         input.endDate,
         input.halfDayStart,
         input.halfDayEnd,
+        holidays,
       );
       if (daysCount <= 0) {
         throw new Error("La période sélectionnée ne contient aucun jour ouvré.");

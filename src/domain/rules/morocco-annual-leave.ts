@@ -18,16 +18,25 @@ export const MA_LABOUR_CODE_SOURCE_URL =
 export const MA_LABOUR_CODE_CONSOLIDATED_DATE = "2011-10-26";
 export const MA_LABOUR_CODE_VERIFICATION_DATE = "2026-11-11";
 
-/** Art. 231 — adultes. */
+/** Art. 231 — adultes (minimum statutaire). */
 export const MA_ADULT_DAYS_PER_SERVICE_MONTH = 1.5;
-/** Art. 231 — moins de 18 ans. */
+/** Art. 231 — moins de 18 ans (minimum statutaire). */
 export const MA_MINOR_DAYS_PER_SERVICE_MONTH = 2;
+/**
+ * Pratique entreprise ASTER (département Maroc) : 2 j / mois de service.
+ * Total d’entreprise — **pas** un complément au-dessus du 1,5 statutaire.
+ * À confirmer formellement par RH avant posting Production.
+ */
+export const MA_COMPANY_DAYS_PER_SERVICE_MONTH = 2;
 /** Art. 232 — plafond total. */
 export const MA_MAX_ANNUAL_LEAVE_DAYS = 30;
 /** Art. 232 — majoration par période entière de 5 ans. */
 export const MA_SENIORITY_DAYS_PER_FIVE_YEARS = 1.5;
 /** Art. 231 — condition d'ouverture du droit. */
 export const MA_CONTINUOUS_SERVICE_MONTHS_BEFORE_ENTITLEMENT = 6;
+
+/** Mode de taux applicable pour l’acquisition. */
+export type MaAccrualRateMode = "statutory" | "company";
 /** Art. 238-1. */
 export const MA_EFFECTIVE_DAYS_PER_SERVICE_MONTH = 26;
 /** Art. 238-2 — activités non agricoles. */
@@ -56,6 +65,11 @@ export type MaAnnualLeaveInputs = {
   hoursWorkedInPeriod?: number | null;
   /** Override secteur ; défaut employee.activitySector ?? non_agricole. */
   activitySector?: MaActivitySector;
+  /**
+   * `company` (défaut ASTER) = 2 j/mois entreprise (total, non cumulé au 1,5).
+   * `statutory` = minimum légal art. 231 uniquement.
+   */
+  rateMode?: MaAccrualRateMode;
 };
 
 export type MaServiceMonthBasis =
@@ -65,13 +79,21 @@ export type MaServiceMonthBasis =
   | "unavailable";
 
 export type MaAnnualLeaveCalculation = {
+  /** Taux réellement appliqué (après max statutaire / entreprise). */
   ratePerServiceMonth: number;
+  /** Minimum statutaire art. 231 pour la population. */
+  statutoryRatePerServiceMonth: number;
+  /** Taux entreprise configuré (2 j/mois) — indépendant du statutaire. */
+  companyRatePerServiceMonth: number;
+  rateMode: MaAccrualRateMode;
   isMinor: boolean;
   continuousServiceMonthsAtAsOf: number;
   sixMonthEligibilityMet: boolean;
   completeFiveYearPeriods: number;
   seniorityBonusDays: number;
   baseAnnualDays: number;
+  /** Annuel statutaire seul (sans taux entreprise). */
+  statutoryAnnualEntitlementDays: number;
   annualEntitlementDays: number;
   serviceMonthsInPeriod: number;
   serviceMonthBasis: MaServiceMonthBasis;
@@ -219,6 +241,7 @@ export function computeMoroccoAnnualLeaveAccrual(
     periodEnd,
     publicHolidayDates,
     hoursWorkedInPeriod = null,
+    rateMode = "company",
   } = input;
   const sector: MaActivitySector =
     input.activitySector ??
@@ -241,12 +264,24 @@ export function computeMoroccoAnnualLeaveAccrual(
   const isMinor = age != null && age < 18;
   if (age == null) {
     warnings.push(
-      "Date de naissance absente — régime adulte (1,5 j/mois) appliqué par défaut (art. 231). Renseigner birthDate pour le régime moins de 18 ans.",
+      "Date de naissance absente — régime adulte statutaire (1,5 j/mois) pour le plancher légal. Renseigner birthDate pour le régime moins de 18 ans.",
     );
   }
-  const ratePerServiceMonth = isMinor
+  const statutoryRatePerServiceMonth = isMinor
     ? MA_MINOR_DAYS_PER_SERVICE_MONTH
     : MA_ADULT_DAYS_PER_SERVICE_MONTH;
+  const companyRatePerServiceMonth = MA_COMPANY_DAYS_PER_SERVICE_MONTH;
+  // Entreprise = total plus favorable, jamais sous le plancher statutaire ; jamais 1,5+2.
+  const ratePerServiceMonth =
+    rateMode === "statutory"
+      ? statutoryRatePerServiceMonth
+      : Math.max(companyRatePerServiceMonth, statutoryRatePerServiceMonth);
+
+  if (rateMode === "company") {
+    warnings.push(
+      "Taux entreprise 2 j/mois (total ASTER) — distinct du minimum statutaire 1,5 j/mois adulte. À confirmer par RH avant posting Production.",
+    );
+  }
 
   const serviceMonthsAtAsOf = continuousServiceMonths(
     employee.hireDate,
@@ -265,6 +300,10 @@ export function computeMoroccoAnnualLeaveAccrual(
   const seniorityBonusDays =
     completeFiveYearPeriods * MA_SENIORITY_DAYS_PER_FIVE_YEARS;
   const baseAnnualDays = ratePerServiceMonth * 12;
+  const statutoryAnnualEntitlementDays = annualEntitlementDays({
+    ratePerServiceMonth: statutoryRatePerServiceMonth,
+    completeFiveYearPeriods,
+  });
   const annualEntitlementDaysValue = annualEntitlementDays({
     ratePerServiceMonth,
     completeFiveYearPeriods,
@@ -274,12 +313,16 @@ export function computeMoroccoAnnualLeaveAccrual(
   if (!overlap) {
     return {
       ratePerServiceMonth,
+      statutoryRatePerServiceMonth,
+      companyRatePerServiceMonth,
+      rateMode,
       isMinor,
       continuousServiceMonthsAtAsOf: serviceMonthsAtAsOf,
       sixMonthEligibilityMet,
       completeFiveYearPeriods,
       seniorityBonusDays,
       baseAnnualDays,
+      statutoryAnnualEntitlementDays,
       annualEntitlementDays: annualEntitlementDaysValue,
       serviceMonthsInPeriod: 0,
       serviceMonthBasis: "unavailable",
@@ -389,20 +432,26 @@ export function computeMoroccoAnnualLeaveAccrual(
 
   const explanation = [
     `CAP Maroc : crédit période ${computedCredit} j (${serviceMonthsInPeriod.toFixed(4)} mois de service × ${monthlyFromAnnual.toFixed(4)} j ; annuel plafonné ${annualEntitlementDaysValue} j dont ancienneté art. 232 = ${seniorityBonusDays} j).`,
-    `Postable auto : ${postable ? "oui" : "non"}.`,
-    `Taux art. 231 : ${ratePerServiceMonth} j / mois de service (${isMinor ? "moins de 18 ans" : "adulte"}).`,
+    `Mode ${rateMode} : applicable ${ratePerServiceMonth} j/mois (statutaire ${statutoryRatePerServiceMonth} ; entreprise ${companyRatePerServiceMonth} — non cumulés).`,
+    `Annuel statutaire seul : ${statutoryAnnualEntitlementDays} j.`,
+    `Postable auto (moteur) : ${postable ? "oui" : "non"} — posting Production soumis à confirmation RH de la politique applicable.`,
+    `Population : ${isMinor ? "moins de 18 ans" : "adulte"}.`,
     `Base de mesure : ${serviceMonthBasis}.`,
     `Éligibilité 6 mois : ${sixMonthEligibilityMet ? "oui" : "non"} (${serviceMonthsAtAsOf} mois).`,
   ].join(" ");
 
   return {
     ratePerServiceMonth,
+    statutoryRatePerServiceMonth,
+    companyRatePerServiceMonth,
+    rateMode,
     isMinor,
     continuousServiceMonthsAtAsOf: serviceMonthsAtAsOf,
     sixMonthEligibilityMet,
     completeFiveYearPeriods,
     seniorityBonusDays,
     baseAnnualDays,
+    statutoryAnnualEntitlementDays,
     annualEntitlementDays: annualEntitlementDaysValue,
     serviceMonthsInPeriod:
       Math.round(serviceMonthsInPeriod * 10000) / 10000,
