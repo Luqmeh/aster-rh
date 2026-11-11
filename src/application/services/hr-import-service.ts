@@ -28,6 +28,7 @@ import {
   HR_IMPORT_OPENING_SOURCE_KIND,
   HR_IMPORT_TEMPLATE_VERSION,
   HR_IMPORT_TYPE_EMPLOYEES_BALANCES,
+  canCancelImportBatch,
   canRetryImportExecution,
   importOpeningSourceId,
   isPendingImportEmail,
@@ -498,6 +499,63 @@ export function createHrImportService(deps: {
       });
     },
 
+    /**
+     * Abandonne un lot non exécuté : statut cancelled, purge du classeur temporaire.
+     * N'écrit jamais employés / comptes / ledger. Idempotent si déjà cancelled.
+     */
+    async cancelBatch(
+      session: AuthSession,
+      batchId: string,
+    ): Promise<HrImportBatch> {
+      assertCanExecute(session);
+      const existing = await getHrImportBatch(batchId);
+      if (!existing) throw new AuthError("Lot d'import introuvable.", 404);
+
+      if (existing.status === "cancelled") {
+        return existing;
+      }
+      if (existing.status === "executing") {
+        throw new Error(
+          "Lot en cours d'exécution — abandon impossible. Utilisez la récupération si bloqué.",
+        );
+      }
+      if (
+        existing.status === "completed" ||
+        existing.status === "completed_with_errors"
+      ) {
+        throw new Error("Lot déjà exécuté — abandon impossible.");
+      }
+      if (!canCancelImportBatch(existing.status)) {
+        throw new Error("Ce lot ne peut pas être abandonné.");
+      }
+
+      const storageKey = existing.storageKey;
+      if (storageKey && deps.storage?.deleteObject) {
+        try {
+          await deps.storage.deleteObject(storageKey);
+        } catch {
+          // La purge stockage est best-effort ; l'audit lot reste prioritaire.
+        }
+      }
+      parseCache().parsed.delete(existing.id);
+      await deleteHrImportWorkbook(existing.id);
+
+      const now = new Date().toISOString();
+      return saveHrImportBatch({
+        ...existing,
+        status: "cancelled",
+        storageKey: null,
+        // Purge des brouillons nominatifs ; conserve le résumé pour l'audit.
+        employeeDrafts: [],
+        balanceDrafts: [],
+        headersBySheet: {},
+        failureSummary: "Import abandonné par RH avant exécution.",
+        errorMessage:
+          "Import abandonné — aucun collaborateur, compte ni solde créé.",
+        updatedAt: now,
+      });
+    },
+
     async confirmAndExecute(
       session: AuthSession,
       input: { batchId: string; confirmationPhrase: string },
@@ -505,6 +563,9 @@ export function createHrImportService(deps: {
       assertCanExecute(session);
       const existing = await getHrImportBatch(input.batchId);
       if (!existing) throw new AuthError("Lot d'import introuvable.", 404);
+      if (existing.status === "cancelled") {
+        throw new Error("Lot abandonné — exécution refusée.");
+      }
       if (isTerminalImportStatus(existing.status)) {
         throw new Error("Lot déjà exécuté — réexécution refusée (idempotence).");
       }

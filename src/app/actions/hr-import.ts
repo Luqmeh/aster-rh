@@ -142,3 +142,20 @@ export async function executeHrImportAction(
     );
   }
 }
+
+export async function cancelHrImportAction(
+  formData: FormData,
+): Promise<HrImportActionResult> {
+  try {
+    const { session, importService } = await sessionOrThrow();
+    const batchId = String(formData.get("batchId") ?? "");
+    if (!batchId.trim()) {
+      return { ok: false, message: "Lot d'import manquant." };
+    }
+    await importService.cancelBatch(session, batchId);
+    revalidateImport();
+    return { ok: true, batchId };
+  } catch (error) {
+    return toError(error, "Abandon de l'import impossible.");
+  }
+}

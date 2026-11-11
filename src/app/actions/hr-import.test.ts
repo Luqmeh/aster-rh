@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { testSessionFor } from "@/infrastructure/auth/test-session";
 
 const confirmAndExecute = vi.fn();
+const cancelBatch = vi.fn();
 const downloadTemplate = vi.fn();
 const getSession = vi.fn();
 
@@ -19,6 +20,7 @@ vi.mock("@/infrastructure/container", () => ({
 vi.mock("@/application/services/hr-import-service", () => ({
   createHrImportService: () => ({
     confirmAndExecute,
+    cancelBatch,
     downloadTemplate,
     uploadWorkbook: vi.fn(),
     validateBatch: vi.fn(),
@@ -63,6 +65,31 @@ describe("hr-import actions — pas de throw métier (#441)", () => {
     await expect(executeHrImportAction(fd)).resolves.toEqual({
       ok: true,
       batchId: "batch-1",
+    });
+  });
+
+  it("cancelHrImportAction renvoie ok:true et délègue au service", async () => {
+    cancelBatch.mockResolvedValue({ id: "batch-1", status: "cancelled" });
+    const { cancelHrImportAction } = await import("@/app/actions/hr-import");
+    const fd = new FormData();
+    fd.set("batchId", "batch-1");
+    await expect(cancelHrImportAction(fd)).resolves.toEqual({
+      ok: true,
+      batchId: "batch-1",
+    });
+    expect(cancelBatch).toHaveBeenCalled();
+  });
+
+  it("cancelHrImportAction renvoie ok:false si le service refuse", async () => {
+    cancelBatch.mockRejectedValue(
+      new Error("Lot déjà exécuté — abandon impossible."),
+    );
+    const { cancelHrImportAction } = await import("@/app/actions/hr-import");
+    const fd = new FormData();
+    fd.set("batchId", "batch-done");
+    await expect(cancelHrImportAction(fd)).resolves.toEqual({
+      ok: false,
+      message: "Lot déjà exécuté — abandon impossible.",
     });
   });
 });

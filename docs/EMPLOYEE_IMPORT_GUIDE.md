@@ -95,10 +95,14 @@ Les classeurs ne sont **jamais** exposés publiquement (`imports/private/...`). 
 1. Télécharger le modèle officiel unique.
 2. Remplir **Collaborateurs** et **Soldes initiaux** (sans inventer d'e-mails ni de mots de passe ; sans rôles RH/Chef dans le fichier).
 3. Téléverser le `.xlsx`.
-4. Prévisualiser et corriger / re-téléverser si besoin.
+4. Prévisualiser et corriger / **Remplacer le fichier** si besoin.
 5. Option : **Mettre à jour les fiches existantes**.
-6. Confirmer avec la phrase **IMPORTER**.
-7. Consulter le rapport persisté (réconciliation + provisioning comptes).
+6. Décision RH :
+   - **Confirmer l'import** (phrase `IMPORTER`) — exécute créations / soldes / comptes.
+   - **Abandonner l'import** — dialogue de confirmation ; lot → `cancelled` ; aucun collaborateur, compte ni solde créé ; classeur temporaire purgé ; audit conservé.
+7. Consulter le rapport persisté (réconciliation + provisioning comptes) ou l'historique des lots.
+
+Un lot `cancelled`, `completed` ou `completed_with_errors` ne peut plus être exécuté. Un lot `executing` ne peut pas être abandonné (récupération → `failed` d'abord).
 
 ## Provisioning des comptes ASTER
 

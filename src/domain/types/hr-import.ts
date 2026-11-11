@@ -195,3 +195,14 @@ export function isTerminalImportStatus(status: HrImportBatchStatus): boolean {
 export function canRetryImportExecution(status: HrImportBatchStatus): boolean {
   return status === "awaiting_confirmation" || status === "failed";
 }
+
+/** Lots non exécutés pouvant être abandonnés (pas executing / terminaux). */
+export function canCancelImportBatch(status: HrImportBatchStatus): boolean {
+  return (
+    status === "uploaded" ||
+    status === "validating" ||
+    status === "validated" ||
+    status === "awaiting_confirmation" ||
+    status === "failed"
+  );
+}

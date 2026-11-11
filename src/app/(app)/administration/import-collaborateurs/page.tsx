@@ -6,6 +6,7 @@ import {
   canExecuteHrImport,
   canViewHrImport,
 } from "@/domain/rules/permissions";
+import { isTerminalImportStatus } from "@/domain/types/hr-import";
 import { getContainer } from "@/infrastructure/container";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -24,7 +25,9 @@ export default async function ImportCollaborateursPage() {
     email: container.email,
   });
   const batches = await importService.listBatches(session);
-  const latest = batches[0] ?? null;
+  // Prévisualisation = lot actif non terminal ; l'historique conserve cancelled / completed.
+  const activeBatch =
+    batches.find((b) => !isTerminalImportStatus(b.status)) ?? null;
   const canExecute = canExecuteHrImport(session.role);
 
   return (
@@ -38,7 +41,11 @@ export default async function ImportCollaborateursPage() {
           </Button>
         }
       />
-      <HrImportWizard canExecute={canExecute} latestBatch={latest} />
+      <HrImportWizard
+        canExecute={canExecute}
+        activeBatch={activeBatch}
+        recentBatches={batches.slice(0, 12)}
+      />
     </div>
   );
 }

@@ -181,6 +181,178 @@ describe("hr import service — official workbook", () => {
     expect(persisted?.executionReport?.balancesImported).toBe(3);
   });
 
+  it("cancels an unexecuted batch without writing employees, accounts or ledger", async () => {
+    const session = testSessionFor("emp-camille", "admin_rh");
+    const bytes = await buildFilledOfficialWorkbook({
+      employees: [
+        [
+          "emp-cancel-01",
+          "Test",
+          "Annule",
+          "annule.e2e@demo.aster-rh.local",
+          "AUD",
+          "Consultante",
+          "Casablanca (démo)",
+          "2024-02-01",
+          "CDI",
+          "Actif",
+          "",
+          "",
+          "",
+        ],
+      ],
+      balances: [
+        [
+          "emp-cancel-01",
+          "CP",
+          "3",
+          "Jours",
+          "2026-01-01",
+          "Inventaire",
+          "Soldes",
+          "Vérifié par RH",
+          "",
+        ],
+      ],
+    });
+    const uploaded = await svc().uploadWorkbook(session, {
+      fileName: "to-cancel.xlsx",
+      bytes,
+    });
+    const validated = await svc().validateBatch(session, {
+      batchId: uploaded.id,
+    });
+    expect(validated.status).toBe("awaiting_confirmation");
+
+    const employeesBefore = (await demoHrRepository.listEmployees()).length;
+    const ledgerBefore = (
+      await demoHrRepository.listLeaveLedgerEntries({ year: 2026 })
+    ).length;
+
+    const cancelled = await svc().cancelBatch(session, validated.id);
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.storageKey).toBeNull();
+    expect(cancelled.employeeDrafts).toEqual([]);
+    expect(cancelled.balanceDrafts).toEqual([]);
+
+    const again = await svc().cancelBatch(session, validated.id);
+    expect(again.status).toBe("cancelled");
+
+    await expect(
+      svc().confirmAndExecute(session, {
+        batchId: validated.id,
+        confirmationPhrase: "IMPORTER",
+      }),
+    ).rejects.toThrow(/abandonné|refusée/);
+
+    expect((await demoHrRepository.listEmployees()).length).toBe(
+      employeesBefore,
+    );
+    expect(
+      (await demoHrRepository.listLeaveLedgerEntries({ year: 2026 })).length,
+    ).toBe(ledgerBefore);
+    expect(await findAccountByEmployeeId("emp-cancel-01")).toBeNull();
+
+    const listed = await svc().listBatches(session);
+    expect(listed.some((b) => b.id === validated.id && b.status === "cancelled")).toBe(
+      true,
+    );
+  });
+
+  it("refuses cancel for chef / collaborateur and for completed or executing lots", async () => {
+    const rh = testSessionFor("emp-camille", "admin_rh");
+    const bytes = await buildFilledOfficialWorkbook({
+      employees: [
+        [
+          "emp-cancel-02",
+          "Chef",
+          "Block",
+          "chef.block@demo.aster-rh.local",
+          "AUD",
+          "Consultante",
+          "Casablanca (démo)",
+          "2024-02-01",
+          "CDI",
+          "Actif",
+          "",
+          "",
+          "",
+        ],
+      ],
+      balances: [],
+    });
+    const batch = await svc().uploadWorkbook(rh, {
+      fileName: "perm.xlsx",
+      bytes,
+    });
+    await svc().validateBatch(rh, { batchId: batch.id });
+
+    await expect(
+      svc().cancelBatch(testSessionFor("emp-julien", "chef_de_projet"), batch.id),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      svc().cancelBatch(testSessionFor("emp-lea", "collaborateur"), batch.id),
+    ).rejects.toMatchObject({ status: 403 });
+
+    const doneBytes = await buildFilledOfficialWorkbook({
+      employees: [
+        [
+          "emp-cancel-03",
+          "Done",
+          "Batch",
+          "done.batch@demo.aster-rh.local",
+          "AUD",
+          "Consultante",
+          "Casablanca (démo)",
+          "2024-02-01",
+          "CDI",
+          "Actif",
+          "",
+          "",
+          "",
+        ],
+      ],
+      balances: [
+        [
+          "emp-cancel-03",
+          "CP",
+          "1",
+          "Jours",
+          "2026-01-01",
+          "Inventaire",
+          "Soldes",
+          "Vérifié par RH",
+          "",
+        ],
+      ],
+    });
+    const doneUpload = await svc().uploadWorkbook(rh, {
+      fileName: "done.xlsx",
+      bytes: doneBytes,
+    });
+    await svc().validateBatch(rh, { batchId: doneUpload.id });
+    await svc().confirmAndExecute(rh, {
+      batchId: doneUpload.id,
+      confirmationPhrase: "IMPORTER",
+    });
+    await expect(svc().cancelBatch(rh, doneUpload.id)).rejects.toThrow(
+      /déjà exécuté/,
+    );
+
+    const executingId = (
+      await svc().uploadWorkbook(rh, { fileName: "exec.xlsx", bytes })
+    ).id;
+    await svc().validateBatch(rh, { batchId: executingId });
+    const { saveHrImportBatch, getHrImportBatch } = await import(
+      "@/infrastructure/persistence/hr-import-batch-store"
+    );
+    const current = await getHrImportBatch(executingId);
+    await saveHrImportBatch({ ...current!, status: "executing" });
+    await expect(svc().cancelBatch(rh, executingId)).rejects.toThrow(
+      /en cours d'exécution/,
+    );
+  });
+
   it("keeps invalid batches in validated (no IMPORTER) and blocks confirm", async () => {
     const session = testSessionFor("emp-camille", "admin_rh");
     const bytes = await buildFilledOfficialWorkbook({

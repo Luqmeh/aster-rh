@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
+  cancelHrImportAction,
   downloadHrImportReportAction,
   downloadHrImportTemplateAction,
   executeHrImportAction,
@@ -11,7 +13,10 @@ import {
 } from "@/app/actions/hr-import";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { HrImportBatch } from "@/domain/types/hr-import";
+import {
+  canCancelImportBatch,
+  type HrImportBatch,
+} from "@/domain/types/hr-import";
 import { useRouter } from "next/navigation";
 
 function downloadBase64(fileName: string, base64: string) {
@@ -40,21 +45,28 @@ function assertOk(res: HrImportActionResult): asserts res is Extract<
 
 export function HrImportWizard({
   canExecute,
-  latestBatch,
+  activeBatch,
+  recentBatches,
 }: {
   canExecute: boolean;
-  latestBatch: HrImportBatch | null;
+  activeBatch: HrImportBatch | null;
+  recentBatches: HrImportBatch[];
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const batch = latestBatch;
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const batch = activeBatch;
   const canRecalculate =
     canExecute &&
-    (batch?.status === "awaiting_confirmation" || batch?.status === "validated");
+    (batch?.status === "awaiting_confirmation" ||
+      batch?.status === "validated" ||
+      batch?.status === "failed");
   const canConfirm = canExecute && batch?.status === "awaiting_confirmation";
+  const canAbandon =
+    canExecute && batch != null && canCancelImportBatch(batch.status);
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -105,7 +117,9 @@ export function HrImportWizard({
       {canExecute ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">2. Téléverser le classeur</CardTitle>
+            <CardTitle className="text-base">
+              2. {batch ? "Remplacer le fichier" : "Téléverser le classeur"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <input
@@ -127,16 +141,21 @@ export function HrImportWizard({
                   const res = await uploadHrImportAction(fd);
                   assertOk(res);
                   setMessage(
-                    `Lot ${res.batchId} analysé — prévisualisation prête.`,
+                    batch
+                      ? `Fichier remplacé — lot ${res.batchId} analysé.`
+                      : `Lot ${res.batchId} analysé — prévisualisation prête.`,
                   );
                 })
               }
             >
-              Analyser et prévisualiser
+              {batch ? "Remplacer et prévisualiser" : "Analyser et prévisualiser"}
             </Button>
             <p className="text-xs text-[var(--aster-muted)]">
               Formats acceptés : .xlsx · max 5 Mo. Les lignes invalides sont
               signalées et jamais ignorées silencieusement.
+              {batch
+                ? " Un nouveau téléversement crée un nouveau lot ; abandonnez l'ancien si besoin."
+                : null}
             </p>
           </CardContent>
         </Card>
@@ -160,9 +179,7 @@ export function HrImportWizard({
                 Fichier : <strong>{batch.fileName}</strong> · Statut :{" "}
                 <strong>{batch.status}</strong>
               </p>
-              <p>
-                Feuilles : {batch.worksheetNames.join(", ") || "—"}
-              </p>
+              <p>Feuilles : {batch.worksheetNames.join(", ") || "—"}</p>
               {batch.previewSummary ? (
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat
@@ -213,7 +230,12 @@ export function HrImportWizard({
                     <input type="checkbox" name="updateExisting" value="true" />
                     Mettre à jour les fiches existantes
                   </label>
-                  <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending}
+                  >
                     Recalculer
                   </Button>
                 </form>
@@ -240,7 +262,10 @@ export function HrImportWizard({
                   </thead>
                   <tbody>
                     {batch.employeeDrafts.slice(0, 30).map((r) => (
-                      <tr key={`e-${r.rowNumber}`} className="border-b align-top">
+                      <tr
+                        key={`e-${r.rowNumber}`}
+                        className="border-b align-top"
+                      >
                         <td className="py-1 pr-2">{r.rowNumber}</td>
                         <td className="py-1 pr-2 font-mono">{r.matricule}</td>
                         <td className="py-1 pr-2">{r.action}</td>
@@ -271,13 +296,18 @@ export function HrImportWizard({
                     </thead>
                     <tbody>
                       {batch.balanceDrafts.slice(0, 30).map((r) => (
-                        <tr key={`b-${r.rowNumber}`} className="border-b align-top">
+                        <tr
+                          key={`b-${r.rowNumber}`}
+                          className="border-b align-top"
+                        >
                           <td className="py-1 pr-2">{r.rowNumber}</td>
                           <td className="py-1 pr-2 font-mono">{r.matricule}</td>
                           <td className="py-1 pr-2">{r.cpDays ?? "—"}</td>
                           <td className="py-1 pr-2">{r.rttDays ?? "—"}</td>
                           <td className="py-1 pr-2">{r.balanceType ?? "—"}</td>
-                          <td className="py-1 pr-2">{r.recoveryHours ?? "—"}</td>
+                          <td className="py-1 pr-2">
+                            {r.recoveryHours ?? "—"}
+                          </td>
                           <td className="py-1 text-[var(--aster-muted)]">
                             {r.severity} · {r.messages.join(" · ")}
                           </td>
@@ -290,40 +320,62 @@ export function HrImportWizard({
             </CardContent>
           </Card>
 
-          {canConfirm ? (
+          {canConfirm || canAbandon ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">4. Confirmation RH</CardTitle>
+                <CardTitle className="text-base">4. Décision RH</CardTitle>
               </CardHeader>
-              <CardContent>
-                <form
-                  className="space-y-3"
-                  action={(fd) =>
-                    run(async () => {
-                      const res = await executeHrImportAction(fd);
-                      assertOk(res);
-                      setMessage("Import exécuté — voir le rapport ci-dessous.");
-                    })
-                  }
-                >
-                  <input type="hidden" name="batchId" value={batch.id} />
-                  <label className="block text-sm">
-                    Saisir <strong>IMPORTER</strong> pour confirmer
-                    <input
-                      name="confirmationPhrase"
-                      className="mt-1 w-full max-w-xs rounded border bg-background px-2 py-1.5"
-                      required
-                      autoComplete="off"
-                    />
-                  </label>
-                  <Button type="submit" size="sm" disabled={pending}>
-                    Exécuter l&apos;import contrôlé
-                  </Button>
-                  <p className="text-xs text-[var(--aster-muted)]">
-                    Les soldes sont écrits en ouvertures ledger append-only — pas
-                    de recalcul d&apos;acquisition historique.
-                  </p>
-                </form>
+              <CardContent className="space-y-4">
+                {canConfirm ? (
+                  <form
+                    className="space-y-3"
+                    action={(fd) =>
+                      run(async () => {
+                        const res = await executeHrImportAction(fd);
+                        assertOk(res);
+                        setMessage(
+                          "Import exécuté — voir le rapport ci-dessous.",
+                        );
+                      })
+                    }
+                  >
+                    <input type="hidden" name="batchId" value={batch.id} />
+                    <label className="block text-sm">
+                      Saisir <strong>IMPORTER</strong> pour confirmer
+                      <input
+                        name="confirmationPhrase"
+                        className="mt-1 w-full max-w-xs rounded border bg-background px-2 py-1.5"
+                        required
+                        autoComplete="off"
+                      />
+                    </label>
+                    <Button type="submit" size="sm" disabled={pending}>
+                      Confirmer l&apos;import
+                    </Button>
+                    <p className="text-xs text-[var(--aster-muted)]">
+                      Les soldes sont écrits en ouvertures ledger append-only —
+                      pas de recalcul d&apos;acquisition historique.
+                    </p>
+                  </form>
+                ) : null}
+
+                {canAbandon ? (
+                  <div className="border-t border-[var(--aster-border)] pt-4">
+                    <p className="mb-2 text-sm text-[var(--aster-muted)]">
+                      Vous pouvez abandonner ce lot sans créer de fiches, comptes
+                      ni soldes.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="danger"
+                      disabled={pending}
+                      onClick={() => setCancelOpen(true)}
+                    >
+                      Abandonner l&apos;import
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
@@ -335,50 +387,20 @@ export function HrImportWizard({
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p>
-                  Lot : <span className="font-mono">{batch.executionReport.batchId}</span>{" "}
+                  Lot :{" "}
+                  <span className="font-mono">
+                    {batch.executionReport.batchId}
+                  </span>{" "}
                   · Exécuté le{" "}
-                  {new Date(batch.executionReport.executedAt).toLocaleString("fr-FR")}
+                  {new Date(batch.executionReport.executedAt).toLocaleString(
+                    "fr-FR",
+                  )}
                 </p>
                 <p>
                   Créés : {batch.executionReport.employeesCreated} · Mis à jour :{" "}
                   {batch.executionReport.employeesUpdated} · Soldes importés :{" "}
                   {batch.executionReport.balancesImported}
                 </p>
-                <p>
-                  Comptes : créés {batch.executionReport.accountsCreated} ·
-                  existants {batch.executionReport.accountsExisting} · en attente{" "}
-                  {batch.executionReport.accountsPending} · échecs{" "}
-                  {batch.executionReport.accountsFailed}
-                </p>
-                <p>
-                  Rejets : {batch.executionReport.rejectedRows} · Avertissements :{" "}
-                  {batch.executionReport.warningRows}
-                </p>
-                {batch.executionReport.provisioningResults.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <p className="mb-1 font-medium">Provisioning comptes</p>
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="py-1 pr-2">Matricule</th>
-                          <th className="py-1 pr-2">Statut</th>
-                          <th className="py-1">Détail</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {batch.executionReport.provisioningResults.map((p) => (
-                          <tr key={`${p.matricule}-${p.status}`} className="border-b">
-                            <td className="py-1 pr-2 font-mono">{p.matricule}</td>
-                            <td className="py-1 pr-2">{p.status}</td>
-                            <td className="py-1 text-[var(--aster-muted)]">
-                              {p.message}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
                 <Button
                   type="button"
                   size="sm"
@@ -395,44 +417,44 @@ export function HrImportWizard({
                 >
                   Télécharger le rapport Excel
                 </Button>
-                {batch.executionReport.manualIntervention.length > 0 ? (
-                  <ul className="list-disc pl-5 text-[var(--aster-muted)]">
-                    {batch.executionReport.manualIntervention.map((m) => (
-                      <li key={m}>{m}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-1 pr-2">Matricule</th>
-                        <th className="py-1 pr-2">Excel CP</th>
-                        <th className="py-1 pr-2">ASTER CP</th>
-                        <th className="py-1 pr-2">Excel RTT</th>
-                        <th className="py-1 pr-2">ASTER RTT</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {batch.executionReport.reconciliation.map((r, idx) => (
-                        <tr
-                          key={`${r.matricule}-recon-${idx}`}
-                          className="border-b"
-                        >
-                          <td className="py-1 pr-2 font-mono">{r.matricule}</td>
-                          <td className="py-1 pr-2">{r.excelCp ?? "—"}</td>
-                          <td className="py-1 pr-2">{r.asterCp ?? "—"}</td>
-                          <td className="py-1 pr-2">{r.excelRtt ?? "—"}</td>
-                          <td className="py-1 pr-2">{r.asterRtt ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               </CardContent>
             </Card>
           ) : null}
         </>
+      ) : null}
+
+      {recentBatches.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Historique des lots</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-1 pr-2">Lot</th>
+                    <th className="py-1 pr-2">Fichier</th>
+                    <th className="py-1 pr-2">Statut</th>
+                    <th className="py-1">Créé</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentBatches.map((b) => (
+                    <tr key={b.id} className="border-b">
+                      <td className="py-1 pr-2 font-mono">{b.id}</td>
+                      <td className="py-1 pr-2">{b.fileName}</td>
+                      <td className="py-1 pr-2">{b.status}</td>
+                      <td className="py-1">
+                        {new Date(b.createdAt).toLocaleString("fr-FR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {message ? (
@@ -448,6 +470,51 @@ export function HrImportWizard({
       {batch?.errorMessage ? (
         <p className="text-sm text-[var(--aster-danger)]">{batch.errorMessage}</p>
       ) : null}
+
+      <Dialog.Root open={cancelOpen} onOpenChange={setCancelOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-[14px] border border-[var(--aster-border)] bg-white p-5 shadow-lg">
+            <Dialog.Title className="text-base font-semibold text-[var(--aster-ink)]">
+              Abandonner l&apos;import ?
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-[var(--aster-muted)]">
+              Aucun collaborateur, compte ASTER ni solde d&apos;ouverture ne sera
+              créé. Le classeur temporaire sera purgé ; le lot restera visible
+              dans l&apos;historique avec le statut{" "}
+              <strong>cancelled</strong>.
+            </Dialog.Description>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Dialog.Close asChild>
+                <Button type="button" size="sm" variant="secondary" disabled={pending}>
+                  Continuer l&apos;import
+                </Button>
+              </Dialog.Close>
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
+                disabled={pending || !batch}
+                onClick={() =>
+                  run(async () => {
+                    if (!batch) return;
+                    const fd = new FormData();
+                    fd.set("batchId", batch.id);
+                    const res = await cancelHrImportAction(fd);
+                    assertOk(res);
+                    setCancelOpen(false);
+                    setMessage(
+                      "Import abandonné — aucun enregistrement créé. Vous pouvez démarrer un nouvel import.",
+                    );
+                  })
+                }
+              >
+                Confirmer l&apos;abandon
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
