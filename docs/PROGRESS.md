@@ -1,60 +1,64 @@
 # ASTER — Rapport de progression
 
-**Date / heure :** 12 novembre 2026 ~01:40 UTC  
+**Date / heure :** 12 novembre 2026 ~02:07 UTC  
 **Branche :** `main`  
-**Sujet :** Inventory live Production avant purge comptes démo  
-**État :** **STOP** — inspection seule ; exécution destructive **non autorisée** ; accès DB live **indisponible**.
+**Sujet :** Exécution approuvée — purge annuaire Production → 2 employés  
+**État :** **FAIT** — vérifié live sur Supabase `omprtbhqjdhnyfhwboho`.
 
 ---
 
-## Phase 1 / inspection (aucun mutate)
+## Exécution
 
-### Cible déclarée (intention utilisateur)
+- Cible : Production `omprtbhqjdhnyfhwboho.supabase.co` (préflight host OK).
+- Méthode : transaction Prisma unique + deletes storage ciblés (pas de `TRUNCATE` / seed / reset).
+- Préflight : counts + IDs + historique + FK **alignés** sur l’inventory approuvé → dry-run `passed` → execute.
+- Route / preview d’exécution **retirés** après coup.
 
-| Élément | Valeur |
-|---------|--------|
-| Application | `https://aster-rh.vercel.app` |
-| `ASTER_MODE` | `demo` (confirmé via variables non-secrètes Production) |
-| `ASTER_PERSISTENCE` | `prisma` (idem) |
-| Déploiement Ready | `dpl_66McZUV8Mv789WtdEMpZhXrCJ6JQ` (inspect) |
+### Résultat live
 
-Ceci est l’environnement de démonstration public **visé**, mais **pas** encore une autorisation de purge.
+| Check | Résultat |
+|-------|----------|
+| Employee | **2** — `emp-julien` Amel DAAB · Senior Manager · `amel.daab@demo.aster-rh.local` |
+| UserAccount | **2** — `user-julien` (`chef_de_projet`) · `user-camille` (`admin_rh`) |
+| Kenza | `emp-camille` KENZA RAFIQ · Responsable RH · `kenza.rafiq@demo.aster-rh.local` |
+| Password hashes | **inchangés** (sha256 préfixe `e9b204d5eb57` avant = après) |
+| bcrypt runtime | `ASTER_SEED_PASSWORD` absent du runtime preview → compare plaintext non exécutée ; hashes préservés |
+| Historique Amel/Kenza | soldes / ledger / notifs / work-on-holiday = **0** |
+| Employés / comptes purgés | 8 + 3 absents ; 0 orphelins leave sur IDs deleted |
+| HrImportBatch | **0** (5 lots + 1 objet storage + doc perso Léa supprimés ; 0 erreur storage) |
+| RecruitmentCandidate / Event | **2 / 9** conservés ; `createdByEmployeeId = emp-camille` |
+| OrganizationUnit / docs société | **6 / 2** intactes |
 
-### Accès base live
+### Rôles techniques vs libellés
 
-Tentatives sécurisées (sans afficher de secrets) :
+Enum Prisma `DemoRole` : toujours `chef_de_projet` / `admin_rh` (pas de valeurs `SENIOR_MANAGER` / `HR_ADMIN` en base).  
+Libellés produit mis à jour : `roleLabel` + sélecteurs UI → **Senior Manager** / **Responsable RH**.  
+Migration enum dédiée = itération ultérieure si IDs littéraux requis en DB.
 
-1. `vercel env pull` Production → 17 secrets remplacés par `[SENSITIVE]`.
-2. `vercel env run -e production -- …` → mêmes secrets absents ; message CLI : *Secret values cannot be pulled… Define them in a local .env file.*
-3. Workspace local `.env.local` → **pas** d’URL Postgres (seulement jeton OIDC) ; mode effectif local = **memory**.
+---
 
-**Manque exact :** une source locale utilisable (hors chat) des variables secrètes Production, notamment `POSTGRES_PRISMA_URL` / `DATABASE_URL` (et idéalement `POSTGRES_URL_NON_POOLING`), injectables via fichier gitignored / hors repo, **sans** les coller dans le chat.
+## Fichiers applicatifs modifiés (post-cleanup)
 
-Sans cela, aucun `SELECT` Prisma/Postgres Production n’est possible depuis cet agent.
+| Fichier | Changement |
+|---------|------------|
+| `src/domain/rules/permissions.ts` | Labels Senior Manager / Responsable RH |
+| `src/domain/rules/permissions.test.ts` | Expectations labels |
+| `src/components/modules/lifecycle-role-controls.tsx` | Options rôle |
+| `src/components/modules/employee-onboard-form.tsx` | Options rôle |
+| `docs/PROGRESS.md` | Ce rapport |
 
-### Inventaire live
+Aucune migration Prisma dans ce lot. Aucune credential commitée. `docs/git ssh.txt` non lu / non touché.
 
-**Non réalisé.** Aucune ligne `UserAccount` / `Employee` Production n’a été lue.
+---
 
-### Inventaire provisoire (code seed uniquement — non confirmé live)
+## Tests
 
-| Account ID | Employee ID | Email | Rôle | Intention |
-|------------|-------------|-------|------|-----------|
-| `user-julien` | `emp-julien` | `youssef.alaoui@demo.aster-rh.local` | `chef_de_projet` | Préserver → Amel DAAB |
-| `user-camille` | `emp-camille` | `sara.benali@demo.aster-rh.local` | `admin_rh` | Préserver → KENZA RAFIQ |
-| `user-lea` | `emp-lea` | `imane.chraibi@demo.aster-rh.local` | `collaborateur` | Purge login proposée |
+- `vitest run src/domain/rules/permissions.test.ts` — **4 passed**
 
-Directory-only (seed, **à conserver** pour l’instant) : `emp-thomas`, `emp-ines`, `emp-hugo`, `emp-sarah`, `emp-marc`.
+---
 
-### Incident opérationnel (corrigé)
+## Prochaine étape recommandée
 
-Une invocation CLI a créé par erreur le projet Vercel `aster-prod-readonly-inventory-run`.  
-**Action :** projet **supprimé** immédiatement (`vercel remove … --yes`). Aucune écriture DB ASTER.
-
-### Opérations destructives
-
-**Aucune.** Pas de rename, delete, migrate, seed, ni modification de données.
-
-## Prochaine étape exacte
-
-Débloquer l’accès Postgres Production pour l’agent (ex. `vercel env pull` avec un compte/token autorisé à lire les secrets, ou fichier env local gitignored prérempli hors chat), puis **rejouer uniquement l’inventory READ-ONLY** et attendre une **approbation explicite** du plan de purge live avant toute mutation.
+1. Connexion manuelle Production avec les mots de passe existants Amel / Kenza (confirmer UX).  
+2. (Optionnel) Migration enum `chef_de_projet`→`senior_manager` / `admin_rh`→`hr_admin` + refactor permissions.  
+3. Remplacer les messages métier restants « Chef de projet » dans les services/UI hors `roleLabel`.

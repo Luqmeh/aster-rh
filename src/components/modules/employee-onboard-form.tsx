@@ -146,8 +146,8 @@ export function EmployeeOnboardForm({
               <option value="collaborateur">Collaborateur</option>
               {canAssignPrivilegedRoles ? (
                 <>
-                  <option value="admin_rh">Ressources humaines</option>
-                  <option value="chef_de_projet">Chef de projet</option>
+                  <option value="admin_rh">Responsable RH</option>
+                  <option value="chef_de_projet">Senior Manager</option>
                 </>
               ) : null}
             </select>

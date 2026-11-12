@@ -56,8 +56,8 @@ describe("permissions hierarchy", () => {
   });
 
   it("expose les libellés français officiels", () => {
-    expect(roleLabel("chef_de_projet")).toBe("Chef de projet");
-    expect(roleLabel("admin_rh")).toBe("Ressources humaines");
+    expect(roleLabel("chef_de_projet")).toBe("Senior Manager");
+    expect(roleLabel("admin_rh")).toBe("Responsable RH");
     expect(roleLabel("collaborateur")).toBe("Collaborateur");
   });
 });

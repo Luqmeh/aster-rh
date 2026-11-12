@@ -226,8 +226,9 @@ export function personalEditableFields(): ReadonlyArray<
 
 export function roleLabel(role: DemoRole): string {
   const labels: Record<DemoRole, string> = {
-    chef_de_projet: "Chef de projet",
-    admin_rh: "Ressources humaines",
+    // Alias produit : Senior Manager / Responsable RH (enum DB inchangé).
+    chef_de_projet: "Senior Manager",
+    admin_rh: "Responsable RH",
     collaborateur: "Collaborateur",
   };
   return labels[role];
