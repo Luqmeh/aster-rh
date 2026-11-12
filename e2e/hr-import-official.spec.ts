@@ -8,7 +8,7 @@ import { buildFilledOfficialWorkbook } from "../src/domain/rules/hr-import/offic
 const RH_EMAIL = "sara.benali@demo.aster-rh.local";
 const RH_PASSWORD = "AsterE2E-Seed1";
 const OFFICIAL_SHA256 =
-  "9f7b9116b8ca6243c16774e675aee16e330ee4ef7c6a787b195f0585154694dd";
+  "bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f";
 
 test.describe("Import RH — modèle officiel (navigateur)", () => {
   test("lot invalide : statut validated, pas de #441, confirmation bloquée", async ({

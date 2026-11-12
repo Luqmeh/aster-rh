@@ -37,6 +37,14 @@ function escapeXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Encodage des accents comme dans la feuille Lisez-moi (entités numériques). */
+function escapeXmlNumeric(s: string): string {
+  return escapeXml(s).replace(/[^\x20-\x7e]/g, (ch) => {
+    const cp = ch.codePointAt(0)!;
+    return `&#${cp};`;
+  });
+}
+
 function colLetter(index1: number): string {
   let n = index1;
   let s = "";
@@ -154,6 +162,41 @@ function upsertDefinedNames(workbookXml: string, names: Array<{ name: string; re
 async function main() {
   const source = readFileSync(TARGET);
   const zip = await JSZip.loadAsync(source);
+
+  // Lisez-moi — alignement structure Grade / People Manager / Région.
+  const lisezPath = "xl/worksheets/sheet1.xml";
+  const lisezXml = await zip.file(lisezPath)?.async("string");
+  if (!lisezXml) throw new Error("Feuille Lisez-moi manquante");
+  let lisezPatched = lisezXml;
+  const lisezReplacements: Array<[string, string]> = [
+    [
+      "Une ligne par collaborateur. Utilisez un matricule unique et stable. Ne créez pas de matricule si l'entreprise n'en utilise pas : demandez à RH de définir un identifiant de référence.",
+      "Une ligne par collaborateur. Matricule unique et stable. Grade* = Auditeur junior / Auditeur senior / Manager (liste). People Manager = texte libre (avec ou sans compte ASTER). Région* = texte libre (pas de liste). Ne pas utiliser Site ni catégorie cadre/non-cadre.",
+    ],
+    [
+      "Laissez vide et ajoutez une remarque. N'inventez pas de date, d'adresse e-mail, de solde ou de catégorie.",
+      "Laissez vide et ajoutez une remarque. N'inventez pas de date, d'adresse e-mail, de solde ou de grade.",
+    ],
+    [
+      "Renseignez uniquement si un solde RTT existe réellement et est suivi par l'entreprise. Laissez vide si non applicable ou non confirmé.",
+      "Historique / import uniquement si un solde RTT existe réellement. L'acquisition RTT Maroc n'est pas automatique ; le solde calculé canonique est la Récupération (heures).",
+    ],
+  ];
+  for (const [from, to] of lisezReplacements) {
+    const fromEnc = escapeXmlNumeric(from);
+    const toEnc = escapeXmlNumeric(to);
+    if (lisezPatched.includes(fromEnc)) {
+      lisezPatched = lisezPatched.replaceAll(fromEnc, toEnc);
+    } else if (lisezPatched.includes(toEnc)) {
+      // Déjà patché — régénération idempotente.
+      continue;
+    } else {
+      throw new Error(
+        `Lisez-moi : fragment introuvable pour remplacement (« ${from.slice(0, 48)}… »).`,
+      );
+    }
+  }
+  zip.file(lisezPath, lisezPatched);
 
   const listesPath = "xl/worksheets/sheet5.xml";
   const listesXml = await zip.file(listesPath)?.async("string");

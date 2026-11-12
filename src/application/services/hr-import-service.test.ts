@@ -53,7 +53,7 @@ describe("hr import service — official workbook", () => {
     const { buffer, fileName } = await svc().downloadTemplate(session);
     expect(fileName).toBe("ASTER_Modele_Import_RH_Maroc.xlsx");
     expect(createHash("sha256").update(buffer).digest("hex")).toBe(
-      "14d7983b62d90515dcc534571d3872a9b94fcd2d9cac547dcfa0f8b4b17c26e6",
+      "bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f",
     );
   });
 

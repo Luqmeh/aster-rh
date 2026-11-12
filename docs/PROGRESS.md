@@ -51,7 +51,7 @@ People Manager n’accorde aucune autorité d’approbation.
 ## Import Excel
 
 - Modèle : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`  
-  SHA-256 : `9f7b9116b8ca6243c16774e675aee16e330ee4ef7c6a787b195f0585154694dd` (zip déterministe via `scripts/build-hr-import-template.ts`).
+  SHA-256 : `bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f` (zip déterministe via `scripts/build-hr-import-template.ts`).
 - Colonnes Collaborateurs : Grade*, People Manager, Région* (Site / Catégorie / Matricule responsable refusés).
 - Feuille Listes : Grade (plus Site).
 - Validate + exécution : `grade` / `region` / People Manager persistés.
@@ -89,7 +89,7 @@ Aucune dépendance npm ajoutée.
 
 - Colonnes Prisma legacy `site`/`category` encore présentes (sync) — nettoyage drop ultérieur possible après observation Production.
 - Politiques FR RTT dans `entitlement-policies` restent documentées historique (non auto-postées MA).
-- E2E Playwright import : SHA modèle à aligner si suite CI locale non rejouée ici.
+- Feuille Lisez-moi du modèle Excel : mise à jour (Grade / People Manager / Région ; RTT = historique).
 
 ## Exact next step
 
