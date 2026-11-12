@@ -36,7 +36,7 @@
 ## Import Excel
 
 - Modèle : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`
-- SHA-256 : `70023fc45d6a4d1e4dcd025d18a9c63696072f6d0264f422282e0048167ff6c1`
+- SHA-256 : `88672aa999a017a008d724bbce3fe624c3f3ecc5821b4617a199730b51ef1145`
 - Colonnes Collaborateurs (12) : Matricule*, Nom*, Prénom*, E-mail, Grade*, People Manager, Région*, Date d'embauche*, Type de contrat, Statut*, Date de sortie, Remarques RH
 - Listes : Contrat = CDI|Stage ; Grade = Auditeur junior|Auditeur senior|Manager ; plus de liste Départements
 - Poste / Département / Site / cadre refusés sans mapping silencieux
