@@ -1,4 +1,4 @@
-import type { ContractType, EmployeeCategory } from "@/domain/types/hr";
+import type { EmployeeCategory, StoredContractType } from "@/domain/types/hr";
 import type { LeaveLedgerAccount } from "@/domain/types/leave-ledger";
 
 export type EntitlementPolicyKind =
@@ -60,7 +60,7 @@ export type EntitlementPolicyVersion = {
 
 export type EntitlementPolicyRules = {
   /** Population contractuelle éligible (null = non restreint dans la règle). */
-  eligibleContractTypes: ContractType[] | null;
+  eligibleContractTypes: StoredContractType[] | null;
   /** Cadre / non-cadre (null = les deux). */
   eligibleCategories: EmployeeCategory[] | null;
   /** Période d'acquisition récurrente. */

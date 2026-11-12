@@ -23,6 +23,7 @@ import type {
   EmploymentStatus,
 } from "@/domain/types/hr";
 import {
+  parseEmployeeContract,
   parseEmployeeGrade,
   parseRegion,
 } from "@/domain/types/employee-structure";
@@ -42,15 +43,14 @@ import type { EmailPort } from "@/infrastructure/email/types";
 import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 
 export type OnboardEmployeeInput = {
+  /** Matricule collaborateur (= Employee.id). */
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  jobTitle: string;
-  departmentId: string;
   peopleManagerId: string | null;
   region: string;
-  contractType: ContractType;
+  contractType: ContractType | string;
   grade: EmployeeGrade | string;
   hireDate: string;
   phoneInternal?: string | null;
@@ -79,7 +79,7 @@ export function createEmployeeProvisioningService(deps: {
       const email = normalizeEmployeeEmail(raw.email);
       if (!isValidEmployeeId(id)) {
         throw new Error(
-          "Identifiant collaborateur invalide (3–64 caractères alphanumériques).",
+          "Matricule invalide (3–64 caractères alphanumériques).",
         );
       }
       if (!isValidEmployeeEmail(email)) {
@@ -95,7 +95,7 @@ export function createEmployeeProvisioningService(deps: {
       }
 
       if (await deps.hr.getEmployee(id)) {
-        throw new Error("Identifiant collaborateur déjà utilisé.");
+        throw new Error("Matricule déjà utilisé.");
       }
       if (await deps.hr.getEmployeeByEmail(email)) {
         throw new Error("Adresse e-mail déjà utilisée par un collaborateur.");
@@ -110,6 +110,8 @@ export function createEmployeeProvisioningService(deps: {
       if (!gradeParsed.ok) throw new Error(gradeParsed.message);
       const regionParsed = parseRegion(raw.region);
       if (!regionParsed.ok) throw new Error(regionParsed.message);
+      const contractParsed = parseEmployeeContract(String(raw.contractType));
+      if (!contractParsed.ok) throw new Error(contractParsed.message);
 
       let managerId: string | null = null;
       if (raw.peopleManagerId) {
@@ -125,12 +127,12 @@ export function createEmployeeProvisioningService(deps: {
         firstName: raw.firstName.trim(),
         lastName: raw.lastName.trim(),
         email,
-        jobTitle: raw.jobTitle.trim(),
-        departmentId: raw.departmentId,
+        jobTitle: "",
+        departmentId: null,
         peopleManagerId: raw.peopleManagerId,
         managerId,
         region: regionParsed.value,
-        contractType: raw.contractType,
+        contractType: contractParsed.value,
         grade: gradeParsed.value,
         hireDate: raw.hireDate,
         employmentStatus: "actif",

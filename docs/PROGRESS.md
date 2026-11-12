@@ -1,98 +1,64 @@
-# ASTER — Rapport de progression
+# PROGRESS — Employee Form Cleanup & Matricule Standardization
 
-**Date / heure :** 12 novembre 2026  
+**Date :** 2026-11-12  
 **Branche :** `main`  
-**Sujet :** Refactor structure collaborateur (Grade / People Manager / Région) + nettoyage RTT/Récupération + alignement import Excel  
-**État :** **FAIT** — Vitest 335✓ / tsc / lint / build OK ; commit + push `origin/main`.
+**Statut :** terminé — Vitest / tsc / lint / build OK
 
----
+## Matricule — terminologie et implémentation
 
-## Champs retirés / introduits
+- Libellé UI / import / exports : **Matricule** (remplace Identifiant collaborateur).
+- Valeur = `Employee.id` (identifiant métier stable).
+- Aucune régénération de matricules ; pas de rename de PK ; UserAccount inchangé.
+- Colonne DB inchangée (`id`) — exposition applicative uniquement.
+- Alias import `Identifiant` → `matricule` conservé ; pas de confusion avec UserAccount.
+- Excel : Matricule en texte (préserve les zéros non significatifs).
 
-| Retiré (UI / contrat actif) | Introduit |
-|-----------------------------|-----------|
-| Catégorie cadre / non-cadre | **Grade** (`auditeur_junior` \| `auditeur_senior` \| `manager`) — libellés FR exacts |
-| Manager hiérarchique | **People Manager** (catalogue + affectation) |
-| Site | **Région** (texte libre) |
+## Champs retirés
 
-Grade = classification organisationnelle uniquement (pas de soldes / permissions / approbation).  
-People Manager n’accorde aucune autorité d’approbation.
+| Champ | Traitement |
+|-------|------------|
+| **Poste** (`jobTitle`) | Retiré des formulaires, profils, annuaire, import. Colonne DB legacy, défaut `''`, toujours vide en écriture. |
+| **Département employé** (`departmentId`) | Retiré des fiches collaborateur. Nullable + `ON DELETE SET NULL`. `OrganizationUnit` conservé pour le recrutement. |
 
-## Schéma DB / migration
+## Contrats retenus
 
-- Enum `EmployeeGrade` ; modèle `PeopleManager` ; `Employee.grade`, `Employee.region`, `Employee.peopleManagerId`.
-- Colonnes legacy `site` / `category` / `managerId` conservées (sync / historique) — non lues comme source de vérité applicative.
-- Migration : `prisma/migrations/20261112010000_employee_grade_people_manager_region/`.
-  - `region` ← copie de `site` (Pas de mapping toponymique).
-  - `grade` ← rôles `chef_de_projet`/`admin_rh` → `manager` ; sinon heuristique cadre→senior / non_cadre→junior / défaut senior.
-  - People Manager créés depuis `managerId` existants (`pm-from-<id>`).
+- Écriture / UI / Excel / validation serveur : **CDI**, **Stage** uniquement (`parseEmployeeContract`).
+- Enum Prisma `cdd` / `alternance` conservée pour lectures historiques (`StoredContractType`).
+- CDD / Alternance rejetés à l’onboarding, édition, import.
 
-## People Manager
+## Migration base
 
-- CRUD catalogue : RH (`admin_rh`) + Senior Manager (`chef_de_projet`).
-- Entrée manuelle (nom) et/ou `linkedEmployeeId` ; pas de provisioning de compte automatique.
-- Affectation onboarding / édition fiche ; affichage profil + annuaire.
-- Import : texte libre → résolution / création catalogue.
-
-## Grade / Région — validation
-
-- Centralisé : `src/domain/types/employee-structure.ts` (`parseEmployeeGrade`, `parseRegion`).
-- Cadre / non-cadre refusés sans mapping silencieux.
-- Région : trim, 1–120 car., aucune liste prédéfinie.
-- Excel dropdown Grade = mêmes libellés que le schéma Zod / parseur.
-
-## RTT / Récupération — décision
-
-- **Conservé (canonique) :** Récupération (`LeaveType.recuperation` + `recoveryDays*` + `RecoveryCreditLedger` + workflow férié travaillé).
-- **Déprécié UI :** RTT retiré des types de demande collaborateur (`ACTIVE_LEAVE_REQUEST_TYPES`) et des compteurs tableau de bord / `/conges` (affichage « Récupération restants » uniquement).
-- Ledger / colonnes `rtt*` et enum `LeaveType.rtt` **préservés** (historique / import soldes) — aucun reset, aucun nouvel accrual auto au déploiement.
-- Motif : seul le flux récupération est piloté par un moteur de calcul MA (WOH) ; RTT MA entitlement = 0 / héritage FR.
+- Fichier : `prisma/migrations/20261112020000_employee_form_cleanup/migration.sql`
+- Non destructive : `jobTitle` DEFAULT `''` ; `departmentId` DROP NOT NULL ; FK `SET NULL`.
+- Pas de reset Production, pas de seed, pas de suppression Amel DAAB / KENZA RAFIQ.
+- Pipeline Vercel (`build:vercel` / migrate deploy) inchangé.
 
 ## Import Excel
 
-- Modèle : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`  
-  SHA-256 : `bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f` (zip déterministe via `scripts/build-hr-import-template.ts`).
-- Colonnes Collaborateurs : Grade*, People Manager, Région* (Site / Catégorie / Matricule responsable refusés).
-- Feuille Listes : Grade (plus Site).
-- Validate + exécution : `grade` / `region` / People Manager persistés.
+- Modèle : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`
+- SHA-256 : `70023fc45d6a4d1e4dcd025d18a9c63696072f6d0264f422282e0048167ff6c1`
+- Colonnes Collaborateurs (12) : Matricule*, Nom*, Prénom*, E-mail, Grade*, People Manager, Région*, Date d'embauche*, Type de contrat, Statut*, Date de sortie, Remarques RH
+- Listes : Contrat = CDI|Stage ; Grade = Auditeur junior|Auditeur senior|Manager ; plus de liste Départements
+- Poste / Département / Site / cadre refusés sans mapping silencieux
+- Régénération : `npx tsx scripts/build-hr-import-template.ts`
 
-## Fichiers principaux
-
-- Domain : `employee-structure.ts`, `people-manager.ts`, `active-leave-types.ts`, `hr-import/*`
-- Prisma : `schema.prisma` + migration `20261112010000_*`
-- Services : `employee-provisioning-service`, `employee-service`, `people-manager-service`, `hr-import-service`
-- UI : onboard / HR form / annuaire / profil / leave-form / dashboards
-- Docs : `HR_REQUIREMENTS.md`, `EMPLOYEE_IMPORT_GUIDE.md`, `LEAVE_LEDGER.md`, ce rapport
-- Asset : modèle Excel régénéré
-
-## Dépendances
-
-Aucune dépendance npm ajoutée.
-
-## Tests / qualité
+## Tests et résultats
 
 | Contrôle | Résultat |
 |----------|----------|
-| Vitest | **335 passed**, 1 skipped |
+| Vitest | **342 passed**, 1 skipped (64 fichiers) |
 | `tsc --noEmit` | OK |
-| `eslint` | OK |
+| `npm run lint` | OK |
 | `ASTER_BUILD_WITHOUT_DB=1 npm run build` | OK |
 
-## Production safety
+Couverture clé : `employee-structure`, import validate / workbook / service, provisioning, document CNCC (grade Manager), employee-service RH.
 
-- Aucun seed / truncate exécuté contre Production.
-- Migration non destructive (backfill Amel/Kenza : region depuis site ; grade Manager si rôles RH/Chef).
-- Pas de génération d’écritures ledger à l’import de schéma.
-- Ne pas toucher `docs/git ssh.txt`.
+## Problèmes connus
 
-## Known issues / remaining
+- Filtre reporting « Département » reste pour le recrutement / unités org ; les fiches employé n’exposent plus ce champ (export annuaire / congés utilisent Matricule / Région).
+- CNCC : hypothèse démo basculée de Poste→Grade Manager (à confirmer RH).
+- Valeurs contrat legacy éventuelles en lecture seule jusqu’à migration métier manuelle.
 
-- Colonnes Prisma legacy `site`/`category` encore présentes (sync) — nettoyage drop ultérieur possible après observation Production.
-- Politiques FR RTT dans `entitlement-policies` restent documentées historique (non auto-postées MA).
-- Feuille Lisez-moi du modèle Excel : mise à jour (Grade / People Manager / Région ; RTT = historique).
+## Prochaine étape exacte
 
-## Exact next step
-
-1. Déployer Vercel Production (`migrate deploy` via `build:vercel`) pour appliquer `20261112010000_*`.  
-2. Vérifier Amel DAAB + KENZA RAFIQ : Grade / Région / People Manager.  
-3. Télécharger le nouveau modèle Excel et faire un dry-run import sur Preview.
+Déployer sur Vercel Production (migrate non destructive via `build:vercel`) puis vérifier onboarding + téléchargement modèle import (headers Matricule, Contrat CDI/Stage) sans toucher aux deux comptes existants.

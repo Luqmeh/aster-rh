@@ -41,6 +41,20 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
     expect(emp.headerRowNumber).toBe(4);
     expect(bal.headerRowNumber).toBe(4);
     expect(hist.headerRowNumber).toBe(4);
+    expect(emp.headers).toEqual([
+      "Matricule*",
+      "Nom*",
+      "Prénom*",
+      "E-mail professionnel",
+      "Grade*",
+      "People Manager",
+      "Région*",
+      "Date d'embauche*",
+      "Type de contrat",
+      "Statut*",
+      "Date de sortie",
+      "Remarques RH",
+    ]);
     expect(resolveCanonicalHeader("E-mail professionnel")).toBe("email");
     expect(resolveCanonicalHeader("Type de solde*")).toBe("balanceType");
     expect(emp.rows).toHaveLength(0);
@@ -51,7 +65,7 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
     const bytes = officialTemplateBytes();
     const hash = createHash("sha256").update(bytes).digest("hex");
     expect(hash).toBe(
-      "bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f",
+      "88672aa999a017a008d724bbce3fe624c3f3ecc5821b4617a199730b51ef1145",
     );
   });
 
@@ -63,8 +77,6 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
           "Benali",
           "Sara",
           "sara.benali@demo.aster-rh.local",
-          "AUD",
-          "Consultante",
           "Auditeur senior",
           "Youssef Alaoui",
           "Casablanca (démo)",
@@ -79,13 +91,11 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
           "Alaoui",
           "Youssef",
           "",
-          "RH",
-          "Assistant",
           "Auditeur junior",
           "",
           "Rabat (démo)",
           "15/01/2023",
-          "CDD",
+          "Stage",
           "Actif",
           "",
           "Sans e-mail pro",
@@ -160,6 +170,9 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
     expect(drafts.every((d) => d.severity !== "error")).toBe(true);
     expect(drafts.find((d) => d.matricule === "emp-ma-02")?.emailMissing).toBe(
       true,
+    );
+    expect(drafts.find((d) => d.matricule === "emp-ma-02")?.contractType).toBe(
+      "stage",
     );
 
     const balances = validateBalanceRows({

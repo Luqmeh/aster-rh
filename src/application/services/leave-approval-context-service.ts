@@ -25,10 +25,10 @@ import {
   familyForCategory,
   workAbsenceCategoryLabel,
 } from "@/domain/rules/work-absence";
+import { employeeGradeLabel } from "@/domain/types/employee-structure";
 import type {
   Employee,
   LeaveRequest,
-  OrganizationUnit,
   RecoveryCreditLedgerEntry,
   WorkAbsence,
 } from "@/domain/types/hr";
@@ -44,8 +44,8 @@ const DEFAULT_YEAR = 2026;
 export type EmployeeOverviewContext = {
   employeeId: string;
   fullName: string;
-  jobTitle: string;
-  departmentName: string | null;
+  gradeLabel: string;
+  region: string;
   employmentStatus: string;
   employmentStatusCode: Employee["employmentStatus"];
   profileHref: string;
@@ -104,15 +104,12 @@ export type WorkAbsenceApprovalContext = {
   canDecide: boolean;
 };
 
-function overviewFor(
-  employee: Employee,
-  department: OrganizationUnit | null,
-): EmployeeOverviewContext {
+function overviewFor(employee: Employee): EmployeeOverviewContext {
   return {
     employeeId: employee.id,
     fullName: `${employee.firstName} ${employee.lastName}`,
-    jobTitle: employee.jobTitle,
-    departmentName: department?.name ?? null,
+    gradeLabel: employeeGradeLabel(employee.grade),
+    region: employee.region,
     employmentStatus: employmentStatusLabel(employee.employmentStatus),
     employmentStatusCode: employee.employmentStatus,
     profileHref: `/annuaire/${employee.id}`,
@@ -146,13 +143,11 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
 
       await ledger.ensureBackfill(year);
 
-      const [employees, departments, allLeaves] = await Promise.all([
+      const [employees, allLeaves] = await Promise.all([
         deps.hr.listEmployees({ includeInactive: true }),
-        deps.hr.listDepartments(),
         deps.hr.listLeaveRequests(),
       ]);
       const empById = new Map(employees.map((e) => [e.id, e]));
-      const deptById = new Map(departments.map((d) => [d.id, d]));
       const leavesByEmployee = new Map<string, LeaveRequest[]>();
       for (const leave of allLeaves) {
         const list = leavesByEmployee.get(leave.employeeId) ?? [];
@@ -183,7 +178,6 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
       for (const request of requests) {
         const employee = empById.get(request.employeeId);
         if (!employee) continue;
-        const department = deptById.get(employee.departmentId) ?? null;
         const employeeLeaves = leavesByEmployee.get(request.employeeId) ?? [];
         const snapshot = await ledger.getBalanceForLeaveType(
           session,
@@ -223,7 +217,7 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
         result[request.id] = {
           kind: "leave_request",
           requestId: request.id,
-          employee: overviewFor(employee, department),
+          employee: overviewFor(employee),
           balance: balanceCtx,
           lastTaken: selectLastTakenLeave(
             employeeLeaves.filter((r) => r.id !== request.id),
@@ -276,14 +270,11 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
       const absence = await deps.hr.getWorkAbsence(absenceId);
       if (!absence) throw new AuthError("Absence introuvable.", 404);
 
-      const [employee, departments, absences] = await Promise.all([
+      const [employee, absences] = await Promise.all([
         deps.hr.getEmployee(absence.employeeId),
-        deps.hr.listDepartments(),
         deps.hr.listWorkAbsences({ employeeId: absence.employeeId }),
       ]);
       if (!employee) throw new AuthError("Collaborateur introuvable.", 404);
-      const department =
-        departments.find((d) => d.id === employee.departmentId) ?? null;
 
       const asOf = moroccoToday();
       const canSeeMedical = canViewWorkAbsenceMedicalDocs(session.role);
@@ -335,7 +326,7 @@ export function createLeaveApprovalContextService(deps: { hr: HrRepository }) {
       return {
         kind: "work_absence",
         absenceId: absence.id,
-        employee: overviewFor(employee, department),
+        employee: overviewFor(employee),
         family: absence.family,
         categoryLabel: workAbsenceCategoryLabel(absence.category),
         balanceTracked: false,

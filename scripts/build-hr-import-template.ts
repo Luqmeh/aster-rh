@@ -11,7 +11,6 @@ import JSZip from "jszip";
 import {
   HR_IMPORT_LISTES_COLUMNS,
   HR_IMPORT_CONTRACT_OPTIONS,
-  HR_IMPORT_DEPARTMENT_OPTIONS,
   HR_IMPORT_GRADE_OPTIONS,
   HR_IMPORT_STATUS_OPTIONS,
   HR_IMPORT_BALANCE_TYPE_OPTIONS,
@@ -203,6 +202,7 @@ async function main() {
   if (!listesXml) throw new Error("Feuille Listes manquante");
   zip.file(listesPath, replaceSheetData(listesXml, buildListesSheetData()));
 
+  // Feuille Listes : Statut, Contrat, Solde, Unité, Vérif, HistEvent, Grade, HistStatus
   const col = {
     statut: 1,
     contrat: 2,
@@ -210,9 +210,8 @@ async function main() {
     unite: 4,
     verif: 5,
     histEvent: 6,
-    dept: 7,
-    grade: 8,
-    histStatus: 9,
+    grade: 7,
+    histStatus: 8,
   };
 
   // Feuille Collaborateurs : en-têtes (ligne 4) + largeur de table alignées sur
@@ -289,18 +288,10 @@ async function main() {
     ),
   );
 
+  // Collaborateurs : A Matricule … E Grade, F PM, G Région, H Embauche, I Contrat, J Statut, K Sortie, L Remarques
   const collabValidations = [
     dv({
       sqref: `E5:E${DATA_END_ROW}`,
-      type: "list",
-      formula1: listRange(col.dept, HR_IMPORT_DEPARTMENT_OPTIONS.length),
-      promptTitle: "Département",
-      prompt: "Sélectionnez un code département du référentiel ASTER.",
-      errorTitle: "Département invalide",
-      error: "Choisissez un code de la liste (ex. AUD, RH).",
-    }),
-    dv({
-      sqref: `G5:G${DATA_END_ROW}`,
       type: "list",
       formula1: listRange(col.grade, HR_IMPORT_GRADE_OPTIONS.length),
       promptTitle: "Grade",
@@ -309,7 +300,7 @@ async function main() {
       error: "Seuls Auditeur junior, Auditeur senior et Manager sont acceptés.",
     }),
     dv({
-      sqref: `J5:J${DATA_END_ROW}`,
+      sqref: `H5:H${DATA_END_ROW}`,
       type: "date",
       operator: "greaterThanOrEqual",
       formula1: "DATE(1990,1,1)",
@@ -319,16 +310,16 @@ async function main() {
       error: "La date d'embauche doit être une date Excel valide.",
     }),
     dv({
-      sqref: `K5:K${DATA_END_ROW}`,
+      sqref: `I5:I${DATA_END_ROW}`,
       type: "list",
       formula1: listRange(col.contrat, HR_IMPORT_CONTRACT_OPTIONS.length),
       promptTitle: "Type de contrat",
-      prompt: "CDI, CDD, Alternance ou Stage.",
+      prompt: "CDI ou Stage.",
       errorTitle: "Contrat invalide",
-      error: "Seuls CDI, CDD, Alternance et Stage sont acceptés.",
+      error: "Seuls CDI et Stage sont acceptés.",
     }),
     dv({
-      sqref: `L5:L${DATA_END_ROW}`,
+      sqref: `J5:J${DATA_END_ROW}`,
       type: "list",
       formula1: listRange(col.statut, HR_IMPORT_STATUS_OPTIONS.length),
       promptTitle: "Statut",
@@ -337,7 +328,7 @@ async function main() {
       error: "Sélectionnez Actif, Suspendu ou Sorti.",
     }),
     dv({
-      sqref: `M5:M${DATA_END_ROW}`,
+      sqref: `K5:K${DATA_END_ROW}`,
       type: "date",
       operator: "greaterThanOrEqual",
       formula1: "DATE(1990,1,1)",
@@ -462,7 +453,7 @@ async function main() {
   ].join("");
 
   for (const [path, inner, count] of [
-    ["xl/worksheets/sheet2.xml", collabValidations, 6],
+    ["xl/worksheets/sheet2.xml", collabValidations, 5],
     ["xl/worksheets/sheet3.xml", soldesValidations, 5],
     ["xl/worksheets/sheet4.xml", histValidations, 6],
   ] as const) {
@@ -498,10 +489,6 @@ async function main() {
     {
       name: "ASTER_TypesOperation",
       refers: listRange(col.histEvent, HR_IMPORT_HISTORY_EVENT_OPTIONS.length),
-    },
-    {
-      name: "ASTER_Departements",
-      refers: listRange(col.dept, HR_IMPORT_DEPARTMENT_OPTIONS.length),
     },
     {
       name: "ASTER_Grades",

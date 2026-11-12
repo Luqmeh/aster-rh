@@ -65,7 +65,7 @@ export const demoHrRepository: HrRepository = {
   async createEmployee(input) {
     const store = getDemoStore();
     if (store.employees.some((e) => e.id === input.id)) {
-      throw new Error("Identifiant collaborateur déjà utilisé.");
+      throw new Error("Matricule déjà utilisé.");
     }
     if (
       store.employees.some(

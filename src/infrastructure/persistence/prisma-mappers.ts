@@ -1,7 +1,7 @@
 import type {
   AbsenceDocumentKind,
   AbsenceFamily,
-  ContractType,
+  StoredContractType,
   DocumentRequest,
   DocumentRequestEvent,
   DocumentRequestStatus,
@@ -61,12 +61,12 @@ type PrismaEmployee = {
   lastName: string;
   email: string;
   jobTitle: string;
-  departmentId: string;
+  departmentId: string | null;
   peopleManagerId?: string | null;
   managerId: string | null;
   region?: string;
   site?: string;
-  contractType: ContractType;
+  contractType: StoredContractType;
   grade?: EmployeeGrade;
   hireDate: Date;
   employmentStatus: EmploymentStatus;
@@ -191,7 +191,7 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     lastName: row.lastName,
     email: row.email,
     jobTitle: row.jobTitle,
-    departmentId: row.departmentId,
+    departmentId: row.departmentId ?? null,
     peopleManagerId: row.peopleManagerId ?? null,
     managerId: row.managerId,
     region: (row.region && row.region.trim()) || row.site || "",

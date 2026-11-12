@@ -59,7 +59,7 @@ describe("employee directory & profiles", () => {
     expect(sneaky.grade).toBe(before.grade);
 
     await expect(
-      service.updateHrRecord(lea, "emp-lea", { jobTitle: "Hack" }),
+      service.updateHrRecord(lea, "emp-lea", { region: "Hack" } as never),
     ).rejects.toThrow(AuthError);
   });
 
@@ -67,8 +67,12 @@ describe("employee directory & profiles", () => {
     const service = createEmployeeService({ hr: demoHrRepository });
     const hr = testSessionFor("emp-camille", "admin_rh");
     const updated = await service.updateHrRecord(hr, "emp-lea", {
-      jobTitle: "Consultante audit senior",
+      region: "Rabat (démo)",
+      grade: "auditeur_senior",
     });
-    expect(updated.jobTitle).toBe("Consultante audit senior");
+    expect(updated.region).toBe("Rabat (démo)");
+    expect(updated.grade).toBe("auditeur_senior");
+    expect(updated.jobTitle).toBe("");
+    expect(updated.departmentId).toBeNull();
   });
 });

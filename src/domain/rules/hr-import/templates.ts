@@ -18,8 +18,6 @@ export const EMPLOYEE_TEMPLATE_COLUMNS: SheetColumn[] = [
   { header: "Nom*", key: "lastName", width: 16 },
   { header: "Prénom*", key: "firstName", width: 16 },
   { header: "E-mail professionnel", key: "email", width: 28 },
-  { header: "Département", key: "department", width: 22 },
-  { header: "Poste / fonction", key: "jobTitle", width: 22 },
   { header: "Grade*", key: "grade", width: 18 },
   { header: "People Manager", key: "peopleManager", width: 22 },
   { header: "Région*", key: "region", width: 18 },
@@ -59,8 +57,6 @@ export const EMPLOYEE_FIELD_KEYS = [
   "firstName",
   "lastName",
   "email",
-  "department",
-  "jobTitle",
   "grade",
   "peopleManager",
   "region",
@@ -76,6 +72,8 @@ export const OBSOLETE_EMPLOYEE_FIELD_KEYS = [
   "site",
   "category",
   "managerMatricule",
+  "department",
+  "jobTitle",
 ] as const;
 
 export const BALANCE_FIELD_KEYS = [

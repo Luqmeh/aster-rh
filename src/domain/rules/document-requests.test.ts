@@ -17,8 +17,8 @@ function emp(partial: Partial<Employee>): Employee {
     firstName: "A",
     lastName: "B",
     email: "a@b.c",
-    jobTitle: "Collaborateur",
-    departmentId: "dep",
+    jobTitle: "",
+    departmentId: null,
     peopleManagerId: null,
     managerId: null,
     region: "Casablanca",
@@ -66,16 +66,12 @@ describe("document-requests rules", () => {
     ).toBe(true);
   });
 
-  it("limite l'attestation CNCC aux intitulés CAC / commissaire (hypothèse démo)", () => {
-    expect(isCnccAttestationEligible(emp({ jobTitle: "Assistante" }))).toBe(
-      false,
-    );
+  it("limite l'attestation CNCC au grade Manager (hypothèse démo, sans Poste)", () => {
     expect(
-      isCnccAttestationEligible(emp({ jobTitle: "Senior Audit CAC" })),
-    ).toBe(true);
-    const types = listOfferedDocumentTypes(
-      emp({ jobTitle: "Senior Audit CAC" }),
-    );
+      isCnccAttestationEligible(emp({ grade: "auditeur_junior" })),
+    ).toBe(false);
+    expect(isCnccAttestationEligible(emp({ grade: "manager" }))).toBe(true);
+    const types = listOfferedDocumentTypes(emp({ grade: "manager" }));
     expect(types).toContain("attestation_cncc");
   });
 

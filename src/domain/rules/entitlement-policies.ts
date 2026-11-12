@@ -75,7 +75,7 @@ export function seedEntitlementPolicyVersions(
       notes:
         "HISTORIQUE FR — 2,08 j/mois juin–mai. Non applicable au département Maroc.",
       rules: {
-        eligibleContractTypes: ["cdi", "cdd", "alternance"],
+        eligibleContractTypes: ["cdi", "cdd", "alternance", "stage"],
         eligibleCategories: null,
         acquisitionPeriod: {
           startMonth: 6,
@@ -116,7 +116,7 @@ export function seedEntitlementPolicyVersions(
       sourceReference: GUIDE_FR_REF,
       notes: "HISTORIQUE FR — RTT non-cadre. Pas de RTT statutaire Maroc auto.",
       rules: {
-        eligibleContractTypes: ["cdi", "cdd"],
+        eligibleContractTypes: ["cdi", "cdd", "stage"],
         eligibleCategories: ["non_cadre"],
         acquisitionPeriod: {
           startMonth: 7,
@@ -149,7 +149,7 @@ export function seedEntitlementPolicyVersions(
       sourceReference: GUIDE_FR_REF,
       notes: "HISTORIQUE FR — RTT cadre. Désactivé Maroc.",
       rules: {
-        eligibleContractTypes: ["cdi", "cdd"],
+        eligibleContractTypes: ["cdi", "cdd", "stage"],
         eligibleCategories: ["cadre"],
         acquisitionPeriod: {
           startMonth: 7,
@@ -180,7 +180,7 @@ export function seedEntitlementPolicyVersions(
       sourceReference: GUIDE_FR_REF,
       notes: "HISTORIQUE FR — report 5 j. Report MA à définir.",
       rules: {
-        eligibleContractTypes: ["cdi", "cdd", "alternance"],
+        eligibleContractTypes: ["cdi", "cdd", "alternance", "stage"],
         eligibleCategories: null,
         acquisitionPeriod: {
           startMonth: 6,
@@ -215,7 +215,7 @@ export function seedEntitlementPolicyVersions(
       sourceReference: GUIDE_FR_REF,
       notes: "HISTORIQUE FR — expiry RTT 1er juillet.",
       rules: {
-        eligibleContractTypes: ["cdi", "cdd"],
+        eligibleContractTypes: ["cdi", "cdd", "stage"],
         eligibleCategories: null,
         acquisitionPeriod: {
           startMonth: 7,
@@ -249,7 +249,7 @@ export function seedEntitlementPolicyVersions(
     notes:
       "Référence statutaire art. 231–238 : 1,5 j (adulte) / 2 j (<18) / mois de service ; +1,5 j / 5 ans max 30. Non utilisée comme droit applicable ASTER lorsque la politique entreprise est active. Pas de posting auto (hr_configured requis).",
     rules: {
-      eligibleContractTypes: ["cdi", "cdd", "alternance"],
+      eligibleContractTypes: ["cdi", "cdd", "alternance", "stage"],
       eligibleCategories: null,
       acquisitionPeriod: {
         startMonth: 1,
@@ -293,7 +293,7 @@ export function seedEntitlementPolicyVersions(
     notes:
       "Droit applicable ASTER : 2 j/mois de service (24 j/an de base) = total entreprise, distinct et non cumulé avec 1,5 statutaire. Ancienneté art. 232 (+1,5/5 ans, max 30) appliquée sur cette base tant que RH n’indique pas autrement. Preview autorisée ; posting auto uniquement après hr_configured.",
     rules: {
-      eligibleContractTypes: ["cdi", "cdd", "alternance"],
+      eligibleContractTypes: ["cdi", "cdd", "alternance", "stage"],
       eligibleCategories: null,
       acquisitionPeriod: {
         startMonth: 1,

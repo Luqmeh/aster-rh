@@ -7,13 +7,13 @@ import type {
 import { pendingImportEmail } from "@/domain/types/hr-import";
 import type { ContractType, Employee, EmploymentStatus, OrganizationUnit } from "@/domain/types/hr";
 import {
+  parseEmployeeContract,
   parseEmployeeGrade,
   parseRegion,
 } from "@/domain/types/employee-structure";
 import { isValidEmployeeEmail } from "@/domain/rules/lifecycle";
 import { matchEmployeeForPeopleManager } from "@/domain/rules/people-manager";
 
-const CONTRACTS = new Set<ContractType>(["cdi", "cdd", "alternance", "stage"]);
 const STATUSES = new Set<EmploymentStatus>(["actif", "inactif", "parti"]);
 
 export function parseIsoDate(raw: string): string | null {
@@ -70,18 +70,8 @@ export function resolveDepartmentId(
 }
 
 export function normalizeContractType(raw: string): ContractType | null {
-  const t = raw
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
-  if (!t) return null;
-  if (CONTRACTS.has(t as ContractType)) return t as ContractType;
-  if (t === "autre" || t === "a preciser" || t === "à préciser") {
-    // Valeurs liste officielle — non inventées : mapper vers stage générique interdit.
-    return null;
-  }
-  return null;
+  const parsed = parseEmployeeContract(raw);
+  return parsed.ok ? parsed.value : null;
 }
 
 export function normalizeEmploymentStatus(raw: string): EmploymentStatus | null {
@@ -165,14 +155,14 @@ export function validateEmployeeRows(input: {
     const rawEmail = (cells.email ?? "").trim().toLowerCase();
     const emailMissing = !rawEmail;
     let email = rawEmail;
-    const departmentRaw = (cells.department ?? "").trim();
-    const jobTitle = (cells.jobTitle ?? "").trim();
     const gradeRaw = (cells.grade ?? "").trim();
     const peopleManagerRaw = (cells.peopleManager ?? "").trim() || null;
     const regionRaw = (cells.region ?? "").trim();
     const obsoleteSite = (cells.site ?? "").trim();
     const obsoleteCategory = (cells.category ?? "").trim();
     const obsoleteManagerMatricule = (cells.managerMatricule ?? "").trim();
+    const obsoleteDepartment = (cells.department ?? "").trim();
+    const obsoleteJobTitle = (cells.jobTitle ?? "").trim();
     const hireDate = parseIsoDate(cells.hireDate ?? "");
     const contractType = normalizeContractType(cells.contractType ?? "");
     const employmentStatus = normalizeEmploymentStatus(
@@ -217,11 +207,6 @@ export function validateEmployeeRows(input: {
       seenEmails.set(email, row.rowNumber);
     }
 
-    if (!jobTitle) {
-      messages.push("Poste / fonction non renseigné.");
-      if (severity === "ok") severity = "warning";
-    }
-
     if (obsoleteSite) {
       messages.push(
         "Colonne Site obsolète — renseigner Région (pas de conversion silencieuse).",
@@ -237,6 +222,18 @@ export function validateEmployeeRows(input: {
     if (obsoleteManagerMatricule) {
       messages.push(
         "Colonne Manager hiérarchique / matricule responsable obsolète — renseigner People Manager.",
+      );
+      severity = "error";
+    }
+    if (obsoleteDepartment) {
+      messages.push(
+        "Colonne Département obsolète — retirée des fiches collaborateur (pas de conversion silencieuse).",
+      );
+      severity = "error";
+    }
+    if (obsoleteJobTitle) {
+      messages.push(
+        "Colonne Poste / fonction obsolète — retirée des fiches collaborateur (pas de conversion silencieuse).",
       );
       severity = "error";
     }
@@ -263,43 +260,18 @@ export function validateEmployeeRows(input: {
       messages.push("Date d'embauche invalide (attendu AAAA-MM-JJ ou JJ/MM/AAAA).");
       severity = "error";
     }
-    let resolvedContract = contractType;
-    if ((cells.contractType ?? "").trim() && !contractType) {
+    const resolvedContract = contractType;
+    if (!resolvedContract) {
       messages.push(
-        "Type de contrat non reconnu (cdi, cdd, alternance, stage) — laisser vide ou corriger.",
+        "Type de contrat invalide ou manquant. Valeurs acceptées : CDI, Stage.",
       );
       severity = "error";
-    } else if (!resolvedContract) {
-      resolvedContract = "cdi";
-      messages.push(
-        "Type de contrat absent — fiche créée en CDI technique (champ optionnel du modèle).",
-      );
-      if (severity === "ok") severity = "warning";
     }
     if (!employmentStatus) {
       messages.push(
         "Statut invalide (Actif, Suspendu/Inactif, Sorti/Parti).",
       );
       severity = "error";
-    }
-
-    const departmentId = resolveDepartmentId(
-      departmentRaw,
-      input.departments,
-      input.departmentMapping,
-    );
-    if (!departmentId) {
-      if (departmentRaw) {
-        messages.push(
-          `Département inconnu « ${departmentRaw} » — mapper ou créer l'unité.`,
-        );
-        severity = "error";
-      } else {
-        messages.push(
-          "Département non renseigné — attribution impossible sans unité.",
-        );
-        severity = "error";
-      }
     }
 
     const existingById = matricule ? byId.get(matricule) : undefined;
@@ -360,9 +332,6 @@ export function validateEmployeeRows(input: {
       lastName,
       email,
       emailMissing,
-      departmentRaw,
-      departmentId,
-      jobTitle,
       grade,
       peopleManagerRaw,
       peopleManagerId: null,

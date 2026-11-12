@@ -12,6 +12,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { employmentStatusLabel } from "@/domain/rules/lifecycle";
 import {
   EMPLOYEE_GRADE_OPTIONS,
+  employeeContractLabel,
   employeeGradeLabel,
 } from "@/domain/types/employee-structure";
 import { canBrowseDirectory } from "@/domain/rules/permissions";
@@ -26,7 +27,6 @@ export default async function AnnuairePage({
 }: {
   searchParams: Promise<{
     q?: string;
-    departmentId?: string;
     peopleManagerId?: string;
     grade?: string;
     region?: string;
@@ -53,20 +53,17 @@ export default async function AnnuairePage({
     ? params.grade
     : undefined;
 
-  const [employees, departments, peopleManagers] = await Promise.all([
+  const [employees, peopleManagers] = await Promise.all([
     service.listDirectory(session, {
       q: params.q,
-      departmentId: params.departmentId || undefined,
       peopleManagerId: params.peopleManagerId || undefined,
       grade,
       region: params.region || undefined,
       status,
     }),
-    container.hr.listDepartments(),
     container.hr.listPeopleManagers({ includeInactive: true }),
   ]);
 
-  const deptById = Object.fromEntries(departments.map((d) => [d.id, d]));
   const pmById = Object.fromEntries(peopleManagers.map((p) => [p.id, p]));
 
   return (
@@ -83,7 +80,7 @@ export default async function AnnuairePage({
 
       <Card>
         <CardContent className="pt-5">
-          <form className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))_auto]">
+          <form className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))_auto]">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--aster-muted)]"
@@ -92,24 +89,11 @@ export default async function AnnuairePage({
               <Input
                 name="q"
                 defaultValue={params.q ?? ""}
-                placeholder="Nom, e-mail, identifiant, poste…"
+                placeholder="Nom, e-mail, matricule…"
                 className="pl-9"
                 aria-label="Rechercher un collaborateur"
               />
             </div>
-            <select
-              name="departmentId"
-              className={selectClassName}
-              defaultValue={params.departmentId ?? ""}
-              aria-label="Département"
-            >
-              <option value="">Tous les départements</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
             <select
               name="grade"
               className={selectClassName}
@@ -178,16 +162,15 @@ export default async function AnnuairePage({
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[860px] text-left text-sm">
                 <thead className="border-b border-[var(--aster-border)] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--aster-muted)]">
                   <tr>
                     <th className="px-2 py-2.5 font-medium">Collaborateur</th>
-                    <th className="px-2 py-2.5 font-medium">Identifiant</th>
-                    <th className="px-2 py-2.5 font-medium">Poste</th>
-                    <th className="px-2 py-2.5 font-medium">Département</th>
+                    <th className="px-2 py-2.5 font-medium">Matricule</th>
                     <th className="px-2 py-2.5 font-medium">Grade</th>
                     <th className="px-2 py-2.5 font-medium">People Manager</th>
                     <th className="px-2 py-2.5 font-medium">Région</th>
+                    <th className="px-2 py-2.5 font-medium">Contrat</th>
                     <th className="px-2 py-2.5 font-medium">Statut</th>
                   </tr>
                 </thead>
@@ -217,12 +200,6 @@ export default async function AnnuairePage({
                         {e.id}
                       </td>
                       <td className="px-2 py-3 text-[var(--aster-ink)]">
-                        {e.jobTitle}
-                      </td>
-                      <td className="px-2 py-3 text-[var(--aster-ink)]">
-                        {deptById[e.departmentId]?.name ?? "—"}
-                      </td>
-                      <td className="px-2 py-3 text-[var(--aster-ink)]">
                         {employeeGradeLabel(e.grade)}
                       </td>
                       <td className="px-2 py-3 text-[var(--aster-ink)]">
@@ -232,6 +209,9 @@ export default async function AnnuairePage({
                       </td>
                       <td className="px-2 py-3 text-[var(--aster-ink)]">
                         {e.region}
+                      </td>
+                      <td className="px-2 py-3 text-[var(--aster-ink)]">
+                        {employeeContractLabel(e.contractType)}
                       </td>
                       <td className="px-2 py-3">
                         <Badge

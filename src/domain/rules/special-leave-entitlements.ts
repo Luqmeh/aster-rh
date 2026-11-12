@@ -1,4 +1,7 @@
-import type { ContractType, WorkAbsenceCategory } from "@/domain/types/hr";
+import type {
+  StoredContractType,
+  WorkAbsenceCategory,
+} from "@/domain/types/hr";
 import { isWeekend, parseDateOnly, toDateOnly } from "@/domain/rules/dates";
 import { SPECIAL_LEAVE_CATEGORIES } from "@/domain/rules/work-absence";
 
@@ -18,7 +21,7 @@ export type SpecialLeaveEntitlement = {
   hardBlockWhenExceeded: boolean;
   eligibility: string;
   supportingDocumentHint: string;
-  eligibleContractTypes?: ContractType[] | null;
+  eligibleContractTypes?: StoredContractType[] | null;
   /** Proches éligibles (guide) — null = non détaillé / revue RH. */
   eligibleRelationships: string[] | null;
   mustBeTakenAroundEvent: boolean;
@@ -148,7 +151,7 @@ export const SPECIAL_LEAVE_ENTITLEMENTS: SpecialLeaveEntitlement[] = [
     eligibility:
       "Alternants éligibles préparant un examen (guide p.46) — contrat alternance / stage selon cas.",
     supportingDocumentHint: "Convocation d'examen / attestation organisme.",
-    eligibleContractTypes: ["alternance"],
+    eligibleContractTypes: ["alternance", "stage"],
     eligibleRelationships: null,
     mustBeTakenAroundEvent: true,
     calendarYearLimit: false,
@@ -170,7 +173,7 @@ export function evaluateSpecialLeaveEntitlement(input: {
   category: WorkAbsenceCategory;
   requestedDays: number;
   usedDaysThisYear: number;
-  contractType: ContractType;
+  contractType: StoredContractType;
 }): {
   allowed: boolean;
   requiresHrReview: boolean;

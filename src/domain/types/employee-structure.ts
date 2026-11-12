@@ -125,3 +125,65 @@ export const peopleManagerDisplayNameSchema = z
   .trim()
   .min(1, "Nom du People Manager obligatoire.")
   .max(160, "Nom du People Manager : 160 caractères maximum.");
+
+/** Contrats acceptés (UI + Excel + API). */
+export const EMPLOYEE_CONTRACT_VALUES = ["cdi", "stage"] as const;
+export type EmployeeContractValue = (typeof EMPLOYEE_CONTRACT_VALUES)[number];
+
+export const EMPLOYEE_CONTRACT_LABELS: Record<EmployeeContractValue, string> = {
+  cdi: "CDI",
+  stage: "Stage",
+};
+
+export const EMPLOYEE_CONTRACT_OPTIONS = EMPLOYEE_CONTRACT_VALUES.map(
+  (value) => ({
+    value,
+    label: EMPLOYEE_CONTRACT_LABELS[value],
+  }),
+);
+
+const OBSOLETE_CONTRACT_VALUES = [
+  "cdd",
+  "alternance",
+  "CDD",
+  "Alternance",
+] as const;
+
+export function parseEmployeeContract(
+  raw: string | null | undefined,
+):
+  | { ok: true; value: EmployeeContractValue }
+  | { ok: false; message: string } {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) {
+    return { ok: false, message: "Type de contrat obligatoire." };
+  }
+  if (
+    OBSOLETE_CONTRACT_VALUES.some(
+      (v) => v.toLowerCase() === trimmed.toLowerCase(),
+    )
+  ) {
+    return {
+      ok: false,
+      message:
+        "Type de contrat non accepté. Valeurs acceptées : CDI, Stage.",
+    };
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower === "cdi") return { ok: true, value: "cdi" };
+  if (lower === "stage") return { ok: true, value: "stage" };
+  return {
+    ok: false,
+    message:
+      "Type de contrat invalide. Valeurs acceptées : CDI, Stage.",
+  };
+}
+
+export function employeeContractLabel(
+  contract: EmployeeContractValue | string,
+): string {
+  if (contract === "cdi" || contract === "stage") {
+    return EMPLOYEE_CONTRACT_LABELS[contract];
+  }
+  return String(contract).toUpperCase();
+}

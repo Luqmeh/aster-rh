@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EMPLOYEE_GRADE_LABELS,
   EMPLOYEE_GRADE_VALUES,
+  parseEmployeeContract,
   parseEmployeeGrade,
   parseRegion,
 } from "@/domain/types/employee-structure";
@@ -67,5 +68,23 @@ describe("parseRegion", () => {
 
   it("n'impose pas de liste prédéfinie", () => {
     expect(parseRegion("Région inventée pour démo").ok).toBe(true);
+  });
+});
+
+describe("parseEmployeeContract", () => {
+  it("accepte CDI et Stage", () => {
+    expect(parseEmployeeContract("CDI")).toEqual({ ok: true, value: "cdi" });
+    expect(parseEmployeeContract("Stage")).toEqual({
+      ok: true,
+      value: "stage",
+    });
+    expect(parseEmployeeContract("cdi").ok).toBe(true);
+  });
+
+  it("refuse CDD, Alternance et valeurs arbitraires", () => {
+    expect(parseEmployeeContract("CDD").ok).toBe(false);
+    expect(parseEmployeeContract("Alternance").ok).toBe(false);
+    expect(parseEmployeeContract("Freelance").ok).toBe(false);
+    expect(parseEmployeeContract("").ok).toBe(false);
   });
 });

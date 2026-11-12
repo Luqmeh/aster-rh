@@ -100,7 +100,7 @@ export const prismaHrRepository: HrRepository = {
           lastName: input.lastName,
           email: input.email.trim().toLowerCase(),
           jobTitle: input.jobTitle,
-          departmentId: input.departmentId,
+          departmentId: input.departmentId ?? null,
           peopleManagerId: input.peopleManagerId ?? null,
           managerId: input.managerId ?? null,
           region,

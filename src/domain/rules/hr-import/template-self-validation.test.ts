@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import {
   HR_IMPORT_BALANCE_TYPE_OPTIONS,
   HR_IMPORT_CONTRACT_OPTIONS,
-  HR_IMPORT_DEPARTMENT_OPTIONS,
   HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS,
   HR_IMPORT_GRADE_OPTIONS,
   HR_IMPORT_HISTORY_EVENT_OPTIONS,
@@ -26,7 +25,6 @@ import {
   normalizeBalanceUnit,
   normalizeContractType,
   normalizeEmploymentStatus,
-  resolveDepartmentId,
   validateEmployeeRows,
 } from "@/domain/rules/hr-import/validate";
 import { departments } from "@/data/demo-seed";
@@ -40,7 +38,7 @@ const TEMPLATE_PATH = join(
 
 /** Hash du modèle auto-validant régénéré (scripts/build-hr-import-template.ts). */
 export const OFFICIAL_HR_IMPORT_TEMPLATE_SHA256 =
-  "bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f";
+  "88672aa999a017a008d724bbce3fe624c3f3ecc5821b4617a199730b51ef1145";
 
 function columnValues(
   listesRows: Array<{ cells: Record<string, string> }>,
@@ -67,6 +65,8 @@ describe("HR import template self-validation", () => {
     }
     expect(normalizeContractType("Autre")).toBeNull();
     expect(normalizeContractType("À préciser")).toBeNull();
+    expect(normalizeContractType("CDD")).toBeNull();
+    expect(normalizeContractType("Alternance")).toBeNull();
 
     for (const v of HR_IMPORT_STATUS_OPTIONS) {
       expect(normalizeEmploymentStatus(v)).not.toBeNull();
@@ -76,9 +76,6 @@ describe("HR import template self-validation", () => {
     }
     for (const v of HR_IMPORT_UNIT_OPTIONS) {
       expect(normalizeBalanceUnit(v)).not.toBeNull();
-    }
-    for (const code of HR_IMPORT_DEPARTMENT_OPTIONS) {
-      expect(resolveDepartmentId(code, departments, {})).not.toBeNull();
     }
     for (const label of HR_IMPORT_GRADE_OPTIONS) {
       expect(parseEmployeeGrade(label).ok).toBe(true);
@@ -111,9 +108,7 @@ describe("HR import template self-validation", () => {
     expect(columnValues(listes!.rows, "eventType")).toEqual([
       ...HR_IMPORT_HISTORY_EVENT_OPTIONS,
     ]);
-    expect(columnValues(listes!.rows, "department")).toEqual([
-      ...HR_IMPORT_DEPARTMENT_OPTIONS,
-    ]);
+    expect(columnValues(listes!.rows, "department")).toEqual([]);
     expect(columnValues(listes!.rows, "grade")).toEqual([
       ...HR_IMPORT_GRADE_OPTIONS,
     ]);
@@ -129,16 +124,16 @@ describe("HR import template self-validation", () => {
     const hist = await zip.file("xl/worksheets/sheet4.xml")!.async("string");
     const workbook = await zip.file("xl/workbook.xml")!.async("string");
 
-    expect(collab).toMatch(/sqref="E5:E204"/); // département
-    expect(collab).toMatch(/sqref="G5:G204"/); // grade
-    expect(collab).toMatch(/sqref="J5:J204"[^>]*type="date"/); // embauche
-    expect(collab).toMatch(/sqref="K5:K204"/); // contrat
-    expect(collab).toMatch(/sqref="L5:L204"/); // statut
-    expect(collab).toMatch(/sqref="M5:M204"[^>]*type="date"/); // sortie
+    // 12 cols : A Matricule … E Grade, F PM, G Région, H Embauche, I Contrat, J Statut, K Sortie, L Remarques
+    expect(collab).toMatch(/sqref="E5:E204"/); // grade
+    expect(collab).toMatch(/sqref="H5:H204"[^>]*type="date"/); // embauche
+    expect(collab).toMatch(/sqref="I5:I204"/); // contrat
+    expect(collab).toMatch(/sqref="J5:J204"/); // statut
+    expect(collab).toMatch(/sqref="K5:K204"[^>]*type="date"/); // sortie
     expect(collab).not.toMatch(/sqref="B5:B204"/); // Nom libre
     expect(collab).not.toMatch(/sqref="C5:C204"/); // Prénom libre
-    expect(collab).not.toMatch(/sqref="H5:H204"/); // People Manager libre
-    expect(collab).not.toMatch(/sqref="I5:I204"/); // Région libre
+    expect(collab).not.toMatch(/sqref="F5:F204"/); // People Manager libre
+    expect(collab).not.toMatch(/sqref="G5:G204"/); // Région libre
 
     expect(soldes).toMatch(/sqref="B5:B204"/);
     expect(soldes).toMatch(/sqref="C5:C204"[^>]*type="decimal"/);
@@ -150,11 +145,11 @@ describe("HR import template self-validation", () => {
 
     expect(workbook).toContain('name="ASTER_Contrats"');
     expect(workbook).toContain('name="ASTER_Statuts"');
-    expect(workbook).toContain('name="ASTER_Departements"');
     expect(workbook).toContain('name="ASTER_Grades"');
+    expect(workbook).not.toContain('name="ASTER_Departements"');
     expect(workbook).not.toContain('name="ASTER_Sites"');
     expect(collab).toContain('showErrorMessage="1"');
-    expect(collab).toContain("Choisissez un code de la liste");
+    expect(collab).toContain("Seuls CDI et Stage sont acceptés");
   });
 
   it("still validates server-side and rejects unsupported categorical values", () => {
@@ -167,8 +162,6 @@ describe("HR import template self-validation", () => {
             firstName: "Ada",
             lastName: "Lovelace",
             email: "ada@demo.aster-rh.local",
-            department: "AUD",
-            jobTitle: "Consultante",
             grade: "Auditeur junior",
             region: "Casablanca",
             hireDate: "2024-01-01",
@@ -187,7 +180,7 @@ describe("HR import template self-validation", () => {
     expect(drafts[0]?.messages.join(" ")).toMatch(/contrat/i);
   });
 
-  it("rejects obsolete Site / cadre without silent mapping", () => {
+  it("rejects obsolete Site / cadre / Département / Poste without silent mapping", () => {
     const drafts = validateEmployeeRows({
       rows: [
         {
@@ -214,7 +207,9 @@ describe("HR import template self-validation", () => {
       updateExisting: false,
     });
     expect(drafts[0]?.severity).toBe("error");
-    expect(drafts[0]?.messages.join(" ")).toMatch(/Site|Grade|cadre/i);
+    expect(drafts[0]?.messages.join(" ")).toMatch(
+      /Site|Grade|cadre|Département|Poste/i,
+    );
   });
 
   it("accepts a filled official workbook using dropdown values (preview only)", async () => {
@@ -225,13 +220,11 @@ describe("HR import template self-validation", () => {
           "Benali",
           "Sara",
           "sara.sv@demo.aster-rh.local",
-          "AUD",
-          "Consultante",
           "Auditeur senior",
           "Youssef Alaoui",
           "Casablanca (démo)",
           "2024-03-01",
-          "Alternance",
+          "Stage",
           "Actif",
           "",
           "",
@@ -263,7 +256,7 @@ describe("HR import template self-validation", () => {
       updateExisting: false,
     });
     expect(drafts.every((d) => d.severity !== "error")).toBe(true);
-    expect(drafts[0]?.contractType).toBe("alternance");
+    expect(drafts[0]?.contractType).toBe("stage");
     expect(drafts[0]?.grade).toBe("auditeur_senior");
     expect(drafts[0]?.region).toBe("Casablanca (démo)");
     expect(bal.rows).toHaveLength(1);

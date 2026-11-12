@@ -709,8 +709,8 @@ export function createHrImportService(deps: {
             firstName: draft.firstName,
             lastName: draft.lastName,
             email: draft.email,
-            jobTitle: draft.jobTitle,
-            departmentId: draft.departmentId!,
+            jobTitle: "",
+            departmentId: null,
             peopleManagerId: pm?.id ?? null,
             managerId: pm?.linkedEmployeeId ?? null,
             region: draft.region!,
@@ -750,8 +750,8 @@ export function createHrImportService(deps: {
             email: draft.emailMissing
               ? undefined
               : draft.email,
-            jobTitle: draft.jobTitle,
-            departmentId: draft.departmentId ?? undefined,
+            jobTitle: "",
+            departmentId: null,
             ...(pm
               ? {
                   peopleManagerId: pm.id,

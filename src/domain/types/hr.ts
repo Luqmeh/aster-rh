@@ -3,7 +3,14 @@
 /** Rôles applicatifs définitifs ASTER (ne pas réintroduire un Manager inférieur). */
 export type DemoRole = "collaborateur" | "chef_de_projet" | "admin_rh";
 
-export type ContractType = "cdi" | "cdd" | "alternance" | "stage";
+/** Contrats acceptés en écriture pour les fiches collaborateur ASTER Maroc. */
+export type ContractType = "cdi" | "stage";
+
+/** @deprecated Conservé pour lectures historiques DB — ne plus accepter en écriture. */
+export type LegacyContractType = "cdd" | "alternance";
+
+/** Valeur stockée / lue (Prisma) — écriture applicative limitée à ContractType. */
+export type StoredContractType = ContractType | LegacyContractType;
 
 /** @deprecated Remplacé par EmployeeGrade — ne plus utiliser. */
 export type EmployeeCategory = "cadre" | "non_cadre" | "non_applicable";
@@ -14,11 +21,16 @@ import type {
 } from "@/domain/types/employee-structure";
 export type { EmployeeGrade, PeopleManagerEntry };
 export {
+  EMPLOYEE_CONTRACT_LABELS,
+  EMPLOYEE_CONTRACT_OPTIONS,
+  EMPLOYEE_CONTRACT_VALUES,
   EMPLOYEE_GRADE_LABELS,
   EMPLOYEE_GRADE_OPTIONS,
   EMPLOYEE_GRADE_VALUES,
+  employeeContractLabel,
   employeeGradeLabel,
   employeeGradeSchema,
+  parseEmployeeContract,
   parseEmployeeGrade,
   parseRegion,
   regionSchema,
@@ -97,15 +109,22 @@ export interface Employee {
   firstName: string;
   lastName: string;
   email: string;
+  /**
+   * @deprecated Poste retiré des fiches collaborateur — colonne legacy, toujours vide en écriture.
+   */
   jobTitle: string;
-  departmentId: string;
+  /**
+   * @deprecated Département employé retiré — nullable ; OrganisationUnit reste pour le recrutement.
+   */
+  departmentId: string | null;
   /** People Manager catalogue (affectation organisationnelle — pas d'autorité d'approbation). */
   peopleManagerId: string | null;
   /** @deprecated Conservé pour compat tests historiques d'équipe ; préférer peopleManagerId. */
   managerId: string | null;
   /** Région (saisie libre). */
   region: string;
-  contractType: ContractType;
+  /** Lecture DB : peut contenir des valeurs legacy ; écriture = CDI | Stage uniquement. */
+  contractType: StoredContractType;
   /** Classification organisationnelle — ne pilote ni soldes ni permissions. */
   grade: EmployeeGrade;
   hireDate: string;

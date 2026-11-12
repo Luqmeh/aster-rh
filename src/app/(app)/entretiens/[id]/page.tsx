@@ -105,7 +105,7 @@ export default async function RecrutementDetailPage({
               label="Intervieweur"
               value={
                 interviewer
-                  ? `${interviewer.firstName} ${interviewer.lastName} (${interviewer.jobTitle})`
+                  ? `${interviewer.firstName} ${interviewer.lastName}`
                   : "—"
               }
             />

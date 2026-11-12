@@ -112,29 +112,18 @@ describe("reporting-service", () => {
     }
   });
 
-  it("applique le filtre département sans double comptage", async () => {
+  it("agrège l'effectif actif par région sans double comptage", async () => {
     const camille = await emp("emp-camille");
     const service = createReportingService(container());
     const all = await service.getDashboard(sessionFor(camille, "admin_rh"), {
       preset: "cette_annee",
     });
-    const dept = all.departments[0]?.id;
-    expect(dept).toBeTruthy();
-    const filtered = await service.getDashboard(
-      sessionFor(camille, "admin_rh"),
-      { preset: "cette_annee", departmentId: dept },
-    );
-    expect(filtered.employees.every((e) => e.departmentId === dept)).toBe(
-      true,
-    );
-    expect(filtered.kpis.effectifActif).toBeLessThanOrEqual(
-      all.kpis.effectifActif,
-    );
-    const sumDept = filtered.charts.workforceByDepartment.reduce(
+    expect(all.employees.every((e) => e.departmentId == null)).toBe(true);
+    const sumRegions = all.charts.workforceByDepartment.reduce(
       (s, b) => s + b.value,
       0,
     );
-    expect(sumDept).toBe(filtered.kpis.effectifActif);
+    expect(sumRegions).toBe(all.kpis.effectifActif);
   });
 
   it("sépare récupération compensatrice et RTT dans l'export soldes", async () => {

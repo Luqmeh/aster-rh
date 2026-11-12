@@ -245,15 +245,16 @@ export function InterviewerAssignForm({
           <option value="">Sélectionner…</option>
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
-              {e.firstName} {e.lastName} — {e.jobTitle}
+              {e.firstName} {e.lastName} — {e.id}
             </option>
           ))}
         </select>
       </div>
       {selectedEmployee ? (
         <p className="text-xs text-[var(--aster-muted)]">
-          {selectedEmployee.firstName} {selectedEmployee.lastName} ·{" "}
-          {selectedEmployee.jobTitle} · département {selectedEmployee.departmentId}
+          {selectedEmployee.firstName} {selectedEmployee.lastName} · matricule{" "}
+          {selectedEmployee.id}
+          {selectedEmployee.region ? ` · ${selectedEmployee.region}` : ""}
         </p>
       ) : null}
       <Button

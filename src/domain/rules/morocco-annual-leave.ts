@@ -11,7 +11,7 @@
 
 import { isWeekend, parseDateOnly, toDateOnly } from "@/domain/rules/dates";
 import type { CalculationStatus } from "@/domain/types/entitlement";
-import type { ContractType, Employee } from "@/domain/types/hr";
+import type { Employee, StoredContractType } from "@/domain/types/hr";
 
 export const MA_LABOUR_CODE_SOURCE_URL =
   "https://adala.justice.gov.ma/api/uploads/2024/04/30/code%20du%20travail-1714463246806.pdf";
@@ -492,12 +492,13 @@ export function assertMaCarryoverAgreement(input: {
 }
 
 export function isAnnualLeaveContractEligible(
-  contractType: ContractType,
+  contractType: StoredContractType,
 ): boolean {
   return (
     contractType === "cdi" ||
     contractType === "cdd" ||
-    contractType === "alternance"
+    contractType === "alternance" ||
+    contractType === "stage"
   );
 }
 

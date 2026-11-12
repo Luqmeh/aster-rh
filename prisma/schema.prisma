@@ -34,6 +34,8 @@ enum EmployeeCategory {
   non_applicable
 }
 
+/// Contrats acceptés en écriture : `cdi` | `stage`.
+/// `cdd` / `alternance` conservés pour lectures historiques uniquement.
 enum ContractType {
   cdi
   cdd
@@ -317,9 +319,11 @@ model Employee {
   firstName           String
   lastName            String
   email               String             @unique
-  jobTitle            String
-  departmentId        String
-  department          OrganizationUnit   @relation(fields: [departmentId], references: [id])
+  /// @deprecated Poste retiré des fiches — toujours vide en écriture applicative.
+  jobTitle            String             @default("")
+  /// @deprecated Département employé retiré — OrganizationUnit reste pour le recrutement.
+  departmentId        String?
+  department          OrganizationUnit?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   /// @deprecated Conservé pour migration — utiliser peopleManagerId.
   managerId           String?
   manager             Employee?          @relation("Management", fields: [managerId], references: [id])

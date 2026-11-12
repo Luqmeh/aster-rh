@@ -6,8 +6,10 @@ import { onboardEmployeeAction } from "@/app/actions/employee-lifecycle";
 import { createPeopleManagerAction } from "@/app/actions/people-manager";
 import { OnboardingCredentialsModal } from "@/components/modules/onboarding-credentials-modal";
 import type { DemoRole, PeopleManagerEntry } from "@/domain/types/hr";
-import type { OrganizationUnit } from "@/domain/types/hr";
-import { EMPLOYEE_GRADE_OPTIONS } from "@/domain/types/employee-structure";
+import {
+  EMPLOYEE_CONTRACT_OPTIONS,
+  EMPLOYEE_GRADE_OPTIONS,
+} from "@/domain/types/employee-structure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,11 +23,9 @@ const selectClassName =
   "flex h-9 w-full rounded-[8px] border border-[var(--aster-border-strong)] bg-white px-3 py-2 text-sm text-[var(--aster-ink)]";
 
 export function EmployeeOnboardForm({
-  departments,
   peopleManagers: initialPeopleManagers,
   canAssignPrivilegedRoles,
 }: {
-  departments: OrganizationUnit[];
   peopleManagers: PeopleManagerEntry[];
   canAssignPrivilegedRoles: boolean;
 }) {
@@ -60,15 +60,11 @@ export function EmployeeOnboardForm({
                 firstName: String(form.get("firstName") ?? "").trim(),
                 lastName: String(form.get("lastName") ?? "").trim(),
                 email,
-                jobTitle: String(form.get("jobTitle") ?? "").trim(),
-                departmentId: String(form.get("departmentId") ?? ""),
                 peopleManagerId:
                   String(form.get("peopleManagerId") ?? "") || null,
                 region: String(form.get("region") ?? "").trim(),
                 contractType: String(form.get("contractType") ?? "cdi") as
                   | "cdi"
-                  | "cdd"
-                  | "alternance"
                   | "stage",
                 grade: String(form.get("grade") ?? "auditeur_junior"),
                 hireDate: String(form.get("hireDate") ?? ""),
@@ -98,24 +94,18 @@ export function EmployeeOnboardForm({
         }}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Identifiant" name="id" placeholder="emp-nouveau" required />
+          <Field
+            label="Matricule"
+            name="id"
+            placeholder="emp-nouveau"
+            required
+          />
           <Field label="E-mail professionnel" name="email" type="email" required />
           <Field label="Prénom" name="firstName" required />
           <Field label="Nom" name="lastName" required />
-          <Field label="Poste" name="jobTitle" required />
           <Field label="Région" name="region" required />
           <Field label="Date d'entrée" name="hireDate" type="date" required />
           <Field label="Téléphone interne" name="phoneInternal" />
-          <div className="space-y-1.5">
-            <Label htmlFor="departmentId">Département</Label>
-            <select id="departmentId" name="departmentId" className={selectClassName} required>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="peopleManagerId">People Manager</Label>
             <select
@@ -181,11 +171,17 @@ export function EmployeeOnboardForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contractType">Contrat</Label>
-            <select id="contractType" name="contractType" className={selectClassName} defaultValue="cdi">
-              <option value="cdi">CDI</option>
-              <option value="cdd">CDD</option>
-              <option value="alternance">Alternance</option>
-              <option value="stage">Stage</option>
+            <select
+              id="contractType"
+              name="contractType"
+              className={selectClassName}
+              defaultValue="cdi"
+            >
+              {EMPLOYEE_CONTRACT_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1.5">

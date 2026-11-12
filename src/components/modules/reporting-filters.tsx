@@ -105,7 +105,7 @@ export function ReportingFiltersForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="departmentId">Département</Label>
+          <Label htmlFor="departmentId">Département (recrutement)</Label>
           <select
             id="departmentId"
             name="departmentId"

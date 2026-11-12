@@ -26,9 +26,6 @@ export type HrImportEmployeeDraft = {
   email: string;
   /** True when Excel n'avait pas d'e-mail pro — compte en attente. */
   emailMissing: boolean;
-  departmentRaw: string;
-  departmentId: string | null;
-  jobTitle: string;
   /** Grade stocké (auditeur_junior | auditeur_senior | manager). */
   grade: string | null;
   /** People Manager saisi (nom libre) — résolution ID côté exécution. */

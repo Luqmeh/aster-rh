@@ -42,13 +42,11 @@ export default async function EmployeeProfilePage({
     notFound();
   }
 
-  const [departments, peopleManagers, docs, account] = await Promise.all([
-    container.hr.listDepartments(),
+  const [peopleManagers, docs, account] = await Promise.all([
     container.hr.listPeopleManagers({ includeInactive: true }),
     container.hr.listDocuments(employee.id),
     findAccountByEmployeeId(employee.id),
   ]);
-  const dept = departments.find((d) => d.id === employee.departmentId);
   const peopleManager = employee.peopleManagerId
     ? peopleManagers.find((p) => p.id === employee.peopleManagerId) ?? null
     : null;
@@ -88,7 +86,9 @@ export default async function EmployeeProfilePage({
             <p className="text-lg font-semibold tracking-tight text-[var(--aster-ink)]">
               {fullName(employee.firstName, employee.lastName)}
             </p>
-            <p className="text-sm text-[var(--aster-muted)]">{employee.jobTitle}</p>
+            <p className="text-sm text-[var(--aster-muted)]">
+              Matricule {employee.id}
+            </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="secondary">
                 {employeeGradeLabel(employee.grade)}
@@ -122,7 +122,7 @@ export default async function EmployeeProfilePage({
               value={employee.phoneInternal ?? "—"}
             />
             <Field label="Région" value={employee.region} />
-            <Field label="Département" value={dept?.name ?? "—"} />
+            <Field label="Matricule" value={employee.id} />
           </CardContent>
         </Card>
 
@@ -138,7 +138,13 @@ export default async function EmployeeProfilePage({
             <Field label="Grade" value={employeeGradeLabel(employee.grade)} />
             <Field
               label="Contrat"
-              value={employee.contractType.toUpperCase()}
+              value={
+                employee.contractType === "cdi" || employee.contractType === "stage"
+                  ? employee.contractType.toUpperCase() === "CDI"
+                    ? "CDI"
+                    : "Stage"
+                  : String(employee.contractType).toUpperCase()
+              }
             />
             <Field
               label="Date d'entrée"
@@ -184,7 +190,6 @@ export default async function EmployeeProfilePage({
           <CardContent>
             <HrEmployeeForm
               employee={employee}
-              departments={departments}
               peopleManagers={peopleManagers.filter((p) => p.isActive)}
             />
           </CardContent>

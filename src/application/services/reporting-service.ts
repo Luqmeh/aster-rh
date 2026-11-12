@@ -82,9 +82,7 @@ function matchesEmployeeFilters(
   employee: Employee,
   filters: ReportFilters,
 ): boolean {
-  if (filters.departmentId && employee.departmentId !== filters.departmentId) {
-    return false;
-  }
+  // departmentId filtre uniquement le recrutement (candidats) — plus de département employé.
   if (filters.employeeId && employee.id !== filters.employeeId) {
     return false;
   }
@@ -336,15 +334,15 @@ export function createReportingService(container: AppContainer) {
       ).length,
     };
 
-    const workforceByDepartment: ChartBucket[] = departments
-      .map((d) => ({
-        key: d.id,
-        label: d.name,
-        value: employees.filter(
-          (e) => e.departmentId === d.id && e.employmentStatus === "actif",
-        ).length,
-      }))
-      .filter((b) => b.value > 0);
+    const regionCounts = new Map<string, number>();
+    for (const e of employees) {
+      if (e.employmentStatus !== "actif") continue;
+      const key = e.region.trim() || "—";
+      regionCounts.set(key, (regionCounts.get(key) ?? 0) + 1);
+    }
+    const workforceByDepartment: ChartBucket[] = [...regionCounts.entries()]
+      .map(([label, value]) => ({ key: label, label, value }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
 
     const monthKeys = monthsBetween(filters.startDate, filters.endDate);
     const absenceDaysByMonth: ChartBucket[] = monthKeys.map((key) => {
@@ -527,8 +525,12 @@ export async function loadReportingContext(
     },
     departmentOf: (employeeId: string) => {
       const e = byId.get(employeeId);
-      if (!e) return "";
+      if (!e?.departmentId) return "";
       return deptById[e.departmentId]?.name ?? e.departmentId;
+    },
+    regionOf: (employeeId: string) => {
+      const e = byId.get(employeeId);
+      return e?.region ?? "";
     },
     peopleManagerOf: (employeeId: string) => {
       const e = byId.get(employeeId);

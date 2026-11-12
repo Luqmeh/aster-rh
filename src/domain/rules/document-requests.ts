@@ -89,11 +89,11 @@ export function isDepartureDocumentEligible(
 
 /**
  * Attestation CNCC — guide p.81 (professionnels CAC éligibles).
- * HYPOTHÈSE DÉMO : intitulé de poste contenant « CAC » ou « commissaire ».
+ * HYPOTHÈSE DÉMO : grade Manager (le Poste a été retiré des fiches).
  * Ne pas généraliser sans confirmation guide / RH.
  */
 export function isCnccAttestationEligible(employee: Employee): boolean {
-  return /\bCAC\b|commissaire/i.test(employee.jobTitle);
+  return employee.grade === "manager";
 }
 
 export function isDocumentTypeOfferedToEmployee(

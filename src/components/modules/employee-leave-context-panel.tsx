@@ -28,13 +28,12 @@ export function EmployeeLeaveContextPanel({ context, compact }: Props) {
             {context.employee.fullName}
           </p>
           <p className="text-xs text-[var(--aster-muted)]">
-            {context.employee.jobTitle}
-            {context.employee.departmentName
-              ? ` · ${context.employee.departmentName}`
-              : ""}
+            {context.employee.gradeLabel}
+            {context.employee.region ? ` · ${context.employee.region}` : ""}
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--aster-muted)]">
-            {context.employee.employeeId} · {context.employee.employmentStatus}
+            Matricule {context.employee.employeeId} ·{" "}
+            {context.employee.employmentStatus}
           </p>
         </div>
         <Link

@@ -56,7 +56,7 @@ export default async function AdministrationDocumentDetailPage({
         }
         description={
           employee
-            ? `Demande de ${fullName(employee.firstName, employee.lastName)} · ${employee.jobTitle}`
+            ? `Demande de ${fullName(employee.firstName, employee.lastName)}`
             : "Demande documentaire"
         }
         actions={

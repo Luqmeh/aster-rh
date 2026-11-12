@@ -38,8 +38,6 @@ describe("password-change-service + first login", () => {
       firstName: "Ana",
       lastName: "Test",
       email: "ana.test@demo.aster-rh.local",
-      jobTitle: "Consultante",
-      departmentId: "dept-audit",
       peopleManagerId: "pm-from-emp-julien",
       region: "Casablanca",
       contractType: "cdi",

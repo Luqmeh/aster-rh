@@ -106,7 +106,7 @@ export async function seedAsterDemoData(
         lastName: emp.lastName,
         email: emp.email,
         jobTitle: emp.jobTitle,
-        departmentId: emp.departmentId,
+        departmentId: emp.departmentId ?? null,
         managerId: null,
         peopleManagerId: null,
         region: emp.region,
@@ -143,7 +143,10 @@ export async function seedAsterDemoData(
             lastName: emp.lastName,
             email: emp.email,
             jobTitle: emp.jobTitle,
-            departmentId: emp.departmentId,
+            departmentId:
+              emp.departmentId === null
+                ? { set: null }
+                : emp.departmentId,
             region: emp.region,
             grade: emp.grade,
             site: emp.region,

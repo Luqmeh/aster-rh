@@ -72,7 +72,7 @@ async function exportConges(
       return {
         employeeId: r.employeeId,
         employee: ctx.employeeName(r.employeeId),
-        department: ctx.departmentOf(r.employeeId),
+        region: ctx.regionOf(r.employeeId),
         type: ctx.labels.leaveType(r.type),
         startDate: r.startDate,
         endDate: r.endDate,
@@ -91,9 +91,9 @@ async function exportConges(
   return createStyledWorkbook(
     "Congés",
     [
-      { header: "Identifiant collaborateur", key: "employeeId", width: 22 },
+      { header: "Matricule", key: "employeeId", width: 22 },
       { header: "Collaborateur", key: "employee", width: 24 },
-      { header: "Département / équipe", key: "department", width: 22 },
+      { header: "Région", key: "region", width: 22 },
       { header: "Type d'absence", key: "type", width: 18 },
       { header: "Date début", key: "startDate", width: 14 },
       { header: "Date fin", key: "endDate", width: 14 },
@@ -121,7 +121,7 @@ async function exportPlanningAbsences(
   );
   const rows = leaves.map((r) => ({
     employee: ctx.employeeName(r.employeeId),
-    department: ctx.departmentOf(r.employeeId),
+    region: ctx.regionOf(r.employeeId),
     type: ctx.labels.leaveType(r.type),
     startDate: r.startDate,
     endDate: r.endDate,
@@ -132,7 +132,7 @@ async function exportPlanningAbsences(
     "Planning absences",
     [
       { header: "Collaborateur", key: "employee", width: 24 },
-      { header: "Département", key: "department", width: 22 },
+      { header: "Région", key: "region", width: 22 },
       { header: "Type d'absence", key: "type", width: 18 },
       { header: "Date début", key: "startDate", width: 14 },
       { header: "Date fin", key: "endDate", width: 14 },
@@ -187,7 +187,7 @@ async function exportSoldes(
     const recoveryHours = credits.reduce((s, c) => s + c.hoursConfirmed, 0);
     rows.push({
       employee: fullName(emp.firstName, emp.lastName),
-      department: ctx.departmentOf(emp.id),
+      region: ctx.regionOf(emp.id),
       status: ctx.labels.employment(emp.employmentStatus),
       year,
       cpAcquis: formatNumberFr(cp.totalCredited, 1),
@@ -206,7 +206,7 @@ async function exportSoldes(
     "Soldes",
     [
       { header: "Collaborateur", key: "employee", width: 24 },
-      { header: "Département", key: "department", width: 22 },
+      { header: "Région", key: "region", width: 22 },
       { header: "Statut collaborateur", key: "status", width: 16 },
       { header: "Année", key: "year", width: 10 },
       { header: "CP acquis", key: "cpAcquis", width: 12 },
@@ -290,7 +290,7 @@ async function exportTeletravail(
 
   const rows = [...byMonth.values()].map((b) => ({
     employee: ctx.employeeName(b.employeeId),
-    department: ctx.departmentOf(b.employeeId),
+    region: ctx.regionOf(b.employeeId),
     month: b.month,
     requested: b.requested,
     approved: b.approved,
@@ -303,7 +303,7 @@ async function exportTeletravail(
     "Télétravail",
     [
       { header: "Collaborateur", key: "employee", width: 24 },
-      { header: "Département", key: "department", width: 22 },
+      { header: "Région", key: "region", width: 22 },
       { header: "Mois cible", key: "month", width: 12 },
       { header: "Jours demandés", key: "requested", width: 14 },
       { header: "Jours approuvés", key: "approved", width: 14 },
@@ -322,8 +322,6 @@ async function exportAnnuaire(ctx: ReportingContext) {
     rows.push({
       employeeId: emp.id,
       name: fullName(emp.firstName, emp.lastName),
-      department: ctx.departmentOf(emp.id),
-      jobTitle: emp.jobTitle,
       status: ctx.labels.employment(emp.employmentStatus),
       role: account ? ctx.labels.role(account.role) : "—",
       hireDate: emp.hireDate,
@@ -337,10 +335,8 @@ async function exportAnnuaire(ctx: ReportingContext) {
   return createStyledWorkbook(
     "Annuaire",
     [
-      { header: "Identifiant", key: "employeeId", width: 22 },
+      { header: "Matricule", key: "employeeId", width: 22 },
       { header: "Nom", key: "name", width: 24 },
-      { header: "Département / équipe", key: "department", width: 22 },
-      { header: "Poste", key: "jobTitle", width: 24 },
       { header: "Statut cycle de vie", key: "status", width: 16 },
       { header: "Rôle applicatif", key: "role", width: 18 },
       { header: "Date d'embauche", key: "hireDate", width: 14 },
@@ -558,7 +554,7 @@ async function exportLifecycle(ctx: ReportingContext) {
       provisioning,
       status: ctx.labels.employment(emp.employmentStatus),
       role: account ? ctx.labels.role(account.role) : "—",
-      department: ctx.departmentOf(emp.id),
+      region: ctx.regionOf(emp.id),
       departureDate: emp.departureDate ?? "",
     });
   }
@@ -570,7 +566,7 @@ async function exportLifecycle(ctx: ReportingContext) {
       { header: "Provisionnement compte", key: "provisioning", width: 18 },
       { header: "Statut cycle de vie", key: "status", width: 16 },
       { header: "Rôle assigné", key: "role", width: 18 },
-      { header: "Département", key: "department", width: 22 },
+      { header: "Région", key: "region", width: 22 },
       { header: "Date de départ", key: "departureDate", width: 14 },
     ],
     rows,
@@ -674,7 +670,7 @@ async function exportArretsAbsences(
     )
     .map((r) => ({
       employee: ctx.employeeName(r.employeeId),
-      department: ctx.departmentOf(r.employeeId),
+      region: ctx.regionOf(r.employeeId),
       family: r.family === "conge_special" ? "Congé spécial" : "Arrêt",
       category: workAbsenceCategoryLabel(r.category),
       startDate: r.startDate,
@@ -696,7 +692,7 @@ async function exportArretsAbsences(
     "Arrêts & absences",
     [
       { header: "Collaborateur", key: "employee", width: 24 },
-      { header: "Département", key: "department", width: 20 },
+      { header: "Région", key: "region", width: 20 },
       { header: "Famille", key: "family", width: 14 },
       { header: "Catégorie", key: "category", width: 28 },
       { header: "Début", key: "startDate", width: 12 },

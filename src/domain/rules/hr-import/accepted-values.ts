@@ -1,10 +1,9 @@
-import { departments } from "@/data/demo-seed";
+import { EMPLOYEE_CONTRACT_LABELS, EMPLOYEE_CONTRACT_VALUES } from "@/domain/types/employee-structure";
 import { EMPLOYEE_GRADE_LABELS, EMPLOYEE_GRADE_VALUES } from "@/domain/types/employee-structure";
 
 /**
  * Valeurs affichées dans le modèle Excel (feuille Listes / listes déroulantes).
  * Doivent être acceptées telles quelles par normalize* / resolve* côté importateur.
- * Ne pas y mettre de valeurs que le serveur refuse (ex. « Autre », « À préciser »).
  */
 
 /** Statut* — normalizeEmploymentStatus */
@@ -14,13 +13,10 @@ export const HR_IMPORT_STATUS_OPTIONS = [
   "Sorti",
 ] as const;
 
-/** Type de contrat — normalizeContractType (casse souple) */
-export const HR_IMPORT_CONTRACT_OPTIONS = [
-  "CDI",
-  "CDD",
-  "Alternance",
-  "Stage",
-] as const;
+/** Type de contrat — CDI / Stage uniquement */
+export const HR_IMPORT_CONTRACT_OPTIONS = EMPLOYEE_CONTRACT_VALUES.map(
+  (v) => EMPLOYEE_CONTRACT_LABELS[v],
+);
 
 /** Type de solde* — normalizeBalanceType */
 export const HR_IMPORT_BALANCE_TYPE_OPTIONS = [
@@ -38,10 +34,6 @@ export const HR_IMPORT_VERIFICATION_OPTIONS = [
   "Vérifié par RH",
 ] as const;
 
-/**
- * Historique optionnel (non exécuté) — valeurs du modèle pour cohérence UI.
- * Ne pas élargir sans besoin métier documenté.
- */
 export const HR_IMPORT_HISTORY_EVENT_OPTIONS = [
   "CONGE_APPROUVE",
   "ABSENCE",
@@ -59,18 +51,17 @@ export const HR_IMPORT_HISTORY_STATUS_OPTIONS = [
   "À confirmer",
 ] as const;
 
-/** Codes département du référentiel démo (resolveDepartmentId par code). */
-export const HR_IMPORT_DEPARTMENT_OPTIONS = departments.map((d) => d.code);
+/** @deprecated Département employé retiré du modèle. */
+export const HR_IMPORT_DEPARTMENT_OPTIONS: readonly string[] = [];
 
 /**
  * Grade — libellés français exacts (doivent matcher parseEmployeeGrade / Excel).
- * Pas de liste Site / cadre.
  */
 export const HR_IMPORT_GRADE_OPTIONS = EMPLOYEE_GRADE_VALUES.map(
   (v) => EMPLOYEE_GRADE_LABELS[v],
 );
 
-/** @deprecated Site n'est plus une colonne canonique — ne pas réintroduire en dropdown. */
+/** @deprecated Site n'est plus une colonne canonique. */
 export const HR_IMPORT_SITE_OPTIONS: readonly string[] = [];
 
 /** Champs strictement libres (pas de liste Excel). */
@@ -79,7 +70,6 @@ export const HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS = [
   "lastName",
   "firstName",
   "email",
-  "jobTitle",
   "region",
   "peopleManager",
   "notes",
@@ -98,7 +88,6 @@ export const HR_IMPORT_LISTES_COLUMNS: HrImportListColumn[] = [
   { header: "Unité", values: HR_IMPORT_UNIT_OPTIONS },
   { header: "Vérification", values: HR_IMPORT_VERIFICATION_OPTIONS },
   { header: "Type d'opération", values: HR_IMPORT_HISTORY_EVENT_OPTIONS },
-  { header: "Département", values: HR_IMPORT_DEPARTMENT_OPTIONS },
   { header: "Grade", values: HR_IMPORT_GRADE_OPTIONS },
   { header: "Statut historique", values: HR_IMPORT_HISTORY_STATUS_OPTIONS },
 ];

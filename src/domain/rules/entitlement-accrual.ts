@@ -110,8 +110,11 @@ export function isFullMonthEmployed(
   return true;
 }
 
+/** Historique : alternance / stage — pas d’éligibilité RTT. */
 export function isAlternant(employee: Employee): boolean {
-  return employee.contractType === "alternance";
+  return (
+    employee.contractType === "alternance" || employee.contractType === "stage"
+  );
 }
 
 export function isCpEligible(employee: Employee): boolean {

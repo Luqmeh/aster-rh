@@ -3,6 +3,7 @@ import {
   canViewEmployeeProfile,
 } from "@/domain/rules/permissions";
 import {
+  parseEmployeeContract,
   parseEmployeeGrade,
   parseRegion,
 } from "@/domain/types/employee-structure";
@@ -19,7 +20,6 @@ import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 
 export type DirectoryFilters = {
   q?: string;
-  departmentId?: string;
   peopleManagerId?: string;
   region?: string;
   grade?: string;
@@ -36,8 +36,6 @@ export type HrEmployeePatch = Partial<
     | "firstName"
     | "lastName"
     | "email"
-    | "jobTitle"
-    | "departmentId"
     | "peopleManagerId"
     | "region"
     | "contractType"
@@ -52,12 +50,11 @@ export type HrEmployeePatch = Partial<
 function matchesQuery(
   employee: Employee,
   query: string,
-  deptName: string,
   peopleManagerName: string,
 ): boolean {
   if (!query) return true;
   const hay =
-    `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.id} ${employee.jobTitle} ${deptName} ${peopleManagerName} ${employee.region} ${employee.grade}`.toLowerCase();
+    `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.id} ${peopleManagerName} ${employee.region} ${employee.grade}`.toLowerCase();
   return hay.includes(query);
 }
 
@@ -65,7 +62,7 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
   return {
     async listDirectory(session: AuthSession, filters: DirectoryFilters = {}) {
       requireDirectoryAccess(session);
-      const [employees, departments, peopleManagers] = await Promise.all([
+      const [employees, peopleManagers] = await Promise.all([
         deps.hr.listEmployees({
           includeInactive: filters.status !== "actif",
           employmentStatus:
@@ -73,18 +70,13 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
               ? filters.status
               : undefined,
         }),
-        deps.hr.listDepartments(),
         deps.hr.listPeopleManagers({ includeInactive: true }),
       ]);
-      const deptById = Object.fromEntries(departments.map((d) => [d.id, d]));
       const pmById = Object.fromEntries(peopleManagers.map((p) => [p.id, p]));
       const q = (filters.q ?? "").trim().toLowerCase();
       const regionFilter = (filters.region ?? "").trim().toLowerCase();
 
       return employees.filter((e) => {
-        if (filters.departmentId && e.departmentId !== filters.departmentId) {
-          return false;
-        }
         if (
           filters.peopleManagerId &&
           e.peopleManagerId !== filters.peopleManagerId
@@ -101,12 +93,7 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         const pmName = e.peopleManagerId
           ? (pmById[e.peopleManagerId]?.displayName ?? "")
           : "";
-        return matchesQuery(
-          e,
-          q,
-          deptById[e.departmentId]?.name ?? "",
-          pmName,
-        );
+        return matchesQuery(e, q, pmName);
       });
     },
 
@@ -166,8 +153,6 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         firstName,
         lastName,
         email,
-        jobTitle,
-        departmentId,
         peopleManagerId,
         region,
         contractType,
@@ -192,6 +177,13 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         resolvedRegion = regionParsed.value;
       }
 
+      let resolvedContract = contractType;
+      if (contractType !== undefined) {
+        const contractParsed = parseEmployeeContract(String(contractType));
+        if (!contractParsed.ok) throw new Error(contractParsed.message);
+        resolvedContract = contractParsed.value;
+      }
+
       let managerId: string | null | undefined;
       if (peopleManagerId !== undefined) {
         if (peopleManagerId) {
@@ -209,12 +201,12 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         firstName,
         lastName,
         email,
-        jobTitle,
-        departmentId,
+        jobTitle: "",
+        departmentId: null,
         peopleManagerId,
         managerId,
         region: resolvedRegion,
-        contractType,
+        contractType: resolvedContract,
         grade: resolvedGrade,
         hireDate,
         phoneInternal,

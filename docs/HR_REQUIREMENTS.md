@@ -13,16 +13,20 @@ Toute valeur chiffrée non confirmée est **À valider par RH**.
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
+| **Matricule** | **Implémenté** | = `Employee.id` (identifiant métier stable). Libellé UI / import / exports : Matricule. Distinct du UserAccount. |
 | **Grade** | **Implémenté** | Valeurs exactes : `Auditeur junior`, `Auditeur senior`, `Manager`. Classification organisationnelle uniquement — **ne pilote ni soldes, ni permissions, ni autorité d’approbation**. |
 | Cadre / non-cadre | **Retiré de l’UI / import** | Enum Prisma legacy conservée pour migration ; refusée par le contrat Grade |
 | **People Manager** | **Implémenté** | Catalogue maintenu par RH / Senior Manager (lien Employee optionnel ou nom seul). Affichage fiche / annuaire. **N’accorde aucune autorité d’approbation.** |
 | Manager hiérarchique | **Remplacé** | Ancien `managerId` self-ref conservé en legacy / sync depuis People Manager lié |
 | **Région** | **Implémenté** | Saisie libre (pas de liste de régions marocaines imposée). Remplace `Site`. |
 | Site | **Retiré de l’UI / import** | Colonne legacy DB syncée depuis `region` ; pas de mapping silencieux Site→Région à l’import |
+| **Contrat** | **Implémenté** | Écriture / UI / import : **CDI** et **Stage** uniquement. Enum Prisma `cdd` / `alternance` conservée en lecture historique. |
+| Poste | **Retiré** | Colonne DB `jobTitle` legacy, toujours vide en écriture ; refusée à l’import |
+| Département employé | **Retiré** | `departmentId` nullable ; `OrganizationUnit` conservé pour le recrutement |
 | `policyGroup` | **Implémenté** | Politique employeur Maroc — indépendant du Grade |
 | RTT statutaire | **Non** | Pas d’acquisition auto MA ; type de demande retiré de l’UI collaborateur |
 | **Récupération** | **Canonique** | Solde calculé (férié travaillé → `RecoveryCreditLedger` / `recoveryDays*`) — compteur unique exposé |
-| Alternants | **À valider** | Congé annuel selon contrat — RTT non auto |
+| Stages | **Implémenté (contrat)** | Type de contrat `Stage` ; règles d’acquisition CP/RTT à valider RH |
 
 Code : `employee-structure.ts`, `people-manager.ts`, `active-leave-types.ts`, `entitlement-policies.ts`, `MOROCCO_HR_POLICY.md`.
 

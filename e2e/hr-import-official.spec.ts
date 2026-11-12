@@ -8,7 +8,7 @@ import { buildFilledOfficialWorkbook } from "../src/domain/rules/hr-import/offic
 const RH_EMAIL = "sara.benali@demo.aster-rh.local";
 const RH_PASSWORD = "AsterE2E-Seed1";
 const OFFICIAL_SHA256 =
-  "bfd5b0bb7bf00b78c8589d290e39761c421fdad851fb56accb4e86ffa2a0fe6f";
+  "88672aa999a017a008d724bbce3fe624c3f3ecc5821b4617a199730b51ef1145";
 
 test.describe("Import RH — modèle officiel (navigateur)", () => {
   test("lot invalide : statut validated, pas de #441, confirmation bloquée", async ({
@@ -30,13 +30,12 @@ test.describe("Import RH — modèle officiel (navigateur)", () => {
           "X",
           "Y",
           "bad-email",
-          "UNKNOWN_DEPT",
-          "Poste",
           "Site",
+          "Poste",
+          "not-a-region",
           "not-a-date",
-          "XXX",
+          "CDD",
           "Nope",
-          "",
           "",
           "",
         ],
@@ -100,13 +99,12 @@ test.describe("Import RH — modèle officiel (navigateur)", () => {
           "Amrani",
           "Nadia",
           "nadia.amrani.e2e@demo.aster-rh.local",
-          "AUD",
-          "Consultante",
+          "Auditeur senior",
+          "Youssef Alaoui",
           "Casablanca (démo)",
           "2024-02-01",
           "CDI",
           "Actif",
-          "emp-julien",
           "",
           "",
         ],
@@ -115,13 +113,12 @@ test.describe("Import RH — modèle officiel (navigateur)", () => {
           "Saadi",
           "Karim",
           "",
-          "AUD",
-          "Assistant",
+          "Auditeur junior",
+          "",
           "Casablanca (démo)",
           "2023-06-01",
           "CDI",
           "Actif",
-          "",
           "",
           "",
         ],
