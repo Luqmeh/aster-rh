@@ -22,6 +22,7 @@ import {
   CALENDAR_TONE_CLASSES,
   type CalendarEvent,
 } from "@/domain/types/calendar";
+import { canSubmitWorkOnHolidayRequest } from "@/domain/rules/permissions";
 import type { DemoRole } from "@/domain/types/hr";
 import { cn, formatDateFr } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ export function HrCalendar({
   title?: string;
   subtitle?: string;
   compact?: boolean;
+  // role used for chef actions + self-service holiday forms
   role?: DemoRole;
 }) {
   const [month, setMonth] = useState(initialMonth);
@@ -61,6 +63,7 @@ export function HrCalendar({
   const cells = useMemo(() => padCalendarDays(month), [month]);
   const today = toDateOnly(new Date());
   const selectedEvents = selectedDate ? (byDate[selectedDate] ?? []) : [];
+  const canSubmitHolidaySelfService = canSubmitWorkOnHolidayRequest(role);
 
   return (
     <div className="aster-soft-in rounded-[10px] border border-[var(--aster-border)] bg-white shadow-[var(--aster-shadow)]">
@@ -237,7 +240,9 @@ export function HrCalendar({
                     <p className="text-[11px] opacity-80">
                       {CALENDAR_TONE_CLASSES[event.tone].label}
                     </p>
-                    {event.kind === "holiday" && event.actionableHoliday ? (
+                    {event.kind === "holiday" &&
+                    event.actionableHoliday &&
+                    canSubmitHolidaySelfService ? (
                       <div className="mt-2 text-[var(--aster-ink)]">
                         <WorkOnHolidayRequestForm
                           holidayDate={event.date}
@@ -247,7 +252,8 @@ export function HrCalendar({
                     ) : null}
                     {event.kind === "work_on_holiday" ? (
                       <div className="mt-2 space-y-2 text-[var(--aster-ink)]">
-                        {event.status === "approuvee" ? (
+                        {event.status === "approuvee" &&
+                        canSubmitHolidaySelfService ? (
                           <WorkOnHolidayDeclareActual
                             requestId={event.sourceRequestId}
                             plannedHours={7}

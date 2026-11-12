@@ -275,6 +275,7 @@ export default async function TeletravailPage({
             : "Calendrier d'équipe"
         }
         subtitle="Congés et télétravail issus des demandes existantes — les refus restent distincts des événements confirmés."
+        role={session.role}
       />
     </div>
   );

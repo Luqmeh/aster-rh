@@ -339,6 +339,7 @@ export default async function TableauDeBordPage() {
             title={isHrScope ? "Organisation" : "Mon mois"}
             subtitle="Événements dérivés des congés et plans de télétravail — les refus restent distincts."
             compact
+            role={role}
           />
         </div>
 
