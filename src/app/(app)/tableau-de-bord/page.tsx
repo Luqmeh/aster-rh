@@ -23,8 +23,10 @@ import { currentMonthKey, formatMonthYearFr } from "@/domain/rules/dates";
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import {
   canApproveRequests,
+  canUseEmployeeSelfService,
   canViewAllRequests,
   hasGlobalPeopleScope,
+  roleLabel,
 } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, formatDateTimeFr } from "@/lib/utils";
@@ -61,6 +63,7 @@ export default async function TableauDeBordPage() {
   const canDecide = canApproveRequests(role);
   const canViewQueue = canViewAllRequests(role);
   const isHrScope = hasGlobalPeopleScope(role);
+  const canSelfService = canUseEmployeeSelfService(role);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
@@ -116,16 +119,33 @@ export default async function TableauDeBordPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title={`${greeting}, ${employee.firstName}`}
-        description="Votre espace ASTER — congés, télétravail et actualités RH."
+        description={
+          canSelfService
+            ? "Votre espace ASTER — congés, télétravail et actualités RH."
+            : `Espace ${roleLabel(role)} — pilotage, validations et administration RH.`
+        }
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm">
-              <Link href="/conges">Demander un congé</Link>
-            </Button>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/teletravail">Planifier mon télétravail</Link>
-            </Button>
-          </div>
+          canSelfService ? (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link href="/conges">Demander un congé</Link>
+              </Button>
+              <Button asChild size="sm" variant="secondary">
+                <Link href="/teletravail">Planifier mon télétravail</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link href="/administration">
+                  {canDecide ? "Validations" : "Administration RH"}
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="secondary">
+                <Link href="/annuaire">Annuaire</Link>
+              </Button>
+            </div>
+          )
         }
       />
 
@@ -160,39 +180,78 @@ export default async function TableauDeBordPage() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {canSelfService ? (
+          <>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">CP restants</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {balance?.congesPayesRestants ?? "—"}
+                  <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
+                    j
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {balance?.rttRestants ?? "—"}
+                  <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
+                    j
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">
+                  Demandes ouvertes
+                </p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {overview.myLeavesOpen + overview.myTeleworkOpen}
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">
+                  Congés en file
+                </p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {pendingLeaves.length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">
+                  Télétravail en file
+                </p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {pendingTelework.length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs text-[var(--aster-muted)]">À traiter</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                  {pendingCount}
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
         <Card>
           <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">CP restants</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {balance?.congesPayesRestants ?? "—"}
-              <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                j
-              </span>
+            <p className="text-xs text-[var(--aster-muted)]">
+              Notifications non lues
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {balance?.rttRestants ?? "—"}
-              <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                j
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">Demandes ouvertes</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {overview.myLeavesOpen + overview.myTeleworkOpen}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">Notifications non lues</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
               {overview.unreadNotifications}
             </p>
@@ -201,30 +260,67 @@ export default async function TableauDeBordPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <QuickAction
-          href="/conges"
-          label="Demander un congé"
-          description="CP, RTT, récupération — demi-journées"
-          icon={Plane}
-        />
-        <QuickAction
-          href="/absences"
-          label="Déclarer une absence"
-          description="Arrêt ou absence spéciale"
-          icon={ClipboardList}
-        />
-        <QuickAction
-          href="/teletravail"
-          label="Planifier mon télétravail"
-          description="Jusqu’à 2 j/sem. et 12 j/mois"
-          icon={CalendarDays}
-        />
-        <QuickAction
-          href="/documents"
-          label="Mes documents"
-          description="Demande, disponibilité, historique"
-          icon={FolderOpen}
-        />
+        {canSelfService ? (
+          <>
+            <QuickAction
+              href="/conges"
+              label="Demander un congé"
+              description="CP, RTT, récupération — demi-journées"
+              icon={Plane}
+            />
+            <QuickAction
+              href="/absences"
+              label="Déclarer une absence"
+              description="Arrêt ou absence spéciale"
+              icon={ClipboardList}
+            />
+            <QuickAction
+              href="/teletravail"
+              label="Planifier mon télétravail"
+              description="Jusqu’à 2 j/sem. et 12 j/mois"
+              icon={CalendarDays}
+            />
+            <QuickAction
+              href="/documents"
+              label="Mes documents"
+              description="Demande, disponibilité, historique"
+              icon={FolderOpen}
+            />
+          </>
+        ) : (
+          <>
+            <QuickAction
+              href="/conges"
+              label="Congés collaborateurs"
+              description={
+                canDecide
+                  ? "File de validation"
+                  : "Suivi des demandes (lecture)"
+              }
+              icon={Plane}
+            />
+            <QuickAction
+              href="/teletravail"
+              label="Télétravail collaborateurs"
+              description={
+                canDecide ? "Plans à décider" : "Suivi des plans (lecture)"
+              }
+              icon={CalendarDays}
+            />
+            <QuickAction
+              href="/administration"
+              label={canDecide ? "Validations" : "Administration RH"}
+              description="Pilotage transverse"
+              icon={ClipboardList}
+            />
+            <QuickAction
+              href="/annuaire"
+              label="Annuaire"
+              description="Fiches collaborateurs"
+              icon={Users}
+            />
+          </>
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
@@ -246,106 +342,131 @@ export default async function TableauDeBordPage() {
           />
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Prochaines absences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {upcomingAbsences.length === 0 ? (
-                <EmptyState
-                  compact
-                  title="Aucune absence à venir"
-                  description="Les congés approuvés apparaîtront ici."
-                />
-              ) : (
-                upcomingAbsences.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-[var(--aster-border)] px-3 py-2.5"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-[var(--aster-ink)]">
-                        {leaveTypeLabel(r.type)}
-                      </p>
-                      <p className="text-xs text-[var(--aster-muted)]">
-                        {formatDateFr(r.startDate)} → {formatDateFr(r.endDate)}{" "}
-                        · {r.daysCount} j.
-                      </p>
+        {canSelfService ? (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Prochaines absences</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {upcomingAbsences.length === 0 ? (
+                  <EmptyState
+                    compact
+                    title="Aucune absence à venir"
+                    description="Les congés approuvés apparaîtront ici."
+                  />
+                ) : (
+                  upcomingAbsences.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-[var(--aster-border)] px-3 py-2.5"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-[var(--aster-ink)]">
+                          {leaveTypeLabel(r.type)}
+                        </p>
+                        <p className="text-xs text-[var(--aster-muted)]">
+                          {formatDateFr(r.startDate)} →{" "}
+                          {formatDateFr(r.endDate)} · {r.daysCount} j.
+                        </p>
+                      </div>
+                      <StatusBadge status={r.status} />
                     </div>
-                    <StatusBadge status={r.status} />
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle>Télétravail à venir</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {upcomingTelework.length === 0 ? (
+                  <EmptyState
+                    compact
+                    title="Aucun jour planifié"
+                    description="Les jours de télétravail approuvés s’affichent ici."
+                  />
+                ) : (
+                  upcomingTelework.map((item) => (
+                    <div
+                      key={`${item.planId}-${item.date}`}
+                      className="flex items-center gap-2 text-sm text-[var(--aster-ink)]"
+                    >
+                      <CheckCircle2
+                        className="size-3.5 shrink-0 text-[var(--aster-accent)]"
+                        aria-hidden
+                      />
+                      {formatDateFr(item.date)}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Télétravail à venir</CardTitle>
+              <CardTitle>
+                {canDecide ? "File de validation" : "Suivi des demandes"}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {upcomingTelework.length === 0 ? (
-                <EmptyState
-                  compact
-                  title="Aucun jour planifié"
-                  description="Les jours de télétravail approuvés s’affichent ici."
-                />
-              ) : (
-                upcomingTelework.map((item) => (
-                  <div
-                    key={`${item.planId}-${item.date}`}
-                    className="flex items-center gap-2 text-sm text-[var(--aster-ink)]"
-                  >
-                    <CheckCircle2
-                      className="size-3.5 shrink-0 text-[var(--aster-accent)]"
-                      aria-hidden
-                    />
-                    {formatDateFr(item.date)}
-                  </div>
-                ))
-              )}
+            <CardContent className="space-y-3 text-sm text-[var(--aster-ink)]">
+              <p>
+                <strong>{pendingLeaves.length}</strong> demande
+                {pendingLeaves.length > 1 ? "s" : ""} de congé ·{" "}
+                <strong>{pendingTelework.length}</strong> plan
+                {pendingTelework.length > 1 ? "s" : ""} de télétravail
+              </p>
+              <Button asChild size="sm">
+                <Link href="/administration">
+                  {canDecide ? "Traiter les validations" : "Ouvrir l'administration"}
+                </Link>
+              </Button>
             </CardContent>
           </Card>
-        </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Mes demandes en cours</CardTitle>
-            <Button asChild size="sm" variant="ghost">
-              <Link href="/conges">Voir tout</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {myPending.length === 0 ? (
-              <EmptyState
-                compact
-                title="Rien en attente"
-                description="Vos prochaines demandes apparaîtront ici."
-              />
-            ) : (
-              myPending.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-[var(--aster-border)] px-3 py-2.5 transition-colors hover:bg-[var(--aster-surface-2)]"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-[var(--aster-ink)]">
-                      {item.label}
-                    </p>
-                    <p className="text-xs text-[var(--aster-muted)]">
-                      {item.detail}
-                    </p>
-                  </div>
-                  <StatusBadge status={item.status} />
-                </Link>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        {canSelfService ? (
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle>Mes demandes en cours</CardTitle>
+              <Button asChild size="sm" variant="ghost">
+                <Link href="/conges">Voir tout</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {myPending.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="Rien en attente"
+                  description="Vos prochaines demandes apparaîtront ici."
+                />
+              ) : (
+                myPending.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[var(--aster-border)] px-3 py-2.5 transition-colors hover:bg-[var(--aster-surface-2)]"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-[var(--aster-ink)]">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-[var(--aster-muted)]">
+                        {item.detail}
+                      </p>
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </Link>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -397,7 +518,7 @@ export default async function TableauDeBordPage() {
           <CardHeader>
             <CardTitle>
               {canDecide
-                ? "Pilotage Chef de projet"
+                ? "Pilotage Senior Manager"
                 : "Raccourcis administration RH"}
             </CardTitle>
           </CardHeader>

@@ -25,6 +25,7 @@ import {
 } from "@/domain/rules/dates";
 import {
   canApproveRequests,
+  canSubmitTeleworkRequest,
   canViewAllRequests,
   hasGlobalPeopleScope,
 } from "@/domain/rules/permissions";
@@ -46,6 +47,7 @@ export default async function TeletravailPage({
   const month = currentMonthKey();
   const canViewQueue = canViewAllRequests(session.role);
   const canDecide = canApproveRequests(session.role);
+  const canSubmitSelf = canSubmitTeleworkRequest(session.role);
 
   const [mine, pending, employees, calendarData] = await Promise.all([
     service.listForCurrentUser(session),
@@ -90,26 +92,41 @@ export default async function TeletravailPage({
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {prefill ? "Modifier mon plan en attente" : "Planifier le mois"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MonthlyTeleworkPlanner
-              key={prefill?.editingPlanId ?? "new-plan"}
-              eligible={eligibility.ok}
-              eligibilityMessage={
-                eligibility.ok ? undefined : eligibility.message
-              }
-              editingPlanId={prefill?.editingPlanId}
-              initialMonth={prefill?.initialMonth}
-              initialDays={prefill?.initialDays}
-              initialReason={prefill?.initialReason}
-            />
-          </CardContent>
-        </Card>
+        {canSubmitSelf ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {prefill ? "Modifier mon plan en attente" : "Planifier le mois"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MonthlyTeleworkPlanner
+                key={prefill?.editingPlanId ?? "new-plan"}
+                eligible={eligibility.ok}
+                eligibilityMessage={
+                  eligibility.ok ? undefined : eligibility.message
+                }
+                editingPlanId={prefill?.editingPlanId}
+                initialMonth={prefill?.initialMonth}
+                initialDays={prefill?.initialDays}
+                initialReason={prefill?.initialReason}
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Libre-service télétravail</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmptyState
+                icon={Laptop}
+                title="Réservé aux collaborateurs"
+                description="Les comptes management consultent et décident les plans des collaborateurs, sans planifier un télétravail personnel."
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {canViewQueue && (
           <Card>
@@ -179,6 +196,7 @@ export default async function TeletravailPage({
         )}
       </div>
 
+      {canSubmitSelf ? (
       <Card>
         <CardHeader>
           <CardTitle>Mes plans</CardTitle>
@@ -246,6 +264,7 @@ export default async function TeletravailPage({
           )}
         </CardContent>
       </Card>
+      ) : null}
 
       <HrCalendar
         initialMonth={month}

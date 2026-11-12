@@ -269,6 +269,12 @@ export function createWorkOnHolidayService(deps: {
       actualHours: number,
     ) {
       requireSession(session);
+      if (!hasPermission(session.role, "work_on_holiday.submit")) {
+        throw new AuthError(
+          "La déclaration d'heures férié est réservée aux collaborateurs.",
+          403,
+        );
+      }
       const existing = await deps.hr.getWorkOnHolidayRequest(id);
       if (!existing) throw new AuthError("Demande introuvable.", 404);
       if (existing.employeeId !== session.employee.id) {

@@ -13,6 +13,7 @@ import {
   documentRequestTypeLabel,
   listOfferedDocumentTypes,
 } from "@/domain/rules/document-requests";
+import { canSubmitDocumentRequest } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateTimeFr } from "@/lib/utils";
 
@@ -21,9 +22,10 @@ export default async function DocumentsPage() {
   const session = await container.auth.getSession();
   if (!session) throw new Error("Session absente");
 
+  const canSubmitSelf = canSubmitDocumentRequest(session.role);
   const service = createDocumentRequestService(container);
   const [requests, library] = await Promise.all([
-    service.listForEmployee(session),
+    canSubmitSelf ? service.listForEmployee(session) : Promise.resolve([]),
     service.listPublishedLibrary(session),
   ]);
   const offeredTypes = listOfferedDocumentTypes(session.employee);
@@ -62,14 +64,30 @@ export default async function DocumentsPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Nouvelle demande</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EmployeeDocumentRequestForm offeredTypes={offeredTypes} />
-          </CardContent>
-        </Card>
+        {canSubmitSelf ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Nouvelle demande</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmployeeDocumentRequestForm offeredTypes={offeredTypes} />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Demandes personnelles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmptyState
+                compact
+                icon={FolderOpen}
+                title="Réservé aux collaborateurs"
+                description="La publication et le traitement documentaire RH restent disponibles dans l'administration. Les demandes personnelles sont réservées aux collaborateurs."
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -116,41 +134,45 @@ export default async function DocumentsPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Demandes en cours ({pending.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pending.length === 0 ? (
-            <EmptyState
-              compact
-              icon={FolderOpen}
-              title="Aucune demande en cours"
-              description="Soumettez une demande pour démarrer le traitement RH."
-            />
-          ) : (
-            <RequestTable rows={pending} />
-          )}
-        </CardContent>
-      </Card>
+      {canSubmitSelf ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Demandes en cours ({pending.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pending.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={FolderOpen}
+                  title="Aucune demande en cours"
+                  description="Soumettez une demande pour démarrer le traitement RH."
+                />
+              ) : (
+                <RequestTable rows={pending} />
+              )}
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Historique</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {history.length === 0 ? (
-            <EmptyState
-              compact
-              icon={FolderOpen}
-              title="Pas encore d'historique"
-              description="Les demandes terminées ou refusées s'afficheront ici."
-            />
-          ) : (
-            <RequestTable rows={history} showMessage />
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Historique</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {history.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={FolderOpen}
+                  title="Pas encore d'historique"
+                  description="Les demandes terminées ou refusées s'afficheront ici."
+                />
+              ) : (
+                <RequestTable rows={history} showMessage />
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

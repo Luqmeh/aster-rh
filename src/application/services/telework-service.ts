@@ -8,6 +8,7 @@ import {
 import { monthBounds } from "@/domain/rules/dates";
 import {
   canApproveRequests,
+  canSubmitTeleworkRequest,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
 import {
@@ -53,6 +54,11 @@ export function createTeleworkService(deps: {
     },
 
     async submitMonthlyPlan(session: AuthSession, raw: MonthlyTeleworkPlanInput) {
+      if (!canSubmitTeleworkRequest(session.role)) {
+        throw new Error(
+          "Le libre-service télétravail est réservé aux collaborateurs.",
+        );
+      }
       const eligibility = assertTeleworkEligibility(session.employee);
       if (!eligibility.ok) throw new Error(eligibility.message);
 
@@ -121,6 +127,11 @@ export function createTeleworkService(deps: {
       requestId: string,
       raw: MonthlyTeleworkPlanInput,
     ) {
+      if (!canSubmitTeleworkRequest(session.role)) {
+        throw new Error(
+          "Le libre-service télétravail est réservé aux collaborateurs.",
+        );
+      }
       const request = await deps.hr.getTeleworkRequest(requestId);
       if (!request) throw new Error("Plan introuvable.");
       if (request.employeeId !== session.employee.id) {
@@ -161,6 +172,11 @@ export function createTeleworkService(deps: {
     },
 
     async withdrawPendingPlan(session: AuthSession, requestId: string) {
+      if (!canSubmitTeleworkRequest(session.role)) {
+        throw new Error(
+          "Le libre-service télétravail est réservé aux collaborateurs.",
+        );
+      }
       const request = await deps.hr.getTeleworkRequest(requestId);
       if (!request) throw new Error("Plan introuvable.");
       if (request.employeeId !== session.employee.id) {

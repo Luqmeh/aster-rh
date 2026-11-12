@@ -2,9 +2,13 @@ import type { DemoRole, Employee } from "@/domain/types/hr";
 
 /**
  * Hiérarchie définitive ASTER (permanente) :
- * 1. chef_de_projet — tous droits HR + toutes validations (portée globale)
- * 2. admin_rh — administration RH, lecture des demandes, **sans** décision
+ * 1. chef_de_projet (libellé Senior Manager) — management + validations (portée globale),
+ *    **sans** libre-service employé (congés / télétravail / absences / docs perso)
+ * 2. admin_rh (libellé Responsable RH) — administration RH, lecture des demandes,
+ *    **sans** décision manager et **sans** libre-service employé
  * 3. collaborateur — libre-service personnel uniquement
+ *
+ * Distinction : soumettre une demande personnelle ≠ traiter / administrer une demande.
  */
 
 export type Permission =
@@ -64,33 +68,24 @@ const CHEF: Permission[] = [
   "account.role.assign_collaborateur",
   "hr.administration",
   "org.manage",
-  "request.leave.view_own",
   "request.leave.view_all",
-  "request.leave.submit",
   "request.leave.approve",
-  "request.telework.view_own",
   "request.telework.view_all",
-  "request.telework.submit",
   "request.telework.approve",
   "recruitment.create",
   "recruitment.view_all",
   "recruitment.decide",
   "recruitment.assign_interviewer",
   "recruitment.view_assigned",
-  "document_request.submit",
-  "document_request.view_own",
   "document_request.view_all",
   "document_request.process",
-  "work_on_holiday.submit",
-  "work_on_holiday.view_own",
   "work_on_holiday.view_all",
   "work_on_holiday.approve",
   "holiday.manage",
   "hr.reporting",
   "hr.import.view",
   // Chef : inspection des lots — pas d'exécution d'import
-  "work_absence.submit",
-  "work_absence.view_own",
+  // pas de *.submit libre-service ni work_absence.submit
   "work_absence.view_all",
   // Chef : vue opérationnelle ; pas de traitement RH ni justificatifs médicaux
   "dashboard.hr",
@@ -108,32 +103,23 @@ const HR: Permission[] = [
   "account.role.assign_collaborateur",
   "hr.administration",
   "org.manage",
-  "request.leave.view_own",
   "request.leave.view_all",
-  "request.leave.submit",
-  "request.telework.view_own",
   "request.telework.view_all",
-  "request.telework.submit",
   "recruitment.create",
   "recruitment.view_all",
-  "document_request.submit",
-  "document_request.view_own",
   "document_request.view_all",
   "document_request.process",
-  "work_on_holiday.submit",
-  "work_on_holiday.view_own",
   "work_on_holiday.view_all",
   "holiday.manage",
   "hr.reporting",
   "hr.import.view",
   "hr.import.execute",
-  "work_absence.submit",
-  "work_absence.view_own",
   "work_absence.view_all",
   "work_absence.manage",
   "work_absence.view_medical_docs",
   "dashboard.hr",
   // pas de *.approve / recruitment.decide / work_on_holiday.approve
+  // pas de *.submit libre-service
 ];
 
 const EMPLOYEE: Permission[] = [
@@ -282,8 +268,39 @@ export function canAccessHrReporting(role: DemoRole): boolean {
   return hasPermission(role, "hr.reporting");
 }
 
+/** Libre-service : soumettre une demande de congé personnelle. */
+export function canSubmitLeaveRequest(role: DemoRole): boolean {
+  return hasPermission(role, "request.leave.submit");
+}
+
+/** Libre-service : soumettre un plan de télétravail personnel. */
+export function canSubmitTeleworkRequest(role: DemoRole): boolean {
+  return hasPermission(role, "request.telework.submit");
+}
+
+/** Libre-service : demander un document personnel. */
+export function canSubmitDocumentRequest(role: DemoRole): boolean {
+  return hasPermission(role, "document_request.submit");
+}
+
+/** Libre-service : déclarer un travail un jour férié (demande personnelle). */
+export function canSubmitWorkOnHolidayRequest(role: DemoRole): boolean {
+  return hasPermission(role, "work_on_holiday.submit");
+}
+
 export function canSubmitWorkAbsence(role: DemoRole): boolean {
   return hasPermission(role, "work_absence.submit");
+}
+
+/** Raccourci : tout libre-service employé (congés, TT, absences, docs, férié). */
+export function canUseEmployeeSelfService(role: DemoRole): boolean {
+  return (
+    canSubmitLeaveRequest(role) ||
+    canSubmitTeleworkRequest(role) ||
+    canSubmitDocumentRequest(role) ||
+    canSubmitWorkAbsence(role) ||
+    canSubmitWorkOnHolidayRequest(role)
+  );
 }
 
 export function canViewAllWorkAbsences(role: DemoRole): boolean {

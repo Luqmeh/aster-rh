@@ -1,64 +1,99 @@
 # ASTER — Rapport de progression
 
-**Date / heure :** 12 novembre 2026 ~02:07 UTC  
+**Date / heure :** 12 novembre 2026 ~02:25 UTC  
 **Branche :** `main`  
-**Sujet :** Exécution approuvée — purge annuaire Production → 2 employés  
-**État :** **FAIT** — vérifié live sur Supabase `omprtbhqjdhnyfhwboho`.
+**Sujet :** Séparation comptes management / libre-service Collaborateur  
+**État :** **FAIT** — tests / typecheck / lint / build OK ; prêt push.
 
 ---
 
-## Exécution
+## Objectif atteint
 
-- Cible : Production `omprtbhqjdhnyfhwboho.supabase.co` (préflight host OK).
-- Méthode : transaction Prisma unique + deletes storage ciblés (pas de `TRUNCATE` / seed / reset).
-- Préflight : counts + IDs + historique + FK **alignés** sur l’inventory approuvé → dry-run `passed` → execute.
-- Route / preview d’exécution **retirés** après coup.
+Trois expériences distinctes sans retirer de modules :
 
-### Résultat live
+| Rôle (enum DB) | Libellé | Libre-service personnel | Management |
+|----------------|---------|-------------------------|------------|
+| `chef_de_projet` | Senior Manager | **Retiré** | Validations + admin (inchangé) |
+| `admin_rh` | Responsable RH | **Retiré** | Admin RH, lecture demandes, **sans** approve |
+| `collaborateur` | Collaborateur | **Complet** | Non |
 
-| Check | Résultat |
-|-------|----------|
-| Employee | **2** — `emp-julien` Amel DAAB · Senior Manager · `amel.daab@demo.aster-rh.local` |
-| UserAccount | **2** — `user-julien` (`chef_de_projet`) · `user-camille` (`admin_rh`) |
-| Kenza | `emp-camille` KENZA RAFIQ · Responsable RH · `kenza.rafiq@demo.aster-rh.local` |
-| Password hashes | **inchangés** (sha256 préfixe `e9b204d5eb57` avant = après) |
-| bcrypt runtime | `ASTER_SEED_PASSWORD` absent du runtime preview → compare plaintext non exécutée ; hashes préservés |
-| Historique Amel/Kenza | soldes / ledger / notifs / work-on-holiday = **0** |
-| Employés / comptes purgés | 8 + 3 absents ; 0 orphelins leave sur IDs deleted |
-| HrImportBatch | **0** (5 lots + 1 objet storage + doc perso Léa supprimés ; 0 erreur storage) |
-| RecruitmentCandidate / Event | **2 / 9** conservés ; `createdByEmployeeId = emp-camille` |
-| OrganizationUnit / docs société | **6 / 2** intactes |
-
-### Rôles techniques vs libellés
-
-Enum Prisma `DemoRole` : toujours `chef_de_projet` / `admin_rh` (pas de valeurs `SENIOR_MANAGER` / `HR_ADMIN` en base).  
-Libellés produit mis à jour : `roleLabel` + sélecteurs UI → **Senior Manager** / **Responsable RH**.  
-Migration enum dédiée = itération ultérieure si IDs littéraux requis en DB.
+Production (Amel / Kenza) **non touchée** : pas de seed, pas de reset, pas de changement de mots de passe / IDs.
 
 ---
 
-## Fichiers applicatifs modifiés (post-cleanup)
+## Permissions centralisées (`permissions.ts`)
 
-| Fichier | Changement |
+Retiré de CHEF + RH :  
+`request.leave.submit`, `request.telework.submit`, `document_request.submit`, `work_on_holiday.submit`, `work_absence.submit` (+ `view_own` perso associés).
+
+Conservé : `*.view_all`, `*.approve` (Chef), `document_request.process`, HR import, reporting, annuaire, lifecycle, etc.
+
+Helpers ajoutés : `canSubmitLeaveRequest`, `canSubmitTeleworkRequest`, `canSubmitDocumentRequest`, `canSubmitWorkOnHolidayRequest`, `canUseEmployeeSelfService`.
+
+---
+
+## Enforcement serveur
+
+| Service | Changement |
 |---------|------------|
-| `src/domain/rules/permissions.ts` | Labels Senior Manager / Responsable RH |
-| `src/domain/rules/permissions.test.ts` | Expectations labels |
-| `src/components/modules/lifecycle-role-controls.tsx` | Options rôle |
-| `src/components/modules/employee-onboard-form.tsx` | Options rôle |
-| `docs/PROGRESS.md` | Ce rapport |
+| `leave-service` | Refuse submit si pas `request.leave.submit` |
+| `telework-service` | Refuse submit / update / withdraw perso |
+| `document-request-service` | Déjà gated sur `document_request.submit` |
+| `work-absence-service` | Déjà gated sur `work_absence.submit` |
+| `work-on-holiday-service` | submit + `declareActualHours` gated |
 
-Aucune migration Prisma dans ce lot. Aucune credential commitée. `docs/git ssh.txt` non lu / non touché.
+---
+
+## UX (modules conservés)
+
+- Dashboard : raccourcis management vs libre-service selon rôle.
+- Congés / Télétravail / Absences / Documents : formulaires perso masqués pour management + empty states explicites ; files de validation / admin intactes.
+- Navigation / onglets : **inchangés**.
+
+---
+
+## Onboarding
+
+- Default role provisionné : `collaborateur` (`employee-provisioning-service`).
+- `mustChangePassword` / flux premier login : inchangés (tests password-change OK).
+- Pas d’attribution automatique Senior Manager / RH.
 
 ---
 
 ## Tests
 
-- `vitest run src/domain/rules/permissions.test.ts` — **4 passed**
+| Suite | Résultat |
+|-------|----------|
+| Vitest complet | **322 passed**, 1 skipped (61 files) |
+| `permissions.test.ts` | 4 passed (management sans submit) |
+| `management-self-service-guard.test.ts` | **nouveau** — 6 passed (backend refuse Chef/RH, collab OK, approve Chef OK, RH ne décide pas) |
+| `approval-workflow.test.ts` | 11 passed |
+| `npm run typecheck` | OK |
+| `npm run lint` | OK |
+| `npm run build` | OK (`ASTER_BUILD_WITHOUT_DB=1`) |
 
 ---
 
-## Prochaine étape recommandée
+## Fichiers principaux
 
-1. Connexion manuelle Production avec les mots de passe existants Amel / Kenza (confirmer UX).  
-2. (Optionnel) Migration enum `chef_de_projet`→`senior_manager` / `admin_rh`→`hr_admin` + refactor permissions.  
-3. Remplacer les messages métier restants « Chef de projet » dans les services/UI hors `roleLabel`.
+- `src/domain/rules/permissions.ts` (+ test)
+- `src/application/services/{leave,telework,work-on-holiday}-service.ts`
+- `src/application/services/management-self-service-guard.test.ts` (nouveau)
+- `src/app/(app)/{tableau-de-bord,conges,teletravail,absences,documents}/page.tsx`
+- Docs : `ROLE_PERMISSIONS.md`, `ASTER_SCOPE.md`, `DEMO_GUIDE.md`, `HR_REQUIREMENTS.md`, `PRESENTATION_ALIGNMENT.md`
+
+**Dépendances :** aucune ajoutée.  
+**Migrations / seed Production :** aucun.
+
+---
+
+## Known issues
+
+- Messages métier texte « Chef de projet » encore présents dans certains services (hors `roleLabel`) — cosmétique, hors périmètre.
+- Enum DB non renommé en `senior_manager` / `hr_admin` (volontaire).
+
+---
+
+## Prochaine étape
+
+Déployer `main` sur Vercel Production (build auto) puis smoke-test login Amel / Kenza : modules visibles, formulaires perso absents, validations Chef OK.

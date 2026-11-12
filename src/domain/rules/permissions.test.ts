@@ -6,6 +6,12 @@ import {
   canExecuteHrImport,
   canManageEmployees,
   canManageWorkAbsences,
+  canSubmitDocumentRequest,
+  canSubmitLeaveRequest,
+  canSubmitTeleworkRequest,
+  canSubmitWorkAbsence,
+  canSubmitWorkOnHolidayRequest,
+  canUseEmployeeSelfService,
   canViewAllRequests,
   canViewAllWorkAbsences,
   canViewHrImport,
@@ -15,7 +21,7 @@ import {
 } from "@/domain/rules/permissions";
 
 describe("permissions hierarchy", () => {
-  it("donne au Chef de projet tous les droits HR et de validation", () => {
+  it("donne au Senior Manager les droits de validation sans libre-service", () => {
     expect(canApproveRequests("chef_de_projet")).toBe(true);
     expect(canBrowseDirectory("chef_de_projet")).toBe(true);
     expect(canManageEmployees("chef_de_projet")).toBe(true);
@@ -27,9 +33,20 @@ describe("permissions hierarchy", () => {
     expect(canViewWorkAbsenceMedicalDocs("chef_de_projet")).toBe(false);
     expect(canViewHrImport("chef_de_projet")).toBe(true);
     expect(canExecuteHrImport("chef_de_projet")).toBe(false);
+
+    expect(canSubmitLeaveRequest("chef_de_projet")).toBe(false);
+    expect(canSubmitTeleworkRequest("chef_de_projet")).toBe(false);
+    expect(canSubmitDocumentRequest("chef_de_projet")).toBe(false);
+    expect(canSubmitWorkAbsence("chef_de_projet")).toBe(false);
+    expect(canSubmitWorkOnHolidayRequest("chef_de_projet")).toBe(false);
+    expect(canUseEmployeeSelfService("chef_de_projet")).toBe(false);
+    expect(hasPermission("chef_de_projet", "request.leave.approve")).toBe(true);
+    expect(hasPermission("chef_de_projet", "request.telework.approve")).toBe(
+      true,
+    );
   });
 
-  it("donne à la RH la gestion sans validation", () => {
+  it("donne à la RH la gestion sans validation ni libre-service", () => {
     expect(canApproveRequests("admin_rh")).toBe(false);
     expect(canBrowseDirectory("admin_rh")).toBe(true);
     expect(canManageEmployees("admin_rh")).toBe(true);
@@ -40,9 +57,16 @@ describe("permissions hierarchy", () => {
     expect(canViewWorkAbsenceMedicalDocs("admin_rh")).toBe(true);
     expect(canViewHrImport("admin_rh")).toBe(true);
     expect(canExecuteHrImport("admin_rh")).toBe(true);
+
+    expect(canSubmitLeaveRequest("admin_rh")).toBe(false);
+    expect(canSubmitTeleworkRequest("admin_rh")).toBe(false);
+    expect(canSubmitDocumentRequest("admin_rh")).toBe(false);
+    expect(canSubmitWorkAbsence("admin_rh")).toBe(false);
+    expect(canSubmitWorkOnHolidayRequest("admin_rh")).toBe(false);
+    expect(canUseEmployeeSelfService("admin_rh")).toBe(false);
   });
 
-  it("limite le collaborateur au libre-service", () => {
+  it("limite le collaborateur au libre-service complet", () => {
     expect(canApproveRequests("collaborateur")).toBe(false);
     expect(canBrowseDirectory("collaborateur")).toBe(false);
     expect(canManageEmployees("collaborateur")).toBe(false);
@@ -53,6 +77,13 @@ describe("permissions hierarchy", () => {
     expect(hasPermission("collaborateur", "work_absence.submit")).toBe(true);
     expect(canViewHrImport("collaborateur")).toBe(false);
     expect(canExecuteHrImport("collaborateur")).toBe(false);
+
+    expect(canSubmitLeaveRequest("collaborateur")).toBe(true);
+    expect(canSubmitTeleworkRequest("collaborateur")).toBe(true);
+    expect(canSubmitDocumentRequest("collaborateur")).toBe(true);
+    expect(canSubmitWorkAbsence("collaborateur")).toBe(true);
+    expect(canSubmitWorkOnHolidayRequest("collaborateur")).toBe(true);
+    expect(canUseEmployeeSelfService("collaborateur")).toBe(true);
   });
 
   it("expose les libellés français officiels", () => {

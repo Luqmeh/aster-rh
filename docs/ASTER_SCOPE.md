@@ -17,7 +17,7 @@ Matrice d’alignement : `docs/PRESENTATION_ALIGNMENT.md`.
 
 ## Rôles
 
-Collaborateur · Ressources humaines · Chef de projet — voir `docs/ROLE_PERMISSIONS.md`.
+Collaborateur · Responsable RH · Senior Manager — voir `docs/ROLE_PERMISSIONS.md`.
 
 ## Placeholders / non opérationnels (ne pas présenter comme finalisés)
 

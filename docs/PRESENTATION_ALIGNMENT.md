@@ -8,7 +8,7 @@
 
 | Slide | Thème | Statut | Évidence / écart |
 |------:|-------|--------|------------------|
-| 01 | 3 rôles | **MATCH** | Collaborateur · Ressources humaines · Chef de projet |
+| 01 | 3 rôles | **MATCH** | Collaborateur · Responsable RH · Senior Manager |
 | 02 | Point d’entrée unique | **MATCH** | Nav par rôle, self-service + RH + décision |
 | 03 | Dashboard CP/RTT, calendrier, notifs | **MATCH** | Compteurs CP/RTT ; calendrier ; demandes ; notifs ; raccourcis congé / absence / télétravail / documents |
 | 04 | Absence + documents | **MATCH** | `/absences` (dates, catégorie, commentaire) ; `/documents` demande / dispo / historique |

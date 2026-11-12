@@ -38,7 +38,7 @@ Public cible : conseil d’administration PKF Arsilon — **13 novembre 2026**.
 
 - Architecture prête pour Entra ID, e-mail, stockage, paie (adaptateurs).
 - Roadmap : `docs/ROADMAP.md`.
-- Hiérarchie permanente : Chef de projet > Ressources humaines > Collaborateur.
+- Hiérarchie permanente : Senior Manager > Responsable RH > Collaborateur (libre-service réservé au Collaborateur).
 
 ## Comptes
 

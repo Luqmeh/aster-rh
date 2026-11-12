@@ -14,6 +14,7 @@ import {
 } from "@/domain/rules/approvals";
 import {
   canApproveRequests,
+  canSubmitLeaveRequest,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
 import { mergeHolidaysWithOverrides } from "@/domain/rules/morocco-holidays";
@@ -105,6 +106,11 @@ export function createLeaveService(deps: {
     },
 
     async submit(session: AuthSession, raw: LeaveRequestInput) {
+      if (!canSubmitLeaveRequest(session.role)) {
+        throw new Error(
+          "Le libre-service congés est réservé aux collaborateurs.",
+        );
+      }
       if (!canSubmitLeave(session.employee)) {
         throw new Error("Collaborateur inactif — demande impossible.");
       }

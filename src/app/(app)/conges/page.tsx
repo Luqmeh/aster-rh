@@ -4,6 +4,7 @@ import { createLeaveService } from "@/application/services/leave-service";
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import {
   canApproveRequests,
+  canSubmitLeaveRequest,
   canViewAllRequests,
 } from "@/domain/rules/permissions";
 import { LeaveForm } from "@/components/modules/leave-form";
@@ -23,6 +24,7 @@ export default async function CongesPage() {
   const contextService = createLeaveApprovalContextService(container);
   const canViewQueue = canViewAllRequests(session.role);
   const canDecide = canApproveRequests(session.role);
+  const canSubmitSelf = canSubmitLeaveRequest(session.role);
   const [mine, pending, balance] = await Promise.all([
     service.listForCurrentUser(session),
     service.listTeamPending(session),
@@ -39,53 +41,70 @@ export default async function CongesPage() {
         description="Demandes de congés payés, RTT et récupération — demi-journées possibles. Les arrêts maladie se déclarent dans Arrêts & absences spéciales."
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">CP restants</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {balance?.congesPayesRestants ?? "—"}
-              <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                j
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {balance?.rttRestants ?? "—"}
-              <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                j
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-[var(--aster-muted)]">
-              Récupération restants
-            </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {balance?.recoveryDaysRestants ?? "—"}
-              <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                j
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {canSubmitSelf ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card>
+            <CardContent className="pt-5">
+              <p className="text-xs text-[var(--aster-muted)]">CP restants</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                {balance?.congesPayesRestants ?? "—"}
+                <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
+                  j
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5">
+              <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                {balance?.rttRestants ?? "—"}
+                <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
+                  j
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5">
+              <p className="text-xs text-[var(--aster-muted)]">
+                Récupération restants
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+                {balance?.recoveryDaysRestants ?? "—"}
+                <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
+                  j
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Nouvelle demande</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LeaveForm />
-          </CardContent>
-        </Card>
+        {canSubmitSelf ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Nouvelle demande</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeaveForm />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Libre-service congés</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmptyState
+                icon={CalendarDays}
+                title="Réservé aux collaborateurs"
+                description="Les comptes Senior Manager et Responsable RH gèrent les demandes des collaborateurs, sans dépôt de demande personnelle."
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {canViewQueue && (
           <Card>
@@ -122,6 +141,7 @@ export default async function CongesPage() {
         )}
       </div>
 
+      {canSubmitSelf ? (
       <Card>
         <CardHeader>
           <CardTitle>Mes demandes</CardTitle>
@@ -167,6 +187,7 @@ export default async function CongesPage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

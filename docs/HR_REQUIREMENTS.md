@@ -32,7 +32,7 @@ Code : `entitlement-policies.ts`, `MOROCCO_HR_POLICY.md`.
 | Temps partiel | **À valider** | Pas de × % inventé |
 | Report / expiry | **À valider** | Pas de règles FR appliquées |
 | Demi-journées | **Implémenté (démo)** | Flags half-day |
-| Circuit validation | **Produit** | Collaborateur → Chef ; RH lecture |
+| Circuit validation | **Produit** | Collaborateur → Senior Manager ; RH lecture |
 | Spéciaux | **À valider** | Catalogue événementiel, plafonds non statutaires MA |
 
 Voir `docs/MOROCCO_HR_POLICY.md`.
@@ -49,7 +49,7 @@ Voir `docs/MOROCCO_HR_POLICY.md`.
 | Max hebdo UI | **Paramétrable** | Défaut **2 j / semaine** |
 | 80 % présence | **Non imposé comme loi MA** | Ancienne mention guide FR — non défaut Maroc |
 | Compatibilité des tâches | **Implémenté (flag)** | `Employee.teleworkEligible` |
-| Circuit validation | **Implémenté** | Collaborateur → Chef ; RH sans décision |
+| Circuit validation | **Implémenté** | Collaborateur → Senior Manager ; RH sans décision |
 
 Code : `telework-monthly.ts`, `telework-service.ts`.
 
@@ -59,7 +59,7 @@ Code : `telework-monthly.ts`, `telework-service.ts`.
 
 | Rôle démo | Intention |
 |-----------|-----------|
-| Collaborateur | Consultation + demandes personnelles |
+| Collaborateur | Consultation + demandes personnelles (libre-service exclusif) |
 | Chef de projet | Validations globales + administration RH |
 | Administrateur RH | Vue transverse / administration — sans validation managériale |
 
