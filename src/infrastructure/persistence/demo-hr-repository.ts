@@ -4,12 +4,31 @@ import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 import type {
   Employee,
   LeaveRequest,
+  PeopleManagerEntry,
   RecruitmentCandidate,
   TeleworkRequest,
 } from "@/domain/types/hr";
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Collaborateurs d'équipe : People Manager lié à l'acteur OU managerId legacy. */
+function isInTeamOf(actorId: string, employee: Employee): boolean {
+  if (employee.managerId === actorId) return true;
+  if (!employee.peopleManagerId) return false;
+  const pm = getDemoStore().peopleManagers.find(
+    (p) => p.id === employee.peopleManagerId,
+  );
+  return pm?.linkedEmployeeId === actorId;
+}
+
+function linkedEmployeeIdOf(peopleManagerId: string | null | undefined) {
+  if (!peopleManagerId) return null;
+  return (
+    getDemoStore().peopleManagers.find((p) => p.id === peopleManagerId)
+      ?.linkedEmployeeId ?? null
+  );
 }
 
 export const demoHrRepository: HrRepository = {
@@ -64,10 +83,12 @@ export const demoHrRepository: HrRepository = {
       email: input.email,
       jobTitle: input.jobTitle,
       departmentId: input.departmentId,
-      managerId: input.managerId,
-      site: input.site,
+      peopleManagerId: input.peopleManagerId ?? null,
+      managerId:
+        input.managerId ?? linkedEmployeeIdOf(input.peopleManagerId) ?? null,
+      region: input.region,
       contractType: input.contractType,
-      category: input.category,
+      grade: input.grade,
       hireDate: input.hireDate,
       employmentStatus,
       departureDate: input.departureDate ?? null,
@@ -96,7 +117,16 @@ export const demoHrRepository: HrRepository = {
     const store = getDemoStore();
     const index = store.employees.findIndex((e) => e.id === id);
     if (index < 0) throw new Error("Collaborateur introuvable.");
-    const next = { ...store.employees[index], ...patch };
+    const defined = Object.fromEntries(
+      Object.entries(patch).filter(([, v]) => v !== undefined),
+    ) as typeof patch;
+    const next = { ...store.employees[index], ...defined };
+    if (
+      patch.peopleManagerId !== undefined &&
+      patch.managerId === undefined
+    ) {
+      next.managerId = linkedEmployeeIdOf(patch.peopleManagerId);
+    }
     if (patch.employmentStatus) {
       next.isActive = syncIsActive(patch.employmentStatus);
     }
@@ -106,8 +136,49 @@ export const demoHrRepository: HrRepository = {
 
   async listTeamMembers(managerId) {
     return getDemoStore().employees.filter(
-      (e) => e.managerId === managerId && e.isActive,
+      (e) => e.isActive && isInTeamOf(managerId, e),
     );
+  },
+
+  async listPeopleManagers(options) {
+    const rows = getDemoStore().peopleManagers.filter(
+      (p) => options?.includeInactive || p.isActive,
+    );
+    return [...rows].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName, "fr"),
+    );
+  },
+
+  async getPeopleManager(id) {
+    return getDemoStore().peopleManagers.find((p) => p.id === id) ?? null;
+  },
+
+  async createPeopleManager(input) {
+    const store = getDemoStore();
+    const now = new Date().toISOString();
+    const entry: PeopleManagerEntry = {
+      id: uid("pm"),
+      displayName: input.displayName,
+      linkedEmployeeId: input.linkedEmployeeId ?? null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.peopleManagers.push(entry);
+    return entry;
+  },
+
+  async updatePeopleManager(id, patch) {
+    const store = getDemoStore();
+    const index = store.peopleManagers.findIndex((p) => p.id === id);
+    if (index < 0) throw new Error("People Manager introuvable.");
+    const next: PeopleManagerEntry = {
+      ...store.peopleManagers[index],
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    store.peopleManagers[index] = next;
+    return next;
   },
 
   async getLeaveBalance(employeeId, year) {
@@ -194,7 +265,7 @@ export const demoHrRepository: HrRepository = {
     if (filter?.managerId) {
       const teamIds = new Set(
         store.employees
-          .filter((e) => e.managerId === filter.managerId)
+          .filter((e) => isInTeamOf(filter.managerId as string, e))
           .map((e) => e.id),
       );
       items = items.filter((r) => teamIds.has(r.employeeId));
@@ -240,7 +311,7 @@ export const demoHrRepository: HrRepository = {
     if (filter?.managerId) {
       const teamIds = new Set(
         store.employees
-          .filter((e) => e.managerId === filter.managerId)
+          .filter((e) => isInTeamOf(filter.managerId as string, e))
           .map((e) => e.id),
       );
       items = items.filter((r) => teamIds.has(r.employeeId));

@@ -51,7 +51,7 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
     const bytes = officialTemplateBytes();
     const hash = createHash("sha256").update(bytes).digest("hex");
     expect(hash).toBe(
-      "e0b2bcb8137ab3c0c584d5cb1cd243546bd1a645996805831110be1a92f42ccd",
+      "14d7983b62d90515dcc534571d3872a9b94fcd2d9cac547dcfa0f8b4b17c26e6",
     );
   });
 
@@ -65,11 +65,12 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
           "sara.benali@demo.aster-rh.local",
           "AUD",
           "Consultante",
+          "Auditeur senior",
+          "Youssef Alaoui",
           "Casablanca (démo)",
           "2024-03-01",
           "CDI",
           "Actif",
-          "emp-julien",
           "",
           "",
         ],
@@ -80,11 +81,12 @@ describe("official ASTER_Modele_Import_RH_Maroc.xlsx", () => {
           "",
           "RH",
           "Assistant",
+          "Auditeur junior",
+          "",
           "Rabat (démo)",
           "15/01/2023",
           "CDD",
           "Actif",
-          "",
           "",
           "Sans e-mail pro",
         ],

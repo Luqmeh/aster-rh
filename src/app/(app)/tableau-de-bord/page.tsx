@@ -195,9 +195,9 @@ export default async function TableauDeBordPage() {
             </Card>
             <Card>
               <CardContent className="pt-5">
-                <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
+                <p className="text-xs text-[var(--aster-muted)]">Récupération restants</p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-                  {balance?.rttRestants ?? "—"}
+                  {balance?.recoveryDaysRestants ?? "—"}
                   <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
                     j
                   </span>
@@ -265,7 +265,7 @@ export default async function TableauDeBordPage() {
             <QuickAction
               href="/conges"
               label="Demander un congé"
-              description="CP, RTT, récupération — demi-journées"
+              description="Congés payés, récupération — demi-journées"
               icon={Plane}
             />
             <QuickAction

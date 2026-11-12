@@ -19,9 +19,9 @@ export default async function NouvelEmployePage() {
     redirect("/annuaire");
   }
 
-  const [departments, managers] = await Promise.all([
+  const [departments, peopleManagers] = await Promise.all([
     container.hr.listDepartments(),
-    container.hr.listEmployees({ employmentStatus: "actif" }),
+    container.hr.listPeopleManagers(),
   ]);
 
   return (
@@ -45,7 +45,7 @@ export default async function NouvelEmployePage() {
         <CardContent>
           <EmployeeOnboardForm
             departments={departments}
-            managers={managers}
+            peopleManagers={peopleManagers}
             canAssignPrivilegedRoles={hasPermission(
               session.role,
               "account.role.assign_all",

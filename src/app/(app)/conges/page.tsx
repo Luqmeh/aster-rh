@@ -38,27 +38,16 @@ export default async function CongesPage() {
     <div className="aster-fade-up space-y-6">
       <PageHeader
         title="Congés et absences"
-        description="Demandes de congés payés, RTT et récupération — demi-journées possibles. Les arrêts maladie se déclarent dans Arrêts & absences spéciales."
+        description="Demandes de congés payés et récupération — demi-journées possibles. Les arrêts maladie se déclarent dans Arrêts & absences spéciales."
       />
 
       {canSubmitSelf ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Card>
             <CardContent className="pt-5">
               <p className="text-xs text-[var(--aster-muted)]">CP restants</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
                 {balance?.congesPayesRestants ?? "—"}
-                <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
-                  j
-                </span>
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-5">
-              <p className="text-xs text-[var(--aster-muted)]">RTT restants</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-                {balance?.rttRestants ?? "—"}
                 <span className="ml-1 text-sm font-medium text-[var(--aster-muted)]">
                   j
                 </span>

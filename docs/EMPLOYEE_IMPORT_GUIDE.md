@@ -19,11 +19,11 @@ Contrôles serveur : `hr.import.view` / `hr.import.execute` (+ `employee.provisi
 ASTER ne propose **qu'un seul** fichier téléchargeable :
 
 `ASTER_Modele_Import_RH_Maroc.xlsx`  
-(asset repo : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`, SHA-256 `e0b2bcb8137ab3c0c584d5cb1cd243546bd1a645996805831110be1a92f42ccd`)
+(asset repo : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`, SHA-256 voir `template-self-validation.test.ts`)
 
 Régénération des listes / validations Excel : `npm run build:hr-import-template` (source de vérité : `src/domain/rules/hr-import/accepted-values.ts`).
 
-Ne pas renommer les feuilles ni les en-têtes. Taille max : **5 Mo** (`.xlsx`).
+Ne pas renommer les feuilles ni les en-têtes. Les colonnes obsolètes `Site`, `Catégorie` / cadre et `Matricule du responsable` sont **refusées** (aucune conversion silencieuse vers Région / Grade / People Manager). Taille max : **5 Mo** (`.xlsx`).
 
 ### Feuilles
 
@@ -44,9 +44,9 @@ La validation Excel **ne remplace pas** la validation serveur.
 | Champ | Saisie | Contrôle Excel |
 |-------|--------|----------------|
 | `Nom*`, `Prénom*` | **texte libre** | aucun dropdown |
-| `Matricule*`, `E-mail`, `Poste / fonction`, `Matricule du responsable`, `Remarques*` | texte libre | — |
+| `Matricule*`, `E-mail`, `Poste / fonction`, `People Manager`, `Région*`, `Remarques*` | texte libre | — |
 | `Département` | liste | `DIR`, `RH`, `AUD`, `CNS`, `EXP`, `SI` |
-| `Site` | liste (avertissement si hors liste) | sites seed démo |
+| `Grade*` | liste (stricte) | `Auditeur junior`, `Auditeur senior`, `Manager` |
 | `Type de contrat` | liste | `CDI`, `CDD`, `Alternance`, `Stage` |
 | `Statut*` | liste | `Actif`, `Suspendu`, `Sorti` |
 | `Date d'embauche*`, `Date de sortie` | date Excel | type date |
@@ -68,11 +68,12 @@ La validation Excel **ne remplace pas** la validation serveur.
 | `E-mail professionnel` | recommandé | e-mail réel ; **absent** → fiche OK, compte en attente |
 | `Département` | oui | code liste (`AUD`, `RH`…) ou libellé mappable |
 | `Poste / fonction` | oui | texte libre |
-| `Site` | oui | liste + nouveaux sites possibles (avertissement serveur) |
+| `Grade*` | oui | `Auditeur junior`, `Auditeur senior`, `Manager` (libellés exacts ; cadre / non-cadre refusés) |
+| `People Manager` | non | texte libre — résolu (matricule, e-mail ou nom d'un collaborateur ASTER) ou créé dans le catalogue People Manager ; n'accorde aucune autorité d'approbation |
+| `Région*` | oui | texte libre (aucune liste) |
 | `Date d'embauche*` | oui | date Excel / `AAAA-MM-JJ` / `JJ/MM/AAAA` |
 | `Type de contrat` | oui | `CDI`, `CDD`, `Alternance`, `Stage` |
 | `Statut*` | oui | `Actif`, `Suspendu`, `Sorti` (→ actif / inactif / parti) |
-| `Matricule du responsable` | non | matricule existant ou présent dans le lot |
 | `Date de sortie` | non | date Excel |
 | `Remarques RH` | non | texte libre |
 

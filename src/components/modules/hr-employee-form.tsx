@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { updateEmployeeHrAction } from "@/app/actions/employee";
+import { createPeopleManagerAction } from "@/app/actions/people-manager";
 import type {
   ContractType,
   Employee,
-  EmployeeCategory,
   OrganizationUnit,
+  PeopleManagerEntry,
 } from "@/domain/types/hr";
+import { EMPLOYEE_GRADE_OPTIONS } from "@/domain/types/employee-structure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,15 +20,17 @@ const selectClassName =
 export function HrEmployeeForm({
   employee,
   departments,
-  managers,
+  peopleManagers: initialPeopleManagers,
 }: {
   employee: Employee;
   departments: OrganizationUnit[];
-  managers: Employee[];
+  peopleManagers: PeopleManagerEntry[];
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [peopleManagers, setPeopleManagers] = useState(initialPeopleManagers);
+  const [newPmName, setNewPmName] = useState("");
 
   return (
     <form
@@ -44,10 +48,13 @@ export function HrEmployeeForm({
               email: String(form.get("email") ?? "").trim(),
               jobTitle: String(form.get("jobTitle") ?? "").trim(),
               departmentId: String(form.get("departmentId") ?? ""),
-              managerId: String(form.get("managerId") ?? "") || null,
-              site: String(form.get("site") ?? "").trim(),
-              contractType: String(form.get("contractType") ?? "") as ContractType,
-              category: String(form.get("category") ?? "") as EmployeeCategory,
+              peopleManagerId:
+                String(form.get("peopleManagerId") ?? "") || null,
+              region: String(form.get("region") ?? "").trim(),
+              contractType: String(
+                form.get("contractType") ?? "",
+              ) as ContractType,
+              grade: String(form.get("grade") ?? "") as Employee["grade"],
               hireDate: String(form.get("hireDate") ?? ""),
               phoneInternal:
                 String(form.get("phoneInternal") ?? "").trim() || null,
@@ -74,7 +81,7 @@ export function HrEmployeeForm({
           name="phoneInternal"
           defaultValue={employee.phoneInternal ?? ""}
         />
-        <Field label="Site" name="site" defaultValue={employee.site} />
+        <Field label="Région" name="region" defaultValue={employee.region} />
         <Field label="Date d'entrée" name="hireDate" type="date" defaultValue={employee.hireDate} />
         <div className="space-y-1.5">
           <Label htmlFor="departmentId">Département</Label>
@@ -92,22 +99,67 @@ export function HrEmployeeForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="managerId">Manager hiérarchique</Label>
+          <Label htmlFor="peopleManagerId">People Manager</Label>
           <select
-            id="managerId"
-            name="managerId"
+            id="peopleManagerId"
+            name="peopleManagerId"
             className={selectClassName}
-            defaultValue={employee.managerId ?? ""}
+            defaultValue={employee.peopleManagerId ?? ""}
           >
-            <option value="">— (direction)</option>
-            {managers
-              .filter((m) => m.id !== employee.id)
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.firstName} {m.lastName}
-                </option>
-              ))}
+            <option value="">— (non assigné)</option>
+            {peopleManagers.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.displayName}
+              </option>
+            ))}
           </select>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="newPmName">Ajouter un People Manager</Label>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id="newPmName"
+              value={newPmName}
+              onChange={(e) => setNewPmName(e.target.value)}
+              placeholder="Nom (avec ou sans compte ASTER)"
+              className="max-w-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending || !newPmName.trim()}
+              onClick={() => {
+                const name = newPmName.trim();
+                if (!name) return;
+                startTransition(async () => {
+                  try {
+                    const created = await createPeopleManagerAction({
+                      displayName: name,
+                    });
+                    setPeopleManagers((prev) =>
+                      [...prev, created].sort((a, b) =>
+                        a.displayName.localeCompare(b.displayName, "fr"),
+                      ),
+                    );
+                    setNewPmName("");
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Ajout People Manager impossible.",
+                    );
+                  }
+                });
+              }}
+            >
+              Ajouter
+            </Button>
+          </div>
+          <p className="text-[12px] text-[var(--aster-muted)]">
+            L&apos;affectation People Manager n&apos;accorde aucune autorité
+            d&apos;approbation.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="contractType">Contrat</Label>
@@ -124,22 +176,25 @@ export function HrEmployeeForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="category">Catégorie</Label>
+          <Label htmlFor="grade">Grade</Label>
           <select
-            id="category"
-            name="category"
+            id="grade"
+            name="grade"
             className={selectClassName}
-            defaultValue={employee.category}
+            defaultValue={employee.grade}
           >
-            <option value="non_applicable">Non applicable (Maroc)</option>
-            <option value="cadre">Cadre (historique FR)</option>
-            <option value="non_cadre">Non-cadre (historique FR)</option>
+            {EMPLOYEE_GRADE_OPTIONS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <p className="text-[12px] text-[var(--aster-muted)]">
             Cycle de vie (actif / inactif / parti) : utiliser le panneau
-            dédié sur la fiche — ne pas basculer ici.
+            dédié sur la fiche — ne pas basculer ici. Le grade est
+            organisationnel uniquement (pas de droits ni soldes).
           </p>
         </div>
         <div className="space-y-1.5">

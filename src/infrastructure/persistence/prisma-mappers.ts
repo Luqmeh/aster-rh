@@ -7,7 +7,7 @@ import type {
   DocumentRequestStatus,
   DocumentRequestType,
   Employee,
-  EmployeeCategory,
+  EmployeeGrade,
   EmploymentStatus,
   HrDocument,
   LeaveBalance,
@@ -15,6 +15,7 @@ import type {
   LeaveType,
   NotificationItem,
   OrganizationUnit,
+  PeopleManagerEntry,
   RecruitmentCandidate,
   RecruitmentEvent,
   RecruitmentStatus,
@@ -61,10 +62,12 @@ type PrismaEmployee = {
   email: string;
   jobTitle: string;
   departmentId: string;
+  peopleManagerId?: string | null;
   managerId: string | null;
-  site: string;
+  region?: string;
+  site?: string;
   contractType: ContractType;
-  category: EmployeeCategory;
+  grade?: EmployeeGrade;
   hireDate: Date;
   employmentStatus: EmploymentStatus;
   departureDate: Date | null;
@@ -82,6 +85,15 @@ type PrismaEmployee = {
   policyGroup?: string | null;
   birthDate?: Date | null;
   activitySector?: string | null;
+};
+
+type PrismaPeopleManager = {
+  id: string;
+  displayName: string;
+  linkedEmployeeId: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type PrismaLeaveBalance = {
@@ -160,6 +172,17 @@ export function mapOrganizationUnit(
   };
 }
 
+export function mapPeopleManager(row: PrismaPeopleManager): PeopleManagerEntry {
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    linkedEmployeeId: row.linkedEmployeeId,
+    isActive: row.isActive,
+    createdAt: utcToIso(row.createdAt),
+    updatedAt: utcToIso(row.updatedAt),
+  };
+}
+
 export function mapEmployee(row: PrismaEmployee): Employee {
   return {
     id: row.id,
@@ -169,10 +192,11 @@ export function mapEmployee(row: PrismaEmployee): Employee {
     email: row.email,
     jobTitle: row.jobTitle,
     departmentId: row.departmentId,
+    peopleManagerId: row.peopleManagerId ?? null,
     managerId: row.managerId,
-    site: row.site,
+    region: (row.region && row.region.trim()) || row.site || "",
     contractType: row.contractType,
-    category: row.category,
+    grade: row.grade ?? "auditeur_junior",
     hireDate: utcToDateOnly(row.hireDate),
     employmentStatus: row.employmentStatus,
     departureDate: row.departureDate

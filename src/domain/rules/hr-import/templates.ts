@@ -12,7 +12,7 @@ export function loadOfficialHrImportTemplateBytes(): Buffer {
   );
 }
 
-/** Colonnes legacy (tests / exports) — le téléchargement UI sert le modèle officiel. */
+/** Colonnes canoniques — le téléchargement UI sert le modèle officiel aligné. */
 export const EMPLOYEE_TEMPLATE_COLUMNS: SheetColumn[] = [
   { header: "Matricule*", key: "matricule", width: 16 },
   { header: "Nom*", key: "lastName", width: 16 },
@@ -20,11 +20,12 @@ export const EMPLOYEE_TEMPLATE_COLUMNS: SheetColumn[] = [
   { header: "E-mail professionnel", key: "email", width: 28 },
   { header: "Département", key: "department", width: 22 },
   { header: "Poste / fonction", key: "jobTitle", width: 22 },
-  { header: "Site", key: "site", width: 18 },
+  { header: "Grade*", key: "grade", width: 18 },
+  { header: "People Manager", key: "peopleManager", width: 22 },
+  { header: "Région*", key: "region", width: 18 },
   { header: "Date d'embauche*", key: "hireDate", width: 14 },
   { header: "Type de contrat", key: "contractType", width: 14 },
   { header: "Statut*", key: "employmentStatus", width: 14 },
-  { header: "Matricule du responsable", key: "managerMatricule", width: 16 },
   { header: "Date de sortie", key: "departureDate", width: 14 },
   { header: "Remarques RH", key: "notes", width: 28 },
 ];
@@ -60,13 +61,21 @@ export const EMPLOYEE_FIELD_KEYS = [
   "email",
   "department",
   "jobTitle",
-  "site",
+  "grade",
+  "peopleManager",
+  "region",
   "hireDate",
   "contractType",
   "employmentStatus",
-  "managerMatricule",
   "departureDate",
   "notes",
+] as const;
+
+/** Colonnes obsolètes — refusées sans mapping silencieux. */
+export const OBSOLETE_EMPLOYEE_FIELD_KEYS = [
+  "site",
+  "category",
+  "managerMatricule",
 ] as const;
 
 export const BALANCE_FIELD_KEYS = [
@@ -118,8 +127,22 @@ export const HEADER_ALIASES: Record<string, string> = {
   job_title: "jobTitle",
   titre: "jobTitle",
   fonction: "jobTitle",
+  grade: "grade",
+  "grade*": "grade",
+  people_manager: "peopleManager",
+  peoplemanager: "peopleManager",
+  region: "region",
+  "région": "region",
+  "region*": "region",
+  "région*": "region",
+  // Colonnes obsolètes : clés canoniques dédiées, refusées par validate.ts
+  // (aucune conversion silencieuse Site→Région, Catégorie→Grade, Manager→People Manager).
   site: "site",
   localisation: "site",
+  categorie: "category",
+  "catégorie": "category",
+  category: "category",
+  cadre: "category",
   date_embauche: "hireDate",
   "date_dembauche": "hireDate",
   "date_d_embauche": "hireDate",
@@ -139,6 +162,7 @@ export const HEADER_ALIASES: Record<string, string> = {
   matricule_du_responsable: "managerMatricule",
   manager: "managerMatricule",
   manager_id: "managerMatricule",
+  manager_hierarchique: "managerMatricule",
   date_de_sortie: "departureDate",
   date_sortie: "departureDate",
   remarques_rh: "notes",

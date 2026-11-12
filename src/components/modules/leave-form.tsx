@@ -16,19 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { LeaveType } from "@/domain/types/hr";
+import { ACTIVE_LEAVE_REQUEST_TYPES } from "@/domain/rules/active-leave-types";
 
-const TYPES: { value: LeaveType; label: string }[] = [
-  { value: "conges_payes", label: "Congés payés" },
-  { value: "rtt", label: "RTT" },
-  {
-    value: "recuperation",
-    label: "Récupération (jour férié travaillé)",
-  },
-  { value: "sans_solde", label: "Congé sans solde" },
-  { value: "exceptionnel", label: "Congé exceptionnel" },
-  { value: "parental", label: "Congé parental" },
-];
+const TYPES = ACTIVE_LEAVE_REQUEST_TYPES;
 
 export function LeaveForm() {
   const router = useRouter();

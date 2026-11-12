@@ -6,6 +6,7 @@ import {
   leaveBalances,
   leaveRequests,
   notifications,
+  peopleManagers,
   teleworkRequests,
 } from "@/data/demo-seed";
 import { hashPassword } from "@/infrastructure/auth/password";
@@ -107,9 +108,13 @@ export async function seedAsterDemoData(
         jobTitle: emp.jobTitle,
         departmentId: emp.departmentId,
         managerId: null,
-        site: emp.site,
+        peopleManagerId: null,
+        region: emp.region,
+        grade: emp.grade,
+        // Colonnes legacy (DB) — non lues par l'application.
+        site: emp.region,
+        category: "non_applicable",
         contractType: emp.contractType,
-        category: emp.category,
         hireDate: dateOnlyToUtc(emp.hireDate),
         employmentStatus: emp.employmentStatus,
         departureDate: emp.departureDate
@@ -139,9 +144,11 @@ export async function seedAsterDemoData(
             email: emp.email,
             jobTitle: emp.jobTitle,
             departmentId: emp.departmentId,
-            site: emp.site,
+            region: emp.region,
+            grade: emp.grade,
+            site: emp.region,
+            category: "non_applicable",
             contractType: emp.contractType,
-            category: emp.category,
             hireDate: dateOnlyToUtc(emp.hireDate),
             employmentStatus: emp.employmentStatus,
             departureDate: emp.departureDate
@@ -165,14 +172,37 @@ export async function seedAsterDemoData(
     });
   }
 
+  // Catalogue People Manager (entrées dérivées des managers du seed) — avant le rattachement.
+  for (const pm of peopleManagers) {
+    await prisma.peopleManager.upsert({
+      where: { id: pm.id },
+      create: {
+        id: pm.id,
+        displayName: pm.displayName,
+        linkedEmployeeId: pm.linkedEmployeeId,
+        isActive: pm.isActive,
+      },
+      update: preserveExisting
+        ? {}
+        : {
+            displayName: pm.displayName,
+            linkedEmployeeId: pm.linkedEmployeeId,
+            isActive: pm.isActive,
+          },
+    });
+  }
+
   for (const emp of employees) {
     if (preserveExisting) {
       const row = await prisma.employee.findUnique({ where: { id: emp.id } });
-      if (row?.managerId) continue;
+      if (row?.peopleManagerId || row?.managerId) continue;
     }
     await prisma.employee.update({
       where: { id: emp.id },
-      data: { managerId: emp.managerId },
+      data: {
+        managerId: emp.managerId,
+        peopleManagerId: emp.peopleManagerId,
+      },
     });
   }
 

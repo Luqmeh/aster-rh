@@ -20,6 +20,7 @@ import {
 import { leaveTypeLabel } from "@/domain/rules/leave";
 import { statusLabel } from "@/domain/rules/approvals";
 import { employmentStatusLabel } from "@/domain/rules/lifecycle";
+import { employeeGradeLabel } from "@/domain/types/employee-structure";
 import { roleLabel, canAccessHrReporting } from "@/domain/rules/permissions";
 import { teleworkTypeLabel } from "@/domain/rules/telework";
 import {
@@ -506,10 +507,12 @@ export async function loadReportingContext(
   container: AppContainer,
   filters: ReportFilters,
 ) {
-  const [employees, departments] = await Promise.all([
+  const [employees, departments, peopleManagers] = await Promise.all([
     container.hr.listEmployees({ includeInactive: true }),
     container.hr.listDepartments(),
+    container.hr.listPeopleManagers({ includeInactive: true }),
   ]);
+  const pmById = Object.fromEntries(peopleManagers.map((p) => [p.id, p]));
   const scoped = employees.filter((e) => matchesEmployeeFilters(e, filters));
   const byId = new Map(employees.map((e) => [e.id, e]));
   const deptById = Object.fromEntries(departments.map((d) => [d.id, d]));
@@ -526,6 +529,15 @@ export async function loadReportingContext(
       const e = byId.get(employeeId);
       if (!e) return "";
       return deptById[e.departmentId]?.name ?? e.departmentId;
+    },
+    peopleManagerOf: (employeeId: string) => {
+      const e = byId.get(employeeId);
+      if (!e?.peopleManagerId) return "";
+      return pmById[e.peopleManagerId]?.displayName ?? "";
+    },
+    gradeOf: (employeeId: string) => {
+      const e = byId.get(employeeId);
+      return e ? employeeGradeLabel(e.grade) : "";
     },
     byId,
     leaveDecisionDate,

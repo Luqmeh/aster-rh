@@ -5,6 +5,7 @@ import {
   leaveBalances,
   leaveRequests,
   notifications,
+  peopleManagers,
   teleworkRequests,
 } from "@/data/demo-seed";
 import type {
@@ -17,6 +18,7 @@ import type {
   LeaveRequest,
   NotificationItem,
   OrganizationUnit,
+  PeopleManagerEntry,
   RecoveryCreditLedgerEntry,
   RecruitmentCandidate,
   RecruitmentEvent,
@@ -34,6 +36,7 @@ import type { StoredUserAccount } from "@/infrastructure/auth/account-store";
 export interface DemoStore {
   departments: OrganizationUnit[];
   employees: Employee[];
+  peopleManagers: PeopleManagerEntry[];
   leaveBalances: LeaveBalance[];
   leaveLedgerEntries: LeaveLedgerEntry[];
   leaveRequests: LeaveRequest[];
@@ -63,6 +66,7 @@ function cloneStore(): DemoStore {
   return {
     departments: structuredClone(departments),
     employees: structuredClone(employees),
+    peopleManagers: structuredClone(peopleManagers),
     leaveBalances: structuredClone(leaveBalances),
     leaveLedgerEntries: [],
     leaveRequests: structuredClone(leaveRequests),

@@ -2,6 +2,10 @@ import {
   canManageEmployees,
   canViewEmployeeProfile,
 } from "@/domain/rules/permissions";
+import {
+  parseEmployeeGrade,
+  parseRegion,
+} from "@/domain/types/employee-structure";
 import type { Employee } from "@/domain/types/hr";
 import {
   AuthError,
@@ -16,12 +20,14 @@ import type { HrRepository } from "@/infrastructure/persistence/hr-repository";
 export type DirectoryFilters = {
   q?: string;
   departmentId?: string;
-  managerId?: string;
+  peopleManagerId?: string;
+  region?: string;
+  grade?: string;
   status?: "actif" | "inactif" | "parti" | "tous";
 };
 
 export type PersonalProfilePatch = Partial<
-  Pick<Employee, "phoneInternal" | "site">
+  Pick<Employee, "phoneInternal">
 >;
 
 export type HrEmployeePatch = Partial<
@@ -32,10 +38,10 @@ export type HrEmployeePatch = Partial<
     | "email"
     | "jobTitle"
     | "departmentId"
-    | "managerId"
-    | "site"
+    | "peopleManagerId"
+    | "region"
     | "contractType"
-    | "category"
+    | "grade"
     | "hireDate"
     | "phoneInternal"
     | "teleworkEligible"
@@ -47,11 +53,11 @@ function matchesQuery(
   employee: Employee,
   query: string,
   deptName: string,
-  managerName: string,
+  peopleManagerName: string,
 ): boolean {
   if (!query) return true;
   const hay =
-    `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.id} ${employee.jobTitle} ${deptName} ${managerName} ${employee.site}`.toLowerCase();
+    `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.id} ${employee.jobTitle} ${deptName} ${peopleManagerName} ${employee.region} ${employee.grade}`.toLowerCase();
   return hay.includes(query);
 }
 
@@ -59,7 +65,7 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
   return {
     async listDirectory(session: AuthSession, filters: DirectoryFilters = {}) {
       requireDirectoryAccess(session);
-      const [employees, departments] = await Promise.all([
+      const [employees, departments, peopleManagers] = await Promise.all([
         deps.hr.listEmployees({
           includeInactive: filters.status !== "actif",
           employmentStatus:
@@ -68,28 +74,38 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
               : undefined,
         }),
         deps.hr.listDepartments(),
+        deps.hr.listPeopleManagers({ includeInactive: true }),
       ]);
       const deptById = Object.fromEntries(departments.map((d) => [d.id, d]));
-      const byId = Object.fromEntries(employees.map((e) => [e.id, e]));
+      const pmById = Object.fromEntries(peopleManagers.map((p) => [p.id, p]));
       const q = (filters.q ?? "").trim().toLowerCase();
+      const regionFilter = (filters.region ?? "").trim().toLowerCase();
 
       return employees.filter((e) => {
         if (filters.departmentId && e.departmentId !== filters.departmentId) {
           return false;
         }
-        if (filters.managerId && e.managerId !== filters.managerId) {
+        if (
+          filters.peopleManagerId &&
+          e.peopleManagerId !== filters.peopleManagerId
+        ) {
+          return false;
+        }
+        if (filters.grade && e.grade !== filters.grade) {
+          return false;
+        }
+        if (regionFilter && !e.region.toLowerCase().includes(regionFilter)) {
           return false;
         }
 
-        const manager = e.managerId ? byId[e.managerId] : null;
-        const managerName = manager
-          ? `${manager.firstName} ${manager.lastName}`
+        const pmName = e.peopleManagerId
+          ? (pmById[e.peopleManagerId]?.displayName ?? "")
           : "";
         return matchesQuery(
           e,
           q,
           deptById[e.departmentId]?.name ?? "",
-          managerName,
+          pmName,
         );
       });
     },
@@ -120,9 +136,6 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
       const sanitized: PersonalProfilePatch = {};
       if (patch.phoneInternal !== undefined) {
         sanitized.phoneInternal = patch.phoneInternal;
-      }
-      if (patch.site !== undefined) {
-        sanitized.site = patch.site;
       }
       return deps.hr.updateEmployee(employeeId, sanitized);
     },
@@ -155,15 +168,42 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         email,
         jobTitle,
         departmentId,
-        managerId,
-        site,
+        peopleManagerId,
+        region,
         contractType,
-        category,
+        grade,
         hireDate,
         phoneInternal,
         teleworkEligible,
         teleworkDaysPerWeek,
       } = patch;
+
+      let resolvedGrade = grade;
+      if (grade !== undefined) {
+        const gradeParsed = parseEmployeeGrade(String(grade));
+        if (!gradeParsed.ok) throw new Error(gradeParsed.message);
+        resolvedGrade = gradeParsed.value;
+      }
+
+      let resolvedRegion = region;
+      if (region !== undefined) {
+        const regionParsed = parseRegion(region);
+        if (!regionParsed.ok) throw new Error(regionParsed.message);
+        resolvedRegion = regionParsed.value;
+      }
+
+      let managerId: string | null | undefined;
+      if (peopleManagerId !== undefined) {
+        if (peopleManagerId) {
+          const pm = await deps.hr.getPeopleManager(peopleManagerId);
+          if (!pm || !pm.isActive) {
+            throw new Error("People Manager introuvable ou inactif.");
+          }
+          managerId = pm.linkedEmployeeId;
+        } else {
+          managerId = null;
+        }
+      }
 
       return deps.hr.updateEmployee(employeeId, {
         firstName,
@@ -171,10 +211,11 @@ export function createEmployeeService(deps: { hr: HrRepository }) {
         email,
         jobTitle,
         departmentId,
+        peopleManagerId,
         managerId,
-        site,
+        region: resolvedRegion,
         contractType,
-        category,
+        grade: resolvedGrade,
         hireDate,
         phoneInternal,
         teleworkEligible,

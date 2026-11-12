@@ -6,7 +6,12 @@ import type {
 } from "@/domain/types/hr-import";
 import { pendingImportEmail } from "@/domain/types/hr-import";
 import type { ContractType, Employee, EmploymentStatus, OrganizationUnit } from "@/domain/types/hr";
+import {
+  parseEmployeeGrade,
+  parseRegion,
+} from "@/domain/types/employee-structure";
 import { isValidEmployeeEmail } from "@/domain/rules/lifecycle";
+import { matchEmployeeForPeopleManager } from "@/domain/rules/people-manager";
 
 const CONTRACTS = new Set<ContractType>(["cdi", "cdd", "alternance", "stage"]);
 const STATUSES = new Set<EmploymentStatus>(["actif", "inactif", "parti"]);
@@ -134,29 +139,11 @@ export function hoursToRecoveryDays(
   return Math.round((hours / daily) * 1000) / 1000;
 }
 
-export function resolveSite(
-  raw: string,
-  knownSites: string[],
-  mapping: Record<string, string>,
-): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  if (mapping[trimmed]) return mapping[trimmed];
-  const key = trimmed.toLowerCase();
-  if (mapping[key]) return mapping[key];
-  const hit = knownSites.find((s) => s.toLowerCase() === key);
-  if (hit) return hit;
-  // Nouveau site autorisé avec avertissement côté appelant — valeur brute.
-  return trimmed;
-}
-
 export function validateEmployeeRows(input: {
   rows: Array<{ rowNumber: number; cells: Record<string, string> }>;
   mapping: Record<string, string>;
   departmentMapping: Record<string, string>;
-  siteMapping?: Record<string, string>;
   departments: OrganizationUnit[];
-  knownSites?: string[];
   existingEmployees: Employee[];
   updateExisting: boolean;
 }): HrImportEmployeeDraft[] {
@@ -180,13 +167,17 @@ export function validateEmployeeRows(input: {
     let email = rawEmail;
     const departmentRaw = (cells.department ?? "").trim();
     const jobTitle = (cells.jobTitle ?? "").trim();
-    const site = (cells.site ?? "").trim();
+    const gradeRaw = (cells.grade ?? "").trim();
+    const peopleManagerRaw = (cells.peopleManager ?? "").trim() || null;
+    const regionRaw = (cells.region ?? "").trim();
+    const obsoleteSite = (cells.site ?? "").trim();
+    const obsoleteCategory = (cells.category ?? "").trim();
+    const obsoleteManagerMatricule = (cells.managerMatricule ?? "").trim();
     const hireDate = parseIsoDate(cells.hireDate ?? "");
     const contractType = normalizeContractType(cells.contractType ?? "");
     const employmentStatus = normalizeEmploymentStatus(
       cells.employmentStatus ?? "",
     );
-    const managerMatricule = (cells.managerMatricule ?? "").trim() || null;
 
     if (!matricule) {
       messages.push("Matricule manquant.");
@@ -230,27 +221,44 @@ export function validateEmployeeRows(input: {
       messages.push("Poste / fonction non renseigné.");
       if (severity === "ok") severity = "warning";
     }
-    const knownSites = input.knownSites ?? [];
-    const resolvedSite = resolveSite(
-      site || "Non renseigné",
-      knownSites,
-      input.siteMapping ?? {},
-    );
-    if (!site) {
-      messages.push("Site non renseigné — valeur « Non renseigné ».");
-      if (severity === "ok") severity = "warning";
-    } else if (
-      knownSites.length > 0 &&
-      resolvedSite &&
-      !knownSites.some((s) => s.toLowerCase() === resolvedSite.toLowerCase()) &&
-      !(input.siteMapping ?? {})[site] &&
-      !(input.siteMapping ?? {})[site.toLowerCase()]
-    ) {
+
+    if (obsoleteSite) {
       messages.push(
-        `Site « ${resolvedSite} » absent du référentiel actuel — sera créé tel quel (vérifier le mapping).`,
+        "Colonne Site obsolète — renseigner Région (pas de conversion silencieuse).",
       );
-      if (severity === "ok") severity = "warning";
+      severity = "error";
     }
+    if (obsoleteCategory) {
+      messages.push(
+        "Colonne Catégorie / cadre obsolète — renseigner Grade (Auditeur junior, Auditeur senior, Manager).",
+      );
+      severity = "error";
+    }
+    if (obsoleteManagerMatricule) {
+      messages.push(
+        "Colonne Manager hiérarchique / matricule responsable obsolète — renseigner People Manager.",
+      );
+      severity = "error";
+    }
+
+    let grade: string | null = null;
+    const gradeParsed = parseEmployeeGrade(gradeRaw);
+    if (!gradeParsed.ok) {
+      messages.push(gradeParsed.message);
+      severity = "error";
+    } else {
+      grade = gradeParsed.value;
+    }
+
+    let region: string | null = null;
+    const regionParsed = parseRegion(regionRaw);
+    if (!regionParsed.ok) {
+      messages.push(regionParsed.message);
+      severity = "error";
+    } else {
+      region = regionParsed.value;
+    }
+
     if (!hireDate) {
       messages.push("Date d'embauche invalide (attendu AAAA-MM-JJ ou JJ/MM/AAAA).");
       severity = "error";
@@ -330,16 +338,16 @@ export function validateEmployeeRows(input: {
       existingEmployeeId = existingByEmail.id;
     }
 
-    let managerId: string | null = null;
-    if (managerMatricule) {
-      const mgr = byId.get(managerMatricule);
-      if (!mgr) {
+    if (peopleManagerRaw) {
+      const matched = matchEmployeeForPeopleManager(
+        input.existingEmployees,
+        peopleManagerRaw,
+      );
+      if (!matched) {
         messages.push(
-          `Manager ${managerMatricule} introuvable — sera lié après création si présent dans le lot.`,
+          `People Manager « ${peopleManagerRaw} » sans compte ASTER — entrée manuelle conservée à l'exécution.`,
         );
         if (severity === "ok") severity = "warning";
-      } else {
-        managerId = mgr.id;
       }
     }
 
@@ -355,12 +363,13 @@ export function validateEmployeeRows(input: {
       departmentRaw,
       departmentId,
       jobTitle,
-      site: resolvedSite ?? site,
+      grade,
+      peopleManagerRaw,
+      peopleManagerId: null,
+      region,
       hireDate,
       contractType: resolvedContract,
       employmentStatus,
-      managerMatricule,
-      managerId,
       action,
       existingEmployeeId,
       severity,

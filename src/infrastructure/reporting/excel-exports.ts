@@ -328,7 +328,9 @@ async function exportAnnuaire(ctx: ReportingContext) {
       role: account ? ctx.labels.role(account.role) : "—",
       hireDate: emp.hireDate,
       departureDate: emp.departureDate ?? "",
-      site: emp.site,
+      grade: ctx.gradeOf(emp.id),
+      peopleManager: ctx.peopleManagerOf(emp.id),
+      region: emp.region,
       contractType: emp.contractType,
     });
   }
@@ -343,7 +345,9 @@ async function exportAnnuaire(ctx: ReportingContext) {
       { header: "Rôle applicatif", key: "role", width: 18 },
       { header: "Date d'embauche", key: "hireDate", width: 14 },
       { header: "Date de départ", key: "departureDate", width: 14 },
-      { header: "Site", key: "site", width: 16 },
+      { header: "Grade", key: "grade", width: 18 },
+      { header: "People Manager", key: "peopleManager", width: 24 },
+      { header: "Région", key: "region", width: 18 },
       { header: "Type de contrat", key: "contractType", width: 14 },
     ],
     rows,

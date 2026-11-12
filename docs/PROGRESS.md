@@ -1,36 +1,98 @@
 # ASTER — Rapport de progression
 
-**Date / heure :** 12 novembre 2026 ~02:27 UTC  
+**Date / heure :** 12 novembre 2026  
 **Branche :** `main`  
-**Sujet :** Follow-up — masquage libre-service férié sur le calendrier  
-**État :** **FAIT** — typecheck OK ; commit à pousser.
+**Sujet :** Refactor structure collaborateur (Grade / People Manager / Région) + nettoyage RTT/Récupération + alignement import Excel  
+**État :** **FAIT** — Vitest 335✓ / tsc / lint / build OK ; commit + push `origin/main`.
 
 ---
 
-## Contexte
+## Champs retirés / introduits
 
-Après `671ebd1` (séparation management / Collaborateur), l’exploration du code a signalé un reste UI : le calendrier montrait encore `WorkOnHolidayRequestForm` / déclaration d’heures sans filtre de rôle (le backend refusait déjà).
+| Retiré (UI / contrat actif) | Introduit |
+|-----------------------------|-----------|
+| Catégorie cadre / non-cadre | **Grade** (`auditeur_junior` \| `auditeur_senior` \| `manager`) — libellés FR exacts |
+| Manager hiérarchique | **People Manager** (catalogue + affectation) |
+| Site | **Région** (texte libre) |
 
-## Correctif
+Grade = classification organisationnelle uniquement (pas de soldes / permissions / approbation).  
+People Manager n’accorde aucune autorité d’approbation.
 
-- `HrCalendar` : formulaires férié perso uniquement si `canSubmitWorkOnHolidayRequest(role)`.
-- Actions Chef (approbation / crédit) inchangées.
-- Passage explicite de `role={session.role}` depuis tableau de bord et télétravail (évite le défaut `collaborateur`).
+## Schéma DB / migration
 
-## Fichiers
+- Enum `EmployeeGrade` ; modèle `PeopleManager` ; `Employee.grade`, `Employee.region`, `Employee.peopleManagerId`.
+- Colonnes legacy `site` / `category` / `managerId` conservées (sync / historique) — non lues comme source de vérité applicative.
+- Migration : `prisma/migrations/20261112010000_employee_grade_people_manager_region/`.
+  - `region` ← copie de `site` (Pas de mapping toponymique).
+  - `grade` ← rôles `chef_de_projet`/`admin_rh` → `manager` ; sinon heuristique cadre→senior / non_cadre→junior / défaut senior.
+  - People Manager créés depuis `managerId` existants (`pm-from-<id>`).
 
-- `src/components/calendar/hr-calendar.tsx`
-- `src/app/(app)/tableau-de-bord/page.tsx`
-- `src/app/(app)/teletravail/page.tsx`
-- `docs/PROGRESS.md`
+## People Manager
 
-## Vérifs
+- CRUD catalogue : RH (`admin_rh`) + Senior Manager (`chef_de_projet`).
+- Entrée manuelle (nom) et/ou `linkedEmployeeId` ; pas de provisioning de compte automatique.
+- Affectation onboarding / édition fiche ; affichage profil + annuaire.
+- Import : texte libre → résolution / création catalogue.
 
-- `permissions` + `management-self-service-guard` : 10 passed  
-- `npm run typecheck` : OK  
+## Grade / Région — validation
 
-Production non modifiée. Pas de seed.
+- Centralisé : `src/domain/types/employee-structure.ts` (`parseEmployeeGrade`, `parseRegion`).
+- Cadre / non-cadre refusés sans mapping silencieux.
+- Région : trim, 1–120 car., aucune liste prédéfinie.
+- Excel dropdown Grade = mêmes libellés que le schéma Zod / parseur.
 
-## Prochaine étape
+## RTT / Récupération — décision
 
-Push + smoke calendrier en tant qu’Amel / Kenza (pas de formulaire férié perso) vs Collaborateur onboardé.
+- **Conservé (canonique) :** Récupération (`LeaveType.recuperation` + `recoveryDays*` + `RecoveryCreditLedger` + workflow férié travaillé).
+- **Déprécié UI :** RTT retiré des types de demande collaborateur (`ACTIVE_LEAVE_REQUEST_TYPES`) et des compteurs tableau de bord / `/conges` (affichage « Récupération restants » uniquement).
+- Ledger / colonnes `rtt*` et enum `LeaveType.rtt` **préservés** (historique / import soldes) — aucun reset, aucun nouvel accrual auto au déploiement.
+- Motif : seul le flux récupération est piloté par un moteur de calcul MA (WOH) ; RTT MA entitlement = 0 / héritage FR.
+
+## Import Excel
+
+- Modèle : `assets/hr-import/ASTER_Modele_Import_RH_Maroc.xlsx`  
+  SHA-256 : `9f7b9116b8ca6243c16774e675aee16e330ee4ef7c6a787b195f0585154694dd` (zip déterministe via `scripts/build-hr-import-template.ts`).
+- Colonnes Collaborateurs : Grade*, People Manager, Région* (Site / Catégorie / Matricule responsable refusés).
+- Feuille Listes : Grade (plus Site).
+- Validate + exécution : `grade` / `region` / People Manager persistés.
+
+## Fichiers principaux
+
+- Domain : `employee-structure.ts`, `people-manager.ts`, `active-leave-types.ts`, `hr-import/*`
+- Prisma : `schema.prisma` + migration `20261112010000_*`
+- Services : `employee-provisioning-service`, `employee-service`, `people-manager-service`, `hr-import-service`
+- UI : onboard / HR form / annuaire / profil / leave-form / dashboards
+- Docs : `HR_REQUIREMENTS.md`, `EMPLOYEE_IMPORT_GUIDE.md`, `LEAVE_LEDGER.md`, ce rapport
+- Asset : modèle Excel régénéré
+
+## Dépendances
+
+Aucune dépendance npm ajoutée.
+
+## Tests / qualité
+
+| Contrôle | Résultat |
+|----------|----------|
+| Vitest | **335 passed**, 1 skipped |
+| `tsc --noEmit` | OK |
+| `eslint` | OK |
+| `ASTER_BUILD_WITHOUT_DB=1 npm run build` | OK |
+
+## Production safety
+
+- Aucun seed / truncate exécuté contre Production.
+- Migration non destructive (backfill Amel/Kenza : region depuis site ; grade Manager si rôles RH/Chef).
+- Pas de génération d’écritures ledger à l’import de schéma.
+- Ne pas toucher `docs/git ssh.txt`.
+
+## Known issues / remaining
+
+- Colonnes Prisma legacy `site`/`category` encore présentes (sync) — nettoyage drop ultérieur possible après observation Production.
+- Politiques FR RTT dans `entitlement-policies` restent documentées historique (non auto-postées MA).
+- E2E Playwright import : SHA modèle à aligner si suite CI locale non rejouée ici.
+
+## Exact next step
+
+1. Déployer Vercel Production (`migrate deploy` via `build:vercel`) pour appliquer `20261112010000_*`.  
+2. Vérifier Amel DAAB + KENZA RAFIQ : Grade / Région / People Manager.  
+3. Télécharger le nouveau modèle Excel et faire un dry-run import sur Preview.

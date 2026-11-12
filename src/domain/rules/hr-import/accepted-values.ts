@@ -1,4 +1,5 @@
-import { departments, employees } from "@/data/demo-seed";
+import { departments } from "@/data/demo-seed";
+import { EMPLOYEE_GRADE_LABELS, EMPLOYEE_GRADE_VALUES } from "@/domain/types/employee-structure";
 
 /**
  * Valeurs affichées dans le modèle Excel (feuille Listes / listes déroulantes).
@@ -61,10 +62,16 @@ export const HR_IMPORT_HISTORY_STATUS_OPTIONS = [
 /** Codes département du référentiel démo (resolveDepartmentId par code). */
 export const HR_IMPORT_DEPARTMENT_OPTIONS = departments.map((d) => d.code);
 
-/** Sites connus du seed démo (nouveaux sites possibles avec avertissement serveur). */
-export const HR_IMPORT_SITE_OPTIONS = [
-  ...new Set(employees.map((e) => e.site).filter(Boolean)),
-].sort((a, b) => a.localeCompare(b, "fr"));
+/**
+ * Grade — libellés français exacts (doivent matcher parseEmployeeGrade / Excel).
+ * Pas de liste Site / cadre.
+ */
+export const HR_IMPORT_GRADE_OPTIONS = EMPLOYEE_GRADE_VALUES.map(
+  (v) => EMPLOYEE_GRADE_LABELS[v],
+);
+
+/** @deprecated Site n'est plus une colonne canonique — ne pas réintroduire en dropdown. */
+export const HR_IMPORT_SITE_OPTIONS: readonly string[] = [];
 
 /** Champs strictement libres (pas de liste Excel). */
 export const HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS = [
@@ -73,7 +80,8 @@ export const HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS = [
   "firstName",
   "email",
   "jobTitle",
-  "managerMatricule",
+  "region",
+  "peopleManager",
   "notes",
 ] as const;
 
@@ -91,6 +99,6 @@ export const HR_IMPORT_LISTES_COLUMNS: HrImportListColumn[] = [
   { header: "Vérification", values: HR_IMPORT_VERIFICATION_OPTIONS },
   { header: "Type d'opération", values: HR_IMPORT_HISTORY_EVENT_OPTIONS },
   { header: "Département", values: HR_IMPORT_DEPARTMENT_OPTIONS },
-  { header: "Site", values: HR_IMPORT_SITE_OPTIONS },
+  { header: "Grade", values: HR_IMPORT_GRADE_OPTIONS },
   { header: "Statut historique", values: HR_IMPORT_HISTORY_STATUS_OPTIONS },
 ];

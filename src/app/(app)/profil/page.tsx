@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { roleLabel } from "@/domain/rules/permissions";
+import { employeeGradeLabel } from "@/domain/types/employee-structure";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, formatDateTimeFr } from "@/lib/utils";
 
@@ -17,8 +18,8 @@ export default async function ProfilPage() {
   const { employee, role } = session;
   const departments = await container.hr.listDepartments();
   const dept = departments.find((d) => d.id === employee.departmentId);
-  const manager = employee.managerId
-    ? await container.hr.getEmployee(employee.managerId)
+  const peopleManager = employee.peopleManagerId
+    ? await container.hr.getPeopleManager(employee.peopleManagerId)
     : null;
   const docs = await container.hr.listDocuments(employee.id);
 
@@ -42,12 +43,9 @@ export default async function ProfilPage() {
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Badge variant="accent">{roleLabel(role)}</Badge>
-                {employee.category === "cadre" ||
-                employee.category === "non_cadre" ? (
-                  <Badge variant="secondary">
-                    {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
-                  </Badge>
-                ) : null}
+                <Badge variant="secondary">
+                  {employeeGradeLabel(employee.grade)}
+                </Badge>
                 {employee.isActive ? (
                   <Badge variant="success">Actif</Badge>
                 ) : (
@@ -77,7 +75,7 @@ export default async function ProfilPage() {
               label="Téléphone interne"
               value={employee.phoneInternal ?? "—"}
             />
-            <Field label="Site" value={employee.site} />
+            <Field label="Région" value={employee.region} />
             <Field label="Département" value={dept?.name ?? "—"} />
           </CardContent>
         </Card>
@@ -88,13 +86,10 @@ export default async function ProfilPage() {
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Manager hiérarchique"
-              value={
-                manager
-                  ? `${manager.firstName} ${manager.lastName}`
-                  : "— (direction)"
-              }
+              label="People Manager"
+              value={peopleManager?.displayName ?? "—"}
             />
+            <Field label="Grade" value={employeeGradeLabel(employee.grade)} />
             <Field
               label="Contrat"
               value={employee.contractType.toUpperCase()}
@@ -123,7 +118,6 @@ export default async function ProfilPage() {
           <PersonalProfileForm
             employeeId={employee.id}
             phoneInternal={employee.phoneInternal}
-            site={employee.site}
           />
         </CardContent>
       </Card>

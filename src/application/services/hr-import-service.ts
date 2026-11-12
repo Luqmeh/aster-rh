@@ -34,7 +34,8 @@ import {
   isPendingImportEmail,
   isTerminalImportStatus,
 } from "@/domain/types/hr-import";
-import type { ContractType, EmploymentStatus } from "@/domain/types/hr";
+import type { ContractType, Employee, EmploymentStatus } from "@/domain/types/hr";
+import { matchEmployeeForPeopleManager } from "@/domain/rules/people-manager";
 import {
   createUserAccount,
   findAccountByEmail,
@@ -102,6 +103,33 @@ function emptySummary(): HrImportPreviewSummary {
 
 function generateTemporaryPassword(): string {
   return `Aster-${randomBytes(9).toString("base64url")}`;
+}
+
+/** Résout ou crée une entrée People Manager à partir du texte importé. */
+async function resolveImportPeopleManager(
+  hr: HrRepository,
+  raw: string | null,
+): Promise<{ id: string; linkedEmployeeId: string | null } | null> {
+  const name = (raw ?? "").trim();
+  if (!name) return null;
+
+  const catalog = await hr.listPeopleManagers({ includeInactive: true });
+  const existing = catalog.find(
+    (p) => p.displayName.toLowerCase() === name.toLowerCase() && p.isActive,
+  );
+  if (existing) {
+    return { id: existing.id, linkedEmployeeId: existing.linkedEmployeeId };
+  }
+
+  const employees = await hr.listEmployees({ includeInactive: true });
+  const linked = matchEmployeeForPeopleManager(employees, name);
+  const created = await hr.createPeopleManager({
+    displayName: linked
+      ? `${linked.firstName} ${linked.lastName}`.trim()
+      : name,
+    linkedEmployeeId: linked?.id ?? null,
+  });
+  return { id: created.id, linkedEmployeeId: created.linkedEmployeeId };
 }
 
 function assertCanView(session: AuthSession) {
@@ -392,7 +420,6 @@ export function createHrImportService(deps: {
         updateExistingEmployees?: boolean;
         columnMapping?: Record<string, string>;
         departmentMapping?: Record<string, string>;
-        siteMapping?: Record<string, string>;
       },
     ): Promise<HrImportBatch> {
       assertCanExecute(session);
@@ -417,15 +444,11 @@ export function createHrImportService(deps: {
       if (input.departmentMapping) {
         batch.departmentMappingJson = input.departmentMapping;
       }
-      if (input.siteMapping) batch.siteMappingJson = input.siteMapping;
 
       const [departments, employees] = await Promise.all([
         deps.hr.listDepartments(),
         deps.hr.listEmployees({ includeInactive: true }),
       ]);
-      const knownSites = [
-        ...new Set(employees.map((e) => e.site).filter(Boolean)),
-      ];
       const empSheet = pickEmployeeSheet(parsed.worksheets);
       const balSheet = pickBalanceSheet(parsed.worksheets);
 
@@ -434,9 +457,7 @@ export function createHrImportService(deps: {
             rows: empSheet.rows,
             mapping: batch.columnMappingJson,
             departmentMapping: batch.departmentMappingJson,
-            siteMapping: batch.siteMappingJson,
             departments,
-            knownSites,
             existingEmployees: employees,
             updateExisting: batch.updateExistingEmployees,
           })
@@ -679,6 +700,10 @@ export function createHrImportService(deps: {
           const initials = `${draft.firstName[0] ?? ""}${draft.lastName[0] ?? ""}`
             .toUpperCase()
             .slice(0, 2);
+          const pm = await resolveImportPeopleManager(
+            deps.hr,
+            draft.peopleManagerRaw,
+          );
           await deps.hr.createEmployee({
             id: draft.matricule,
             firstName: draft.firstName,
@@ -686,10 +711,11 @@ export function createHrImportService(deps: {
             email: draft.email,
             jobTitle: draft.jobTitle,
             departmentId: draft.departmentId!,
-            managerId: null,
-            site: draft.site,
+            peopleManagerId: pm?.id ?? null,
+            managerId: pm?.linkedEmployeeId ?? null,
+            region: draft.region!,
             contractType: draft.contractType as ContractType,
-            category: "non_applicable",
+            grade: draft.grade as Employee["grade"],
             hireDate: draft.hireDate!,
             employmentStatus: (draft.employmentStatus ??
               "actif") as EmploymentStatus,
@@ -713,6 +739,11 @@ export function createHrImportService(deps: {
             }),
           );
         } else if (draft.action === "update" && draft.existingEmployeeId) {
+          // Colonne People Manager vide : on conserve l'affectation existante.
+          const pm = await resolveImportPeopleManager(
+            deps.hr,
+            draft.peopleManagerRaw,
+          );
           await deps.hr.updateEmployee(draft.existingEmployeeId, {
             firstName: draft.firstName,
             lastName: draft.lastName,
@@ -721,7 +752,14 @@ export function createHrImportService(deps: {
               : draft.email,
             jobTitle: draft.jobTitle,
             departmentId: draft.departmentId ?? undefined,
-            site: draft.site,
+            ...(pm
+              ? {
+                  peopleManagerId: pm.id,
+                  managerId: pm.linkedEmployeeId,
+                }
+              : {}),
+            region: draft.region ?? undefined,
+            grade: (draft.grade as Employee["grade"]) ?? undefined,
             contractType: draft.contractType as ContractType,
             hireDate: draft.hireDate ?? undefined,
             employmentStatus: draft.employmentStatus as EmploymentStatus,
@@ -736,24 +774,6 @@ export function createHrImportService(deps: {
               "Mise à jour fiche uniquement — credentials de compte non modifiés.",
           });
         }
-      }
-
-      for (const draft of batch.employeeDrafts) {
-        if (draft.severity === "error") continue;
-        if (!draft.managerMatricule) continue;
-        const targetId =
-          draft.action === "update"
-            ? draft.existingEmployeeId
-            : draft.matricule;
-        if (!targetId) continue;
-        const mgr = await deps.hr.getEmployee(draft.managerMatricule);
-        if (!mgr) {
-          manual.push(
-            `Manager ${draft.managerMatricule} non lié pour ${draft.matricule}.`,
-          );
-          continue;
-        }
-        await deps.hr.updateEmployee(targetId, { managerId: mgr.id });
       }
 
       const reconciliation: HrImportExecutionReport["reconciliation"] = [];

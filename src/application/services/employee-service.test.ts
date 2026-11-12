@@ -45,10 +45,18 @@ describe("employee directory & profiles", () => {
 
     const updated = await service.updatePersonal(lea, "emp-lea", {
       phoneInternal: "01 00 00 00 00",
-      site: "Lyon",
     });
     expect(updated.phoneInternal).toBe("01 00 00 00 00");
-    expect(updated.site).toBe("Lyon");
+    const before = await service.getProfile(lea, "emp-lea");
+
+    // Région / grade non modifiables par le collaborateur (patch ignoré).
+    const sneaky = await service.updatePersonal(lea, "emp-lea", {
+      phoneInternal: "01 00 00 00 01",
+      region: "Tanger",
+      grade: before.grade === "manager" ? "auditeur_junior" : "manager",
+    } as never);
+    expect(sneaky.region).toBe(before.region);
+    expect(sneaky.grade).toBe(before.grade);
 
     await expect(
       service.updateHrRecord(lea, "emp-lea", { jobTitle: "Hack" }),

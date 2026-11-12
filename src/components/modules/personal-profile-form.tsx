@@ -9,11 +9,9 @@ import { Label } from "@/components/ui/label";
 export function PersonalProfileForm({
   employeeId,
   phoneInternal,
-  site,
 }: {
   employeeId: string;
   phoneInternal: string | null;
-  site: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +29,6 @@ export function PersonalProfileForm({
           try {
             await updatePersonalProfileAction(employeeId, {
               phoneInternal: String(form.get("phoneInternal") ?? "").trim() || null,
-              site: String(form.get("site") ?? "").trim(),
             });
             setSuccess("Informations personnelles enregistrées.");
           } catch (err) {
@@ -51,12 +48,8 @@ export function PersonalProfileForm({
             id="phoneInternal"
             name="phoneInternal"
             defaultValue={phoneInternal ?? ""}
-            placeholder="Ex. 01 23 45 67 89"
+            placeholder="Ex. +212 5 22 00 00 00"
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="site">Site</Label>
-          <Input id="site" name="site" defaultValue={site} required />
         </div>
       </div>
       <Button type="submit" size="sm" disabled={pending}>

@@ -8,9 +8,9 @@ import {
   HR_IMPORT_CONTRACT_OPTIONS,
   HR_IMPORT_DEPARTMENT_OPTIONS,
   HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS,
+  HR_IMPORT_GRADE_OPTIONS,
   HR_IMPORT_HISTORY_EVENT_OPTIONS,
   HR_IMPORT_HISTORY_STATUS_OPTIONS,
-  HR_IMPORT_SITE_OPTIONS,
   HR_IMPORT_STATUS_OPTIONS,
   HR_IMPORT_UNIT_OPTIONS,
   HR_IMPORT_VERIFICATION_OPTIONS,
@@ -31,6 +31,7 @@ import {
 } from "@/domain/rules/hr-import/validate";
 import { departments } from "@/data/demo-seed";
 import { buildFilledOfficialWorkbook } from "@/domain/rules/hr-import/official-workbook-fixture";
+import { parseEmployeeGrade } from "@/domain/types/employee-structure";
 
 const TEMPLATE_PATH = join(
   process.cwd(),
@@ -39,7 +40,7 @@ const TEMPLATE_PATH = join(
 
 /** Hash du modèle auto-validant régénéré (scripts/build-hr-import-template.ts). */
 export const OFFICIAL_HR_IMPORT_TEMPLATE_SHA256 =
-  "e0b2bcb8137ab3c0c584d5cb1cd243546bd1a645996805831110be1a92f42ccd";
+  "14d7983b62d90515dcc534571d3872a9b94fcd2d9cac547dcfa0f8b4b17c26e6";
 
 function columnValues(
   listesRows: Array<{ cells: Record<string, string> }>,
@@ -49,9 +50,14 @@ function columnValues(
 }
 
 describe("HR import template self-validation", () => {
-  it("keeps Nom/Prénom as free-text fields (no categorical restriction)", () => {
+  it("keeps Nom/Prénom/Région/People Manager as free-text fields", () => {
     expect(HR_IMPORT_FREE_TEXT_EMPLOYEE_FIELDS).toEqual(
-      expect.arrayContaining(["lastName", "firstName"]),
+      expect.arrayContaining([
+        "lastName",
+        "firstName",
+        "region",
+        "peopleManager",
+      ]),
     );
   });
 
@@ -73,6 +79,9 @@ describe("HR import template self-validation", () => {
     }
     for (const code of HR_IMPORT_DEPARTMENT_OPTIONS) {
       expect(resolveDepartmentId(code, departments, {})).not.toBeNull();
+    }
+    for (const label of HR_IMPORT_GRADE_OPTIONS) {
+      expect(parseEmployeeGrade(label).ok).toBe(true);
     }
   });
 
@@ -105,15 +114,15 @@ describe("HR import template self-validation", () => {
     expect(columnValues(listes!.rows, "department")).toEqual([
       ...HR_IMPORT_DEPARTMENT_OPTIONS,
     ]);
-    expect(columnValues(listes!.rows, "site")).toEqual([
-      ...HR_IMPORT_SITE_OPTIONS,
+    expect(columnValues(listes!.rows, "grade")).toEqual([
+      ...HR_IMPORT_GRADE_OPTIONS,
     ]);
     expect(columnValues(listes!.rows, "Statut historique")).toEqual([
       ...HR_IMPORT_HISTORY_STATUS_OPTIONS,
     ]);
   });
 
-  it("embeds Excel data validations for categorical, date and numeric columns", async () => {
+  it("embeds Excel data validations for Grade, dates and categorical columns", async () => {
     const zip = await JSZip.loadAsync(readFileSync(TEMPLATE_PATH));
     const collab = await zip.file("xl/worksheets/sheet2.xml")!.async("string");
     const soldes = await zip.file("xl/worksheets/sheet3.xml")!.async("string");
@@ -121,13 +130,15 @@ describe("HR import template self-validation", () => {
     const workbook = await zip.file("xl/workbook.xml")!.async("string");
 
     expect(collab).toMatch(/sqref="E5:E204"/); // département
-    expect(collab).toMatch(/sqref="G5:G204"/); // site
-    expect(collab).toMatch(/sqref="H5:H204"[^>]*type="date"/); // embauche
-    expect(collab).toMatch(/sqref="I5:I204"/); // contrat
-    expect(collab).toMatch(/sqref="J5:J204"/); // statut
-    expect(collab).toMatch(/sqref="L5:L204"[^>]*type="date"/); // sortie
+    expect(collab).toMatch(/sqref="G5:G204"/); // grade
+    expect(collab).toMatch(/sqref="J5:J204"[^>]*type="date"/); // embauche
+    expect(collab).toMatch(/sqref="K5:K204"/); // contrat
+    expect(collab).toMatch(/sqref="L5:L204"/); // statut
+    expect(collab).toMatch(/sqref="M5:M204"[^>]*type="date"/); // sortie
     expect(collab).not.toMatch(/sqref="B5:B204"/); // Nom libre
     expect(collab).not.toMatch(/sqref="C5:C204"/); // Prénom libre
+    expect(collab).not.toMatch(/sqref="H5:H204"/); // People Manager libre
+    expect(collab).not.toMatch(/sqref="I5:I204"/); // Région libre
 
     expect(soldes).toMatch(/sqref="B5:B204"/);
     expect(soldes).toMatch(/sqref="C5:C204"[^>]*type="decimal"/);
@@ -140,7 +151,9 @@ describe("HR import template self-validation", () => {
     expect(workbook).toContain('name="ASTER_Contrats"');
     expect(workbook).toContain('name="ASTER_Statuts"');
     expect(workbook).toContain('name="ASTER_Departements"');
-    expect(collab).toContain("showErrorMessage=\"1\"");
+    expect(workbook).toContain('name="ASTER_Grades"');
+    expect(workbook).not.toContain('name="ASTER_Sites"');
+    expect(collab).toContain('showErrorMessage="1"');
     expect(collab).toContain("Choisissez un code de la liste");
   });
 
@@ -156,7 +169,8 @@ describe("HR import template self-validation", () => {
             email: "ada@demo.aster-rh.local",
             department: "AUD",
             jobTitle: "Consultante",
-            site: "Casablanca (démo)",
+            grade: "Auditeur junior",
+            region: "Casablanca",
             hireDate: "2024-01-01",
             contractType: "Autre",
             employmentStatus: "Actif",
@@ -173,6 +187,36 @@ describe("HR import template self-validation", () => {
     expect(drafts[0]?.messages.join(" ")).toMatch(/contrat/i);
   });
 
+  it("rejects obsolete Site / cadre without silent mapping", () => {
+    const drafts = validateEmployeeRows({
+      rows: [
+        {
+          rowNumber: 5,
+          cells: {
+            matricule: "emp-old",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada2@demo.aster-rh.local",
+            department: "AUD",
+            jobTitle: "Consultante",
+            site: "Casablanca",
+            category: "cadre",
+            hireDate: "2024-01-01",
+            contractType: "CDI",
+            employmentStatus: "Actif",
+          },
+        },
+      ],
+      mapping: {},
+      departmentMapping: {},
+      departments,
+      existingEmployees: [],
+      updateExisting: false,
+    });
+    expect(drafts[0]?.severity).toBe("error");
+    expect(drafts[0]?.messages.join(" ")).toMatch(/Site|Grade|cadre/i);
+  });
+
   it("accepts a filled official workbook using dropdown values (preview only)", async () => {
     const filled = await buildFilledOfficialWorkbook({
       employees: [
@@ -183,11 +227,12 @@ describe("HR import template self-validation", () => {
           "sara.sv@demo.aster-rh.local",
           "AUD",
           "Consultante",
+          "Auditeur senior",
+          "Youssef Alaoui",
           "Casablanca (démo)",
           "2024-03-01",
           "Alternance",
           "Actif",
-          "",
           "",
           "",
         ],
@@ -214,12 +259,13 @@ describe("HR import template self-validation", () => {
       mapping: {},
       departmentMapping: {},
       departments,
-      knownSites: [...HR_IMPORT_SITE_OPTIONS],
       existingEmployees: [],
       updateExisting: false,
     });
     expect(drafts.every((d) => d.severity !== "error")).toBe(true);
     expect(drafts[0]?.contractType).toBe("alternance");
+    expect(drafts[0]?.grade).toBe("auditeur_senior");
+    expect(drafts[0]?.region).toBe("Casablanca (démo)");
     expect(bal.rows).toHaveLength(1);
   });
 });

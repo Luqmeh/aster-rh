@@ -5,7 +5,24 @@ export type DemoRole = "collaborateur" | "chef_de_projet" | "admin_rh";
 
 export type ContractType = "cdi" | "cdd" | "alternance" | "stage";
 
+/** @deprecated Remplacé par EmployeeGrade — ne plus utiliser. */
 export type EmployeeCategory = "cadre" | "non_cadre" | "non_applicable";
+
+import type {
+  EmployeeGrade,
+  PeopleManagerEntry,
+} from "@/domain/types/employee-structure";
+export type { EmployeeGrade, PeopleManagerEntry };
+export {
+  EMPLOYEE_GRADE_LABELS,
+  EMPLOYEE_GRADE_OPTIONS,
+  EMPLOYEE_GRADE_VALUES,
+  employeeGradeLabel,
+  employeeGradeSchema,
+  parseEmployeeGrade,
+  parseRegion,
+  regionSchema,
+} from "@/domain/types/employee-structure";
 
 export type RequestStatus =
   | "brouillon"
@@ -82,10 +99,15 @@ export interface Employee {
   email: string;
   jobTitle: string;
   departmentId: string;
+  /** People Manager catalogue (affectation organisationnelle — pas d'autorité d'approbation). */
+  peopleManagerId: string | null;
+  /** @deprecated Conservé pour compat tests historiques d'équipe ; préférer peopleManagerId. */
   managerId: string | null;
-  site: string;
+  /** Région (saisie libre). */
+  region: string;
   contractType: ContractType;
-  category: EmployeeCategory;
+  /** Classification organisationnelle — ne pilote ni soldes ni permissions. */
+  grade: EmployeeGrade;
   hireDate: string;
   employmentStatus: EmploymentStatus;
   departureDate: string | null;

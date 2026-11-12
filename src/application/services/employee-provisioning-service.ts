@@ -19,9 +19,13 @@ import {
 import type {
   ContractType,
   DemoRole,
-  EmployeeCategory,
+  EmployeeGrade,
   EmploymentStatus,
 } from "@/domain/types/hr";
+import {
+  parseEmployeeGrade,
+  parseRegion,
+} from "@/domain/types/employee-structure";
 import {
   AuthError,
   requireSession,
@@ -44,10 +48,10 @@ export type OnboardEmployeeInput = {
   email: string;
   jobTitle: string;
   departmentId: string;
-  managerId: string | null;
-  site: string;
+  peopleManagerId: string | null;
+  region: string;
   contractType: ContractType;
-  category: EmployeeCategory;
+  grade: EmployeeGrade | string;
   hireDate: string;
   phoneInternal?: string | null;
   teleworkEligible?: boolean;
@@ -100,11 +104,20 @@ export function createEmployeeProvisioningService(deps: {
         throw new Error("Un compte applicatif existe déjà pour cet e-mail.");
       }
 
-      if (raw.managerId) {
-        const manager = await deps.hr.getEmployee(raw.managerId);
-        if (!manager || !manager.isActive) {
-          throw new Error("Manager hiérarchique introuvable ou inactif.");
+      const gradeParsed = parseEmployeeGrade(
+        typeof raw.grade === "string" ? raw.grade : String(raw.grade),
+      );
+      if (!gradeParsed.ok) throw new Error(gradeParsed.message);
+      const regionParsed = parseRegion(raw.region);
+      if (!regionParsed.ok) throw new Error(regionParsed.message);
+
+      let managerId: string | null = null;
+      if (raw.peopleManagerId) {
+        const pm = await deps.hr.getPeopleManager(raw.peopleManagerId);
+        if (!pm || !pm.isActive) {
+          throw new Error("People Manager introuvable ou inactif.");
         }
+        managerId = pm.linkedEmployeeId;
       }
 
       const employee = await deps.hr.createEmployee({
@@ -114,10 +127,11 @@ export function createEmployeeProvisioningService(deps: {
         email,
         jobTitle: raw.jobTitle.trim(),
         departmentId: raw.departmentId,
-        managerId: raw.managerId,
-        site: raw.site.trim(),
+        peopleManagerId: raw.peopleManagerId,
+        managerId,
+        region: regionParsed.value,
         contractType: raw.contractType,
-        category: raw.category,
+        grade: gradeParsed.value,
         hireDate: raw.hireDate,
         employmentStatus: "actif",
         departureDate: null,

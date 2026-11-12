@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { onboardEmployeeAction } from "@/app/actions/employee-lifecycle";
+import { createPeopleManagerAction } from "@/app/actions/people-manager";
 import { OnboardingCredentialsModal } from "@/components/modules/onboarding-credentials-modal";
-import type { DemoRole } from "@/domain/types/hr";
-import type { OrganizationUnit, Employee } from "@/domain/types/hr";
+import type { DemoRole, PeopleManagerEntry } from "@/domain/types/hr";
+import type { OrganizationUnit } from "@/domain/types/hr";
+import { EMPLOYEE_GRADE_OPTIONS } from "@/domain/types/employee-structure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,11 +22,11 @@ const selectClassName =
 
 export function EmployeeOnboardForm({
   departments,
-  managers,
+  peopleManagers: initialPeopleManagers,
   canAssignPrivilegedRoles,
 }: {
   departments: OrganizationUnit[];
-  managers: Employee[];
+  peopleManagers: PeopleManagerEntry[];
   canAssignPrivilegedRoles: boolean;
 }) {
   const router = useRouter();
@@ -33,6 +35,8 @@ export function EmployeeOnboardForm({
   const [credentials, setCredentials] = useState<OnboardingCredentials | null>(
     null,
   );
+  const [peopleManagers, setPeopleManagers] = useState(initialPeopleManagers);
+  const [newPmName, setNewPmName] = useState("");
 
   const submitEnabled = canSubmitOnboardForm({
     pending,
@@ -58,16 +62,15 @@ export function EmployeeOnboardForm({
                 email,
                 jobTitle: String(form.get("jobTitle") ?? "").trim(),
                 departmentId: String(form.get("departmentId") ?? ""),
-                managerId: String(form.get("managerId") ?? "") || null,
-                site: String(form.get("site") ?? "").trim(),
+                peopleManagerId:
+                  String(form.get("peopleManagerId") ?? "") || null,
+                region: String(form.get("region") ?? "").trim(),
                 contractType: String(form.get("contractType") ?? "cdi") as
                   | "cdi"
                   | "cdd"
                   | "alternance"
                   | "stage",
-                category: String(form.get("category") ?? "cadre") as
-                  | "cadre"
-                  | "non_cadre",
+                grade: String(form.get("grade") ?? "auditeur_junior"),
                 hireDate: String(form.get("hireDate") ?? ""),
                 phoneInternal:
                   String(form.get("phoneInternal") ?? "").trim() || null,
@@ -100,7 +103,7 @@ export function EmployeeOnboardForm({
           <Field label="Prénom" name="firstName" required />
           <Field label="Nom" name="lastName" required />
           <Field label="Poste" name="jobTitle" required />
-          <Field label="Site" name="site" required />
+          <Field label="Région" name="region" required />
           <Field label="Date d'entrée" name="hireDate" type="date" required />
           <Field label="Téléphone interne" name="phoneInternal" />
           <div className="space-y-1.5">
@@ -114,15 +117,67 @@ export function EmployeeOnboardForm({
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="managerId">Manager hiérarchique</Label>
-            <select id="managerId" name="managerId" className={selectClassName} defaultValue="">
-              <option value="">— (direction)</option>
-              {managers.map((m) => (
+            <Label htmlFor="peopleManagerId">People Manager</Label>
+            <select
+              id="peopleManagerId"
+              name="peopleManagerId"
+              className={selectClassName}
+              defaultValue=""
+            >
+              <option value="">— (non assigné)</option>
+              {peopleManagers.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.firstName} {m.lastName}
+                  {m.displayName}
                 </option>
               ))}
             </select>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="newPmName">Ajouter un People Manager</Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                id="newPmName"
+                value={newPmName}
+                onChange={(e) => setNewPmName(e.target.value)}
+                placeholder="Nom (avec ou sans compte ASTER)"
+                className="max-w-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || !newPmName.trim()}
+                onClick={() => {
+                  const name = newPmName.trim();
+                  if (!name) return;
+                  startTransition(async () => {
+                    try {
+                      const created = await createPeopleManagerAction({
+                        displayName: name,
+                      });
+                      setPeopleManagers((prev) =>
+                        [...prev, created].sort((a, b) =>
+                          a.displayName.localeCompare(b.displayName, "fr"),
+                        ),
+                      );
+                      setNewPmName("");
+                    } catch (err) {
+                      setError(
+                        err instanceof Error
+                          ? err.message
+                          : "Ajout People Manager impossible.",
+                      );
+                    }
+                  });
+                }}
+              >
+                Ajouter
+              </Button>
+            </div>
+            <p className="text-[12px] text-[var(--aster-muted)]">
+              L&apos;affectation People Manager n&apos;accorde aucune autorité
+              d&apos;approbation.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contractType">Contrat</Label>
@@ -134,10 +189,19 @@ export function EmployeeOnboardForm({
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="category">Catégorie</Label>
-            <select id="category" name="category" className={selectClassName} defaultValue="cadre">
-              <option value="cadre">Cadre</option>
-              <option value="non_cadre">Non-cadre</option>
+            <Label htmlFor="grade">Grade</Label>
+            <select
+              id="grade"
+              name="grade"
+              className={selectClassName}
+              defaultValue="auditeur_junior"
+              required
+            >
+              {EMPLOYEE_GRADE_OPTIONS.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -153,19 +217,19 @@ export function EmployeeOnboardForm({
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="provisionAccount">Compte de connexion</Label>
+            <Label htmlFor="provisionAccount">Compte applicatif</Label>
             <select
               id="provisionAccount"
               name="provisionAccount"
               className={selectClassName}
               defaultValue="true"
             >
-              <option value="true">Créer un compte credentials</option>
-              <option value="false">Fiche seule (sans compte)</option>
+              <option value="true">Créer un compte (mot de passe temporaire)</option>
+              <option value="false">Fiche seule (sans connexion)</option>
             </select>
           </div>
         </div>
-        <Button type="submit" disabled={!submitEnabled}>
+        <Button type="submit" size="sm" disabled={!submitEnabled}>
           {pending ? "Création…" : "Créer le collaborateur"}
         </Button>
         {error ? (
@@ -174,7 +238,6 @@ export function EmployeeOnboardForm({
           </p>
         ) : null}
       </form>
-
       <OnboardingCredentialsModal
         open={Boolean(credentials)}
         credentials={credentials}
@@ -194,15 +257,15 @@ export function EmployeeOnboardForm({
 function Field({
   label,
   name,
+  placeholder,
   type = "text",
   required,
-  placeholder,
 }: {
   label: string;
   name: string;
+  placeholder?: string;
   type?: string;
   required?: boolean;
-  placeholder?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -211,8 +274,8 @@ function Field({
         id={name}
         name={name}
         type={type}
-        required={required}
         placeholder={placeholder}
+        required={required}
       />
     </div>
   );

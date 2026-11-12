@@ -12,6 +12,7 @@ import type {
   LeaveRequest,
   NotificationItem,
   OrganizationUnit,
+  PeopleManagerEntry,
   RecoveryCreditLedgerEntry,
   RecruitmentCandidate,
   RecruitmentEvent,
@@ -43,6 +44,7 @@ export type EmployeeCreateInput = Omit<
   | "policyGroup"
   | "birthDate"
   | "activitySector"
+  | "managerId"
 > & {
   demoIdentityId?: string | null;
   avatarInitials?: string;
@@ -56,6 +58,15 @@ export type EmployeeCreateInput = Omit<
   policyGroup?: string | null;
   birthDate?: string | null;
   activitySector?: "non_agricole" | "agricole";
+  /** Legacy — synchronisé depuis People Manager lié si fourni. */
+  managerId?: string | null;
+};
+
+export type PeopleManagerCreateInput = {
+  id?: string;
+  displayName: string;
+  linkedEmployeeId?: string | null;
+  isActive?: boolean;
 };
 
 /**
@@ -80,10 +91,11 @@ export interface HrRepository {
         | "email"
         | "jobTitle"
         | "departmentId"
+        | "peopleManagerId"
         | "managerId"
-        | "site"
+        | "region"
         | "contractType"
-        | "category"
+        | "grade"
         | "hireDate"
         | "employmentStatus"
         | "departureDate"
@@ -104,11 +116,28 @@ export interface HrRepository {
       >
     >,
   ): Promise<Employee>;
+  listPeopleManagers(options?: {
+    includeInactive?: boolean;
+  }): Promise<PeopleManagerEntry[]>;
+  getPeopleManager(id: string): Promise<PeopleManagerEntry | null>;
+  createPeopleManager(
+    input: PeopleManagerCreateInput,
+  ): Promise<PeopleManagerEntry>;
+  updatePeopleManager(
+    id: string,
+    patch: Partial<
+      Pick<PeopleManagerEntry, "displayName" | "linkedEmployeeId" | "isActive">
+    >,
+  ): Promise<PeopleManagerEntry>;
   updateLeaveBalance(
     employeeId: string,
     year: number,
     patch: Partial<LeaveBalance>,
   ): Promise<LeaveBalance>;
+  /**
+   * Équipe d'un acteur : collaborateurs dont le People Manager est lié à `managerId`
+   * OU (legacy) dont `managerId` correspond.
+   */
   listTeamMembers(managerId: string): Promise<Employee[]>;
   getLeaveBalance(employeeId: string, year: number): Promise<LeaveBalance | null>;
   listLeaveBalances(year?: number): Promise<LeaveBalance[]>;

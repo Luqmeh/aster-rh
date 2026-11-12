@@ -13,12 +13,18 @@ Toute valeur chiffrée non confirmée est **À valider par RH**.
 
 | Sujet | Statut | Notes / source |
 |-------|--------|----------------|
-| Cadre / non-cadre | **Historique FR** | Conservé en enum ; **non déterminant** d’acquisition MA |
-| `non_applicable` + `policyGroup` | **Implémenté** | Modèle Maroc |
-| RTT statutaire | **Non** | Pas d’acquisition auto MA |
+| **Grade** | **Implémenté** | Valeurs exactes : `Auditeur junior`, `Auditeur senior`, `Manager`. Classification organisationnelle uniquement — **ne pilote ni soldes, ni permissions, ni autorité d’approbation**. |
+| Cadre / non-cadre | **Retiré de l’UI / import** | Enum Prisma legacy conservée pour migration ; refusée par le contrat Grade |
+| **People Manager** | **Implémenté** | Catalogue maintenu par RH / Senior Manager (lien Employee optionnel ou nom seul). Affichage fiche / annuaire. **N’accorde aucune autorité d’approbation.** |
+| Manager hiérarchique | **Remplacé** | Ancien `managerId` self-ref conservé en legacy / sync depuis People Manager lié |
+| **Région** | **Implémenté** | Saisie libre (pas de liste de régions marocaines imposée). Remplace `Site`. |
+| Site | **Retiré de l’UI / import** | Colonne legacy DB syncée depuis `region` ; pas de mapping silencieux Site→Région à l’import |
+| `policyGroup` | **Implémenté** | Politique employeur Maroc — indépendant du Grade |
+| RTT statutaire | **Non** | Pas d’acquisition auto MA ; type de demande retiré de l’UI collaborateur |
+| **Récupération** | **Canonique** | Solde calculé (férié travaillé → `RecoveryCreditLedger` / `recoveryDays*`) — compteur unique exposé |
 | Alternants | **À valider** | Congé annuel selon contrat — RTT non auto |
 
-Code : `entitlement-policies.ts`, `MOROCCO_HR_POLICY.md`.
+Code : `employee-structure.ts`, `people-manager.ts`, `active-leave-types.ts`, `entitlement-policies.ts`, `MOROCCO_HR_POLICY.md`.
 
 ---
 

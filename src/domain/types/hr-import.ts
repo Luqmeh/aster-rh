@@ -29,12 +29,16 @@ export type HrImportEmployeeDraft = {
   departmentRaw: string;
   departmentId: string | null;
   jobTitle: string;
-  site: string;
+  /** Grade stocké (auditeur_junior | auditeur_senior | manager). */
+  grade: string | null;
+  /** People Manager saisi (nom libre) — résolution ID côté exécution. */
+  peopleManagerRaw: string | null;
+  peopleManagerId: string | null;
+  /** Région saisie libre. */
+  region: string | null;
   hireDate: string | null;
   contractType: string | null;
   employmentStatus: string | null;
-  managerMatricule: string | null;
-  managerId: string | null;
   action: "create" | "update" | "skip";
   existingEmployeeId: string | null;
   severity: HrImportRowSeverity;

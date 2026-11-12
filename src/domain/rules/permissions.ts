@@ -19,6 +19,7 @@ export type Permission =
   | "employee.record.edit_personal"
   | "employee.provision"
   | "employee.lifecycle"
+  | "people_manager.manage"
   | "account.role.assign_all"
   | "account.role.assign_collaborateur"
   | "hr.administration"
@@ -64,6 +65,7 @@ const CHEF: Permission[] = [
   "employee.record.edit_personal",
   "employee.provision",
   "employee.lifecycle",
+  "people_manager.manage",
   "account.role.assign_all",
   "account.role.assign_collaborateur",
   "hr.administration",
@@ -100,6 +102,7 @@ const HR: Permission[] = [
   "employee.record.edit_personal",
   "employee.provision",
   "employee.lifecycle",
+  "people_manager.manage",
   "account.role.assign_collaborateur",
   "hr.administration",
   "org.manage",
@@ -163,6 +166,11 @@ export function canManageEmployees(role: DemoRole): boolean {
   return hasPermission(role, "employee.record.manage");
 }
 
+/** Catalogue People Manager — Responsable RH et Senior Manager uniquement (aucune autorité d'approbation). */
+export function canManagePeopleManagers(role: DemoRole): boolean {
+  return hasPermission(role, "people_manager.manage");
+}
+
 export function canAccessHrAdministration(role: DemoRole): boolean {
   return hasPermission(role, "hr.administration");
 }
@@ -204,10 +212,8 @@ export function canViewEmployeeProfile(
   return false;
 }
 
-export function personalEditableFields(): ReadonlyArray<
-  "phoneInternal" | "site"
-> {
-  return ["phoneInternal", "site"];
+export function personalEditableFields(): ReadonlyArray<"phoneInternal"> {
+  return ["phoneInternal"];
 }
 
 export function roleLabel(role: DemoRole): string {

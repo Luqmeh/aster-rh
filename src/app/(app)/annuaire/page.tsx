@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { employmentStatusLabel } from "@/domain/rules/lifecycle";
+import {
+  EMPLOYEE_GRADE_OPTIONS,
+  employeeGradeLabel,
+} from "@/domain/types/employee-structure";
 import { canBrowseDirectory } from "@/domain/rules/permissions";
 import { getContainer } from "@/infrastructure/container";
 import { fullName } from "@/lib/utils";
@@ -23,7 +27,9 @@ export default async function AnnuairePage({
   searchParams: Promise<{
     q?: string;
     departmentId?: string;
-    managerId?: string;
+    peopleManagerId?: string;
+    grade?: string;
+    region?: string;
     status?: string;
   }>;
 }) {
@@ -43,21 +49,25 @@ export default async function AnnuairePage({
       ? params.status
       : "actif";
 
-  const [employees, departments, allForManagers] = await Promise.all([
+  const grade = EMPLOYEE_GRADE_OPTIONS.some((o) => o.value === params.grade)
+    ? params.grade
+    : undefined;
+
+  const [employees, departments, peopleManagers] = await Promise.all([
     service.listDirectory(session, {
       q: params.q,
       departmentId: params.departmentId || undefined,
-      managerId: params.managerId || undefined,
+      peopleManagerId: params.peopleManagerId || undefined,
+      grade,
+      region: params.region || undefined,
       status,
     }),
     container.hr.listDepartments(),
-    container.hr.listEmployees({ includeInactive: true }),
+    container.hr.listPeopleManagers({ includeInactive: true }),
   ]);
 
   const deptById = Object.fromEntries(departments.map((d) => [d.id, d]));
-  const managers = allForManagers.filter((e) =>
-    allForManagers.some((other) => other.managerId === e.id),
-  );
+  const pmById = Object.fromEntries(peopleManagers.map((p) => [p.id, p]));
 
   return (
     <div className="aster-fade-up space-y-6">
@@ -73,7 +83,7 @@ export default async function AnnuairePage({
 
       <Card>
         <CardContent className="pt-5">
-          <form className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]">
+          <form className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))_auto]">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--aster-muted)]"
@@ -101,18 +111,37 @@ export default async function AnnuairePage({
               ))}
             </select>
             <select
-              name="managerId"
+              name="grade"
               className={selectClassName}
-              defaultValue={params.managerId ?? ""}
-              aria-label="Équipe (manager)"
+              defaultValue={grade ?? ""}
+              aria-label="Grade"
             >
-              <option value="">Toutes les équipes</option>
-              {managers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Équipe {m.firstName} {m.lastName}
+              <option value="">Tous les grades</option>
+              {EMPLOYEE_GRADE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
             </select>
+            <select
+              name="peopleManagerId"
+              className={selectClassName}
+              defaultValue={params.peopleManagerId ?? ""}
+              aria-label="People Manager"
+            >
+              <option value="">Tous les People Managers</option>
+              {peopleManagers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+            <Input
+              name="region"
+              defaultValue={params.region ?? ""}
+              placeholder="Région"
+              aria-label="Région"
+            />
             <select
               name="status"
               className={selectClassName}
@@ -149,14 +178,16 @@ export default async function AnnuairePage({
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="border-b border-[var(--aster-border)] text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--aster-muted)]">
                   <tr>
                     <th className="px-2 py-2.5 font-medium">Collaborateur</th>
                     <th className="px-2 py-2.5 font-medium">Identifiant</th>
                     <th className="px-2 py-2.5 font-medium">Poste</th>
                     <th className="px-2 py-2.5 font-medium">Département</th>
-                    <th className="px-2 py-2.5 font-medium">Site</th>
+                    <th className="px-2 py-2.5 font-medium">Grade</th>
+                    <th className="px-2 py-2.5 font-medium">People Manager</th>
+                    <th className="px-2 py-2.5 font-medium">Région</th>
                     <th className="px-2 py-2.5 font-medium">Statut</th>
                   </tr>
                 </thead>
@@ -192,7 +223,15 @@ export default async function AnnuairePage({
                         {deptById[e.departmentId]?.name ?? "—"}
                       </td>
                       <td className="px-2 py-3 text-[var(--aster-ink)]">
-                        {e.site}
+                        {employeeGradeLabel(e.grade)}
+                      </td>
+                      <td className="px-2 py-3 text-[var(--aster-ink)]">
+                        {e.peopleManagerId
+                          ? (pmById[e.peopleManagerId]?.displayName ?? "—")
+                          : "—"}
+                      </td>
+                      <td className="px-2 py-3 text-[var(--aster-ink)]">
+                        {e.region}
                       </td>
                       <td className="px-2 py-3">
                         <Badge

@@ -12,7 +12,7 @@ import {
   HR_IMPORT_LISTES_COLUMNS,
   HR_IMPORT_CONTRACT_OPTIONS,
   HR_IMPORT_DEPARTMENT_OPTIONS,
-  HR_IMPORT_SITE_OPTIONS,
+  HR_IMPORT_GRADE_OPTIONS,
   HR_IMPORT_STATUS_OPTIONS,
   HR_IMPORT_BALANCE_TYPE_OPTIONS,
   HR_IMPORT_UNIT_OPTIONS,
@@ -20,7 +20,10 @@ import {
   HR_IMPORT_HISTORY_EVENT_OPTIONS,
   HR_IMPORT_HISTORY_STATUS_OPTIONS,
 } from "../src/domain/rules/hr-import/accepted-values";
-import { OFFICIAL_HR_IMPORT_TEMPLATE_RELATIVE_PATH } from "../src/domain/rules/hr-import/templates";
+import {
+  EMPLOYEE_TEMPLATE_COLUMNS,
+  OFFICIAL_HR_IMPORT_TEMPLATE_RELATIVE_PATH,
+} from "../src/domain/rules/hr-import/templates";
 
 const ROOT = process.cwd();
 const TARGET = join(ROOT, OFFICIAL_HR_IMPORT_TEMPLATE_RELATIVE_PATH);
@@ -131,10 +134,10 @@ function upsertDefinedNames(workbookXml: string, names: Array<{ name: string; re
     .join("");
   if (/<definedNames[\s\S]*?<\/definedNames>/.test(workbookXml)) {
     return workbookXml.replace(
-      /<definedNames([\s\S]*?)<\/definedNames>/,
+      /<definedNames[^>]*>([\s\S]*?)<\/definedNames>/,
       (_m, inner: string) => {
         // Drop previous ASTER_* names, keep filter databases.
-        const kept = String(inner).replace(
+        const kept = String(inner).replace(/^>+/, "").replace(
           /<definedName name="ASTER_[^"]*"[\s\S]*?<\/definedName>/g,
           "",
         );
@@ -165,9 +168,83 @@ async function main() {
     verif: 5,
     histEvent: 6,
     dept: 7,
-    site: 8,
+    grade: 8,
     histStatus: 9,
   };
+
+  // Feuille Collaborateurs : en-têtes (ligne 4) + largeur de table alignées sur
+  // EMPLOYEE_TEMPLATE_COLUMNS (Grade / People Manager / Région — pas de Site / cadre).
+  const collabPath = "xl/worksheets/sheet2.xml";
+  const collabXml = await zip.file(collabPath)?.async("string");
+  if (!collabXml) throw new Error("Feuille Collaborateurs manquante");
+  const nCols = EMPLOYEE_TEMPLATE_COLUMNS.length;
+  const lastCol = colLetter(nCols);
+  const headerCells = EMPLOYEE_TEMPLATE_COLUMNS.map((c, i) => {
+    const ref = `${colLetter(i + 1)}4`;
+    return `<c r="${ref}" s="14" t="inlineStr"><is><t>${escapeXml(c.header)}</t></is></c>`;
+  }).join("");
+  const headerRow = `<row r="4">${headerCells}</row>`;
+  if (!/<row r="4"[\s\S]*?<\/row>/.test(collabXml)) {
+    throw new Error("Ligne d'en-tête Collaborateurs (r=4) introuvable");
+  }
+  const colsXml = `<cols>${EMPLOYEE_TEMPLATE_COLUMNS.map(
+    (c, i) =>
+      `<col width="${Math.max(c.width ?? 16, 16)}" customWidth="1" min="${i + 1}" max="${i + 1}"/>`,
+  ).join("")}</cols>`;
+  const collabPatched = collabXml
+    .replace(/<row r="4"[\s\S]*?<\/row>/, headerRow)
+    .replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="A1:${lastCol}${DATA_END_ROW}"/>`)
+    .replace(/<cols>[\s\S]*?<\/cols>/, colsXml)
+    .replace(/<autoFilter ref="[^"]*"\/>/, `<autoFilter ref="A4:${lastCol}${DATA_END_ROW}"/>`)
+    .replace(/<mergeCell ref="A2:[A-Z]+2"\/>/, `<mergeCell ref="A2:${lastCol}2"/>`)
+    .replace(/<mergeCell ref="A1:[A-Z]+1"\/>/, `<mergeCell ref="A1:${lastCol}1"/>`);
+  zip.file(collabPath, collabPatched);
+
+  const tablePath = "xl/tables/table1.xml";
+  const tableXml = await zip.file(tablePath)?.async("string");
+  if (!tableXml) throw new Error("Table Collaborateurs manquante");
+  const tableRef = `A4:${lastCol}${DATA_END_ROW}`;
+  const tableCols = EMPLOYEE_TEMPLATE_COLUMNS.map(
+    (c, i) => `<tableColumn id="${i + 1}" name="${escapeXml(c.header)}"/>`,
+  ).join("");
+  zip.file(
+    tablePath,
+    tableXml
+      .replace(/ ref="[^"]*" headerRowCount/, ` ref="${tableRef}" headerRowCount`)
+      .replace(/<autoFilter ref="[^"]*"\/>/, `<autoFilter ref="${tableRef}"/>`)
+      .replace(
+        /<tableColumns[\s\S]*?<\/tableColumns>/,
+        `<tableColumns count="${nCols}">${tableCols}</tableColumns>`,
+      ),
+  );
+
+  // Commentaires d'en-tête : Matricule (A4) et Date d'embauche (colonne J).
+  const hireCol = colLetter(
+    EMPLOYEE_TEMPLATE_COLUMNS.findIndex((c) => c.key === "hireDate") + 1,
+  );
+  const commentPath = "xl/comments/comment1.xml";
+  const commentXml = await zip.file(commentPath)?.async("string");
+  if (!commentXml) throw new Error("Commentaires Collaborateurs manquants");
+  const vmlPath = "xl/drawings/commentsDrawing1.vml";
+  const vmlXml = await zip.file(vmlPath)?.async("string");
+  if (vmlXml) {
+    // Ancre du 2e commentaire (index 0-based de la colonne Date d'embauche).
+    const hireIdx = EMPLOYEE_TEMPLATE_COLUMNS.findIndex((c) => c.key === "hireDate");
+    zip.file(
+      vmlPath,
+      vmlXml.replace(
+        /(<ns2:Row>3<\/ns2:Row><ns2:Column>)[1-9]\d*(<\/ns2:Column>)/,
+        `$1${hireIdx}$2`,
+      ),
+    );
+  }
+  zip.file(
+    commentPath,
+    commentXml.replace(
+      /<comment ref="[A-Z]+4" authorId="0" shapeId="0"><text><t>Date réelle/,
+      `<comment ref="${hireCol}4" authorId="0" shapeId="0"><text><t>Date réelle`,
+    ),
+  );
 
   const collabValidations = [
     dv({
@@ -182,17 +259,14 @@ async function main() {
     dv({
       sqref: `G5:G${DATA_END_ROW}`,
       type: "list",
-      formula1: listRange(col.site, HR_IMPORT_SITE_OPTIONS.length),
-      errorStyle: "warning",
-      promptTitle: "Site",
-      prompt:
-        "Sélectionnez un site connu, ou saisissez un nouveau site (avertissement à l'import).",
-      errorTitle: "Site hors liste",
-      error:
-        "Site absent du référentiel démo — l'import l'acceptera avec un avertissement.",
+      formula1: listRange(col.grade, HR_IMPORT_GRADE_OPTIONS.length),
+      promptTitle: "Grade",
+      prompt: "Auditeur junior, Auditeur senior ou Manager.",
+      errorTitle: "Grade invalide",
+      error: "Seuls Auditeur junior, Auditeur senior et Manager sont acceptés.",
     }),
     dv({
-      sqref: `H5:H${DATA_END_ROW}`,
+      sqref: `J5:J${DATA_END_ROW}`,
       type: "date",
       operator: "greaterThanOrEqual",
       formula1: "DATE(1990,1,1)",
@@ -202,7 +276,7 @@ async function main() {
       error: "La date d'embauche doit être une date Excel valide.",
     }),
     dv({
-      sqref: `I5:I${DATA_END_ROW}`,
+      sqref: `K5:K${DATA_END_ROW}`,
       type: "list",
       formula1: listRange(col.contrat, HR_IMPORT_CONTRACT_OPTIONS.length),
       promptTitle: "Type de contrat",
@@ -211,7 +285,7 @@ async function main() {
       error: "Seuls CDI, CDD, Alternance et Stage sont acceptés.",
     }),
     dv({
-      sqref: `J5:J${DATA_END_ROW}`,
+      sqref: `L5:L${DATA_END_ROW}`,
       type: "list",
       formula1: listRange(col.statut, HR_IMPORT_STATUS_OPTIONS.length),
       promptTitle: "Statut",
@@ -220,7 +294,7 @@ async function main() {
       error: "Sélectionnez Actif, Suspendu ou Sorti.",
     }),
     dv({
-      sqref: `L5:L${DATA_END_ROW}`,
+      sqref: `M5:M${DATA_END_ROW}`,
       type: "date",
       operator: "greaterThanOrEqual",
       formula1: "DATE(1990,1,1)",
@@ -387,8 +461,8 @@ async function main() {
       refers: listRange(col.dept, HR_IMPORT_DEPARTMENT_OPTIONS.length),
     },
     {
-      name: "ASTER_Sites",
-      refers: listRange(col.site, HR_IMPORT_SITE_OPTIONS.length),
+      name: "ASTER_Grades",
+      refers: listRange(col.grade, HR_IMPORT_GRADE_OPTIONS.length),
     },
     {
       name: "ASTER_StatutsHistorique",
@@ -398,11 +472,24 @@ async function main() {
       ),
     },
   ];
-  zip.file(workbookPath, upsertDefinedNames(workbookXml, named));
+  const workbookPatched = workbookXml
+    .replace(/<definedNames>>+/, "<definedNames>")
+    .replace(
+      /('Collaborateurs'!\$A\$4:\$)[A-Z]+(\$204)/,
+      `$1${lastCol}$2`,
+    );
+  zip.file(workbookPath, upsertDefinedNames(workbookPatched, named));
 
+  // Horodatage fixe → hash SHA-256 stable entre régénérations.
+  const FIXED_DATE = new Date(Date.UTC(2026, 0, 1, 0, 0, 0));
+  zip.forEach((_path, entry) => {
+    entry.date = FIXED_DATE;
+  });
   const out = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+    platform: "UNIX",
   });
   writeFileSync(TARGET, out);
   const hash = createHash("sha256").update(out).digest("hex");

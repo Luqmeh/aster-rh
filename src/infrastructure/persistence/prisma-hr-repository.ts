@@ -17,10 +17,31 @@ function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** Équipe : People Manager lié à l'acteur OU managerId legacy. */
+function teamWhere(actorId: string) {
+  return {
+    OR: [
+      { managerId: actorId },
+      { peopleManager: { is: { linkedEmployeeId: actorId } } },
+    ],
+  };
+}
+
+async function linkedEmployeeIdOf(
+  peopleManagerId: string | null | undefined,
+): Promise<string | null> {
+  if (!peopleManagerId) return null;
+  const pm = await getPrismaClient().peopleManager.findUnique({
+    where: { id: peopleManagerId },
+    select: { linkedEmployeeId: true },
+  });
+  return pm?.linkedEmployeeId ?? null;
+}
+
 async function teamEmployeeIds(managerId: string): Promise<string[]> {
   const prisma = getPrismaClient();
   const team = await prisma.employee.findMany({
-    where: { managerId, isActive: true },
+    where: { ...teamWhere(managerId), isActive: true },
     select: { id: true },
   });
   return team.map((e) => e.id);
@@ -69,6 +90,7 @@ export const prismaHrRepository: HrRepository = {
     );
     const { syncIsActive } = await import("@/domain/rules/lifecycle");
     const employmentStatus = input.employmentStatus ?? "actif";
+    const region = input.region.trim();
     try {
       const row = await getPrismaClient().employee.create({
         data: {
@@ -79,10 +101,13 @@ export const prismaHrRepository: HrRepository = {
           email: input.email.trim().toLowerCase(),
           jobTitle: input.jobTitle,
           departmentId: input.departmentId,
-          managerId: input.managerId,
-          site: input.site,
+          peopleManagerId: input.peopleManagerId ?? null,
+          managerId: input.managerId ?? null,
+          region,
+          site: region,
           contractType: input.contractType,
-          category: input.category,
+          grade: input.grade,
+          category: "non_applicable",
           hireDate: dateOnlyToUtc(input.hireDate),
           employmentStatus,
           departureDate: input.departureDate
@@ -122,6 +147,12 @@ export const prismaHrRepository: HrRepository = {
     );
     const { syncIsActive } = await import("@/domain/rules/lifecycle");
     const data: Record<string, unknown> = { ...patch };
+    if (typeof patch.region === "string") {
+      data.site = patch.region;
+    }
+    if (patch.peopleManagerId !== undefined && patch.managerId === undefined) {
+      data.managerId = await linkedEmployeeIdOf(patch.peopleManagerId);
+    }
     if (typeof patch.hireDate === "string") {
       data.hireDate = dateOnlyToUtc(patch.hireDate);
     }
@@ -138,6 +169,10 @@ export const prismaHrRepository: HrRepository = {
     if (typeof patch.activitySector === "string") {
       data.activitySector = patch.activitySector;
     }
+    if (typeof patch.region === "string") {
+      data.region = patch.region;
+      data.site = patch.region;
+    }
     if (patch.employmentStatus) {
       data.isActive = syncIsActive(patch.employmentStatus);
     }
@@ -148,9 +183,73 @@ export const prismaHrRepository: HrRepository = {
     return mapEmployee(row);
   },
 
+  async listPeopleManagers(options) {
+    const { mapPeopleManager } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const rows = await getPrismaClient().peopleManager.findMany({
+      where: options?.includeInactive ? undefined : { isActive: true },
+      orderBy: [{ displayName: "asc" }],
+    });
+    return rows.map(mapPeopleManager);
+  },
+
+  async getPeopleManager(id) {
+    const { mapPeopleManager } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().peopleManager.findUnique({
+      where: { id },
+    });
+    return row ? mapPeopleManager(row) : null;
+  },
+
+  async createPeopleManager(input) {
+    const { mapPeopleManager } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const { randomUUID } = await import("crypto");
+    const row = await getPrismaClient().peopleManager.create({
+      data: {
+        id: input.id ?? randomUUID(),
+        displayName: input.displayName.trim(),
+        linkedEmployeeId: input.linkedEmployeeId ?? null,
+        isActive: input.isActive ?? true,
+      },
+    });
+    return mapPeopleManager(row);
+  },
+
+  async updatePeopleManager(id, patch) {
+    const { mapPeopleManager } = await import(
+      "@/infrastructure/persistence/prisma-mappers"
+    );
+    const row = await getPrismaClient().peopleManager.update({
+      where: { id },
+      data: {
+        displayName: patch.displayName?.trim(),
+        linkedEmployeeId: patch.linkedEmployeeId,
+        isActive: patch.isActive,
+      },
+    });
+    return mapPeopleManager(row);
+  },
+
   async listTeamMembers(managerId) {
-    const rows = await getPrismaClient().employee.findMany({
-      where: { managerId, isActive: true },
+    const prisma = getPrismaClient();
+    const linkedPm = await prisma.peopleManager.findMany({
+      where: { linkedEmployeeId: managerId, isActive: true },
+      select: { id: true },
+    });
+    const pmIds = linkedPm.map((p) => p.id);
+    const rows = await prisma.employee.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { managerId },
+          ...(pmIds.length ? [{ peopleManagerId: { in: pmIds } }] : []),
+        ],
+      },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
     return rows.map(mapEmployee);

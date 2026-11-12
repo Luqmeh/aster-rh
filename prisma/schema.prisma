@@ -20,8 +20,14 @@ enum DemoRole {
   admin_rh
 }
 
-/// Classification héritée FR (`cadre`/`non_cadre`) conservée pour historique.
-/// Maroc : préférer `non_applicable` + `policyGroup` — ne pas piloter les droits via cadre.
+/// Classification organisationnelle ASTER Maroc (pas de pilotage des soldes / permissions).
+enum EmployeeGrade {
+  auditeur_junior
+  auditeur_senior
+  manager
+}
+
+/// @deprecated Conservé uniquement pour migrations historiques — ne plus utiliser en code.
 enum EmployeeCategory {
   cadre
   non_cadre
@@ -288,6 +294,23 @@ model OrganizationUnit {
   @@index([parentId])
 }
 
+/// Catalogue People Manager — entrée manuelle (nom) et/ou lien vers un Employee ASTER.
+/// L'affectation n'accorde aucune autorité d'approbation.
+model PeopleManager {
+  id               String     @id @default(cuid())
+  displayName      String
+  linkedEmployeeId String?
+  linkedEmployee   Employee?  @relation("PeopleManagerLink", fields: [linkedEmployeeId], references: [id], onDelete: SetNull)
+  isActive         Boolean    @default(true)
+  assignees        Employee[] @relation("EmployeePeopleManager")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([linkedEmployeeId])
+  @@index([displayName])
+  @@index([isActive])
+}
+
 model Employee {
   id                  String             @id
   demoIdentityId      String?
@@ -297,12 +320,21 @@ model Employee {
   jobTitle            String
   departmentId        String
   department          OrganizationUnit   @relation(fields: [departmentId], references: [id])
+  /// @deprecated Conservé pour migration — utiliser peopleManagerId.
   managerId           String?
   manager             Employee?          @relation("Management", fields: [managerId], references: [id])
   reports             Employee[]         @relation("Management")
-  site                String
+  peopleManagerId     String?
+  peopleManager       PeopleManager?     @relation("EmployeePeopleManager", fields: [peopleManagerId], references: [id], onDelete: SetNull)
+  peopleManagerLinks  PeopleManager[]    @relation("PeopleManagerLink")
+  /// Région (saisie libre) — remplace Site.
+  region              String
+  /// @deprecated Conservé pour migration — ne plus lire en application.
+  site                String             @default("")
   contractType        ContractType
-  category            EmployeeCategory
+  grade               EmployeeGrade      @default(auditeur_junior)
+  /// @deprecated Conservé pour migration — ne plus lire en application.
+  category            EmployeeCategory   @default(non_applicable)
   hireDate            DateTime
   /// Cycle de vie RH — source de vérité ; isActive reste synchronisé (accès).
   employmentStatus    EmploymentStatus   @default(actif)
@@ -324,7 +356,7 @@ model Employee {
   /// Calendrier de bureau (ex. calculs employeur) — null si non configuré.
   officeCalendarId    String?
   officeCalendar      OfficeWorkCalendar? @relation(fields: [officeCalendarId], references: [id])
-  /// Groupe de politique employeur (Maroc) — indépendant du titre / ancien cadre.
+  /// Groupe de politique employeur (Maroc) — indépendant du titre / grade.
   policyGroup         String?
   /// Date de naissance (art. 231 — régime moins de 18 ans). Nullable.
   birthDate           DateTime?          @db.Date
@@ -359,9 +391,12 @@ model Employee {
 
   @@index([demoIdentityId])
   @@index([managerId])
+  @@index([peopleManagerId])
   @@index([departmentId])
   @@index([isActive])
   @@index([employmentStatus])
+  @@index([region])
+  @@index([grade])
 }
 
 /// Candidat recrutement externe — distinct d'une fiche Employee.

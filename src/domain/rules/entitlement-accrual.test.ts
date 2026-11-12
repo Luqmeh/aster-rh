@@ -14,10 +14,11 @@ function emp(partial: Partial<Employee> & Pick<Employee, "id">): Employee {
     email: `${partial.id}@example.test`,
     jobTitle: "Consultant",
     departmentId: "dep",
+    peopleManagerId: null,
     managerId: null,
-    site: "Casablanca (démo)",
+    region: "Casablanca",
     contractType: "cdi",
-    category: "non_applicable",
+    grade: "auditeur_junior",
     hireDate: "2020-01-01",
     employmentStatus: "actif",
     departureDate: null,
@@ -73,14 +74,14 @@ describe("Morocco entitlement preview wiring", () => {
     expect(isPolicyAutoPostable(statutory)).toBe(false);
   });
 
-  it("does not use cadre/non-cadre for entitlement", () => {
+  it("does not use grade for entitlement", () => {
     const a = previewMonthlyCpAccrual({
-      employee: emp({ id: "c", category: "cadre" }),
+      employee: emp({ id: "c", grade: "auditeur_senior" }),
       period: buildMonthlyPeriod(2026, 11),
       policies,
     });
     const b = previewMonthlyCpAccrual({
-      employee: emp({ id: "n", category: "non_cadre" }),
+      employee: emp({ id: "n", grade: "auditeur_junior" }),
       period: buildMonthlyPeriod(2026, 11),
       policies,
     });

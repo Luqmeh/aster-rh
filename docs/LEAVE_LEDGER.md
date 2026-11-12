@@ -15,8 +15,10 @@ Phase 2 ajoute les **politiques d’acquisition**, le **moteur d’accrual (prev
 | `conges_payes` | days | Legacy Phase 1 (ouvertures historiques) |
 | `conges_payes_acquis` | days | CP acquis (période close + reports) — guide p.38–48 |
 | `conges_payes_en_acquisition` | days | CP juin N → mai N+1 |
-| `rtt` | days | Séparé des CP |
-| `recuperation` | days | Crédits WOH |
+| `rtt` | days | Historique / ouvertures import — **pas** de compteur UI concurrent (acquisition MA = 0) |
+| `recuperation` | days / hours | **Canonique** — crédits férié travaillé (`RecoveryCreditLedger` + `recoveryDays*`) |
+
+**Décision produit (nov. 2026) :** un seul solde « Récupération » est exposé aux collaborateurs / tableaux de bord. Le type de demande `rtt` n’est plus proposé à la création ; les écritures ledger `rtt` existantes sont conservées (pas de reset, pas de double accruals).
 
 **Solde CP UI / contrôle** = somme du pool (`conges_payes` + `acquis` + `en_acquisition`).
 

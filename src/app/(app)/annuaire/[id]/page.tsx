@@ -16,6 +16,7 @@ import {
   canManageLifecycle,
   hasPermission,
 } from "@/domain/rules/permissions";
+import { employeeGradeLabel } from "@/domain/types/employee-structure";
 import { findAccountByEmployeeId } from "@/infrastructure/auth/account-store";
 import { getContainer } from "@/infrastructure/container";
 import { formatDateFr, fullName } from "@/lib/utils";
@@ -41,15 +42,15 @@ export default async function EmployeeProfilePage({
     notFound();
   }
 
-  const [departments, employees, docs, account] = await Promise.all([
+  const [departments, peopleManagers, docs, account] = await Promise.all([
     container.hr.listDepartments(),
-    container.hr.listEmployees({ includeInactive: true }),
+    container.hr.listPeopleManagers({ includeInactive: true }),
     container.hr.listDocuments(employee.id),
     findAccountByEmployeeId(employee.id),
   ]);
   const dept = departments.find((d) => d.id === employee.departmentId);
-  const manager = employee.managerId
-    ? employees.find((e) => e.id === employee.managerId) ?? null
+  const peopleManager = employee.peopleManagerId
+    ? peopleManagers.find((p) => p.id === employee.peopleManagerId) ?? null
     : null;
   const canManage = canManageEmployees(session.role);
   const canLifecycle = canManageLifecycle(session.role);
@@ -89,12 +90,9 @@ export default async function EmployeeProfilePage({
             </p>
             <p className="text-sm text-[var(--aster-muted)]">{employee.jobTitle}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {employee.category === "cadre" ||
-              employee.category === "non_cadre" ? (
-                <Badge variant="secondary">
-                  {employee.category === "cadre" ? "Cadre" : "Non-cadre"}
-                </Badge>
-              ) : null}
+              <Badge variant="secondary">
+                {employeeGradeLabel(employee.grade)}
+              </Badge>
               <Badge
                 variant={
                   employee.employmentStatus === "actif"
@@ -123,7 +121,7 @@ export default async function EmployeeProfilePage({
               label="Téléphone interne"
               value={employee.phoneInternal ?? "—"}
             />
-            <Field label="Site" value={employee.site} />
+            <Field label="Région" value={employee.region} />
             <Field label="Département" value={dept?.name ?? "—"} />
           </CardContent>
         </Card>
@@ -134,13 +132,10 @@ export default async function EmployeeProfilePage({
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Manager hiérarchique"
-              value={
-                manager
-                  ? fullName(manager.firstName, manager.lastName)
-                  : "— (direction)"
-              }
+              label="People Manager"
+              value={peopleManager?.displayName ?? "—"}
             />
+            <Field label="Grade" value={employeeGradeLabel(employee.grade)} />
             <Field
               label="Contrat"
               value={employee.contractType.toUpperCase()}
@@ -190,7 +185,7 @@ export default async function EmployeeProfilePage({
             <HrEmployeeForm
               employee={employee}
               departments={departments}
-              managers={employees}
+              peopleManagers={peopleManagers.filter((p) => p.isActive)}
             />
           </CardContent>
         </Card>
